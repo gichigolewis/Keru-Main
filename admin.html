@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Announcements</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">
+            <img src="sda logo.png" alt="Logo" style="height:36px;">
+            <span>Kerugoya Main SDA</span>
+        </a>
+    </nav>
+
+    <main style="padding:2rem; max-width:900px; margin:0 auto;">
+        <h1>Announcements Admin</h1>
+
+        <section style="margin-bottom:2rem;">
+            <h2 id="form-title">Create Announcement</h2>
+            <form id="announcement-form">
+                <input type="hidden" id="ann-id">
+                <div>
+                    <label>Title</label><br>
+                    <input type="text" id="ann-title" required style="width:100%; padding:0.5rem;">
+                </div>
+                <div style="margin-top:0.5rem;">
+                    <label>Content</label><br>
+                    <textarea id="ann-content" rows="5" required style="width:100%; padding:0.5rem;"></textarea>
+                </div>
+                <div style="margin-top:0.5rem;">
+                    <label>Date</label><br>
+                    <input type="date" id="ann-date" style="padding:0.4rem;">
+                </div>
+                <div style="margin-top:0.7rem;">
+                    <button type="submit" class="btn" id="save-ann">Save</button>
+                    <button type="button" class="btn" id="cancel-edit" style="margin-left:0.5rem; display:none;">Cancel</button>
+                </div>
+            </form>
+        </section>
+
+        <section>
+            <h2>Existing Announcements</h2>
+            <div id="admin-announcements">
+                <!-- Admin list rendered here -->
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
