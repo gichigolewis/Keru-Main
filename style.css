@@ -203,49 +203,6 @@
         transform: translateY(-1px);
     }
 
-    /* Admin login modal styling */
-    #admin-login-modal {
-        display: none; /* toggled inline by script */
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.45);
-        align-items: center;
-        justify-content: center;
-        z-index: 2000;
-        padding: 1rem;
-    }
-
-    #admin-login-modal > div {
-        background: #fff;
-        padding: 1.25rem;
-        width: 360px;
-        max-width: 100%;
-        border-radius: 8px;
-        box-shadow: 0 10px 40px rgba(2,6,23,0.2);
-    }
-
-    #admin-login-modal label {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 0.25rem;
-        color: var(--text-dark);
-        font-size: 0.9rem;
-    }
-
-    #admin-login-modal input[type="text"],
-    #admin-login-modal input[type="password"] {
-        width: 100%;
-        padding: 0.5rem;
-        border-radius: 6px;
-        border: 1px solid #e6e9ee;
-        margin-top: 0.25rem;
-        box-sizing: border-box;
-    }
-
-    #admin-login-modal .btn {
-        padding: 0.5rem 1rem;
-        font-size: 0.95rem;
-    }
     /* Mission Section */
     .mission {
         padding: 5rem 2rem;

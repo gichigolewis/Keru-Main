@@ -25,6 +25,10 @@ app.get('/api/announcements', async (_req, res) => {
   res.json(list.map(l => ({ id: l._id.toString(), title: l.title, content: l.content, date: l.date })));
 });
 
+app.get('/api/auth-check', checkAuth, (_req, res) => {
+  res.json({ ok: true });
+});
+
 function checkAuth(req, res, next) {
   const auth = req.headers.authorization || '';
   const USER = process.env.ADMIN_USER || 'admin';

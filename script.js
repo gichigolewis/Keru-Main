@@ -145,6 +145,30 @@ document.addEventListener("click", (e) => {
             }
         }
 
+        function isAdminLoggedIn() {
+            return !!getStoredAuth();
+        }
+
+        function requireAdminLogin() {
+            if (!isAdminLoggedIn()) {
+                window.location.href = 'admin-login.html';
+                return false;
+            }
+            return true;
+        }
+
+        async function verifyAuthHeader(header) {
+            try {
+                const res = await fetch('/api/auth-check', {
+                    method: 'GET',
+                    headers: { Authorization: header }
+                });
+                return res.ok;
+            } catch (e) {
+                return false;
+            }
+        }
+
         async function detectBackend() {
             try {
                 const res = await fetch('/api/ping', { cache: 'no-store' });
@@ -242,25 +266,32 @@ document.addEventListener("click", (e) => {
         }
 
         async function ensureAuth() {
-                    if (authHeader) return authHeader;
-                    const stored = getStoredAuth();
-                    if (stored) { authHeader = stored; return authHeader; }
+            if (authHeader) return authHeader;
+            const stored = getStoredAuth();
+            if (stored) {
+                authHeader = stored;
+                return authHeader;
+            }
 
-                    // If modal exists, open it and ask user to login first
-                    const modal = document.getElementById('admin-login-modal');
-                    if (modal) {
-                        modal.style.display = 'flex';
-                        return null; // caller should abort action; user can retry after login
-                    }
+            const loginForm = document.getElementById('admin-login-form');
+            if (loginForm) {
+                window.location.href = 'admin-login.html';
+                return null;
+            }
 
-                    // Fallback to prompts
-                    const user = prompt('Admin username:');
-                    if (user === null) return null;
-                    const pass = prompt('Admin password:');
-                    if (pass === null) return null;
-                    authHeader = 'Basic ' + btoa(`${user}:${pass}`);
-                    setStoredAuth(authHeader, user);
-                    return authHeader;
+            const modal = document.getElementById('admin-login-modal');
+            if (modal) {
+                modal.style.display = 'flex';
+                return null;
+            }
+
+            const user = prompt('Admin username:');
+            if (user === null) return null;
+            const pass = prompt('Admin password:');
+            if (pass === null) return null;
+            authHeader = 'Basic ' + btoa(`${user}:${pass}`);
+            setStoredAuth(authHeader, user);
+            return authHeader;
         }
 
         async function addAnnouncement({ title, content, date }) {
@@ -373,11 +404,20 @@ document.addEventListener("click", (e) => {
             if (announcementsContainer) await renderAnnouncementsList(announcementsContainer);
             // Initialize login UI
             updateLoginUI();
+            if (window.location.pathname.endsWith('admin-login.html') && isAdminLoggedIn()) {
+                window.location.href = 'admin.html';
+                return;
+            }
             const loginBtn = document.getElementById('admin-login-btn');
             const modal = document.getElementById('admin-login-modal');
             const loginForm = document.getElementById('admin-login-form');
             const loginCancel = document.getElementById('admin-login-cancel');
             const logoutBtn = document.getElementById('admin-logout');
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(() => console.log('Service worker registered'))
+                    .catch(err => console.warn('Service worker registration failed:', err));
+            }
 
             if (loginBtn) loginBtn.addEventListener('click', () => {
                 if (modal) modal.style.display = 'flex';
@@ -385,26 +425,35 @@ document.addEventListener("click", (e) => {
 
             if (loginCancel && modal) loginCancel.addEventListener('click', () => { modal.style.display = 'none'; });
 
-            if (loginForm) loginForm.addEventListener('submit', (e) => {
+            if (loginForm) loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const user = document.getElementById('admin-user').value.trim();
                 const pass = document.getElementById('admin-pass').value;
                 if (!user || !pass) return alert('Provide username and password');
                 authHeader = 'Basic ' + btoa(`${user}:${pass}`);
+                const isValid = await verifyAuthHeader(authHeader);
+                const loginResult = document.getElementById('login-result');
+                if (!isValid) {
+                    authHeader = null;
+                    clearStoredAuth();
+                    if (loginResult) {
+                        loginResult.style.display = 'block';
+                        loginResult.textContent = 'Invalid credentials. Please try again.';
+                        loginResult.style.color = '#c0392b';
+                    } else {
+                        alert('Invalid admin credentials');
+                    }
+                    return;
+                }
                 setStoredAuth(authHeader, user);
                 updateLoginUI();
-+                // If on standalone login page, show success and redirect to admin panel
-+                const loginResult = document.getElementById('login-result');
-+                if (loginResult) {
-+                    loginResult.style.display = 'block';
-+                    loginResult.textContent = 'Logged in — redirecting to Admin panel...';
-+                    setTimeout(() => { window.location.href = 'admin.html'; }, 700);
-+                } else {
-+                    // hide modal if present
-+                    const modal = document.getElementById('admin-login-modal');
-+                    if (modal) modal.style.display = 'none';
-+                }
-             });
+                if (loginResult) {
+                    loginResult.style.display = 'block';
+                    loginResult.textContent = 'Logged in — redirecting to Admin panel...';
+                    loginResult.style.color = 'var(--primary-color)';
+                    setTimeout(() => { window.location.href = 'admin.html'; }, 700);
+                }
+            });
 
             if (logoutBtn) logoutBtn.addEventListener('click', () => {
                 authHeader = null;
@@ -415,6 +464,7 @@ document.addEventListener("click", (e) => {
             // Admin page bindings
             const form = document.getElementById('announcement-form');
             if (form) {
+                if (!requireAdminLogin()) return;
                 await renderAdminList();
 
                 form.addEventListener('submit', async (e) => {

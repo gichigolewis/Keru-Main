@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="manifest" href="manifest.json">
 </head>
 <body>
 
@@ -162,24 +163,6 @@
     </footer>
 
     <!-- Scripts -->
-    <!-- Admin login modal -->
-    <div id="admin-login-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
-        <div style="background:#fff; padding:1rem 1.25rem; width:320px; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,0.2);">
-            <h3 style="margin-top:0;">Admin Login</h3>
-            <form id="admin-login-form">
-                <div style="margin-bottom:0.5rem;"><label>Username</label><input id="admin-user" type="text" required style="width:100%; padding:0.4rem;"></div>
-                <div style="margin-bottom:0.5rem;"><label>Password</label><input id="admin-pass" type="password" required style="width:100%; padding:0.4rem;"></div>
-                <div style="text-align:right;">
-                    <button type="button" id="admin-login-cancel" class="btn" style="background:#777;">Cancel</button>
-                    <button type="submit" class="btn" style="margin-left:0.5rem;">Login</button>
-                </div>
-            </form>
-            <div id="admin-logged" style="display:none; margin-top:0.5rem; text-align:right;">
-                <span id="admin-logged-user" style="font-weight:600;"></span>
-                <button id="admin-logout" class="btn" style="margin-left:0.5rem; background:#c0392b;">Logout</button>
-            </div>
-        </div>
-    </div>
     <script src="script.js"></script>
 </body>
 </html>
