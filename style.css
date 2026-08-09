@@ -556,7 +556,7 @@
             /* Ensure it appears above the hero section */
         }
         aside .side-menu {
-            display: block;
+            display: none;
             justify-content: center;
             align-items: center;
             flex-direction: column;

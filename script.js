@@ -6,48 +6,55 @@ const footerDate = document.getElementById("current-year");
 const aside = document.querySelector("aside");
 const joinBtn = document.querySelector(".join");
 // Set the current year in the footer
-footerDate.textContent = new Date().getFullYear();
+if (footerDate) {
+    footerDate.textContent = new Date().getFullYear();
+}
 
 // 1. Define modular open and close functions
 const openMenu = () => {
+    if (!aside) return;
     aside.style.display = "block";
     aside.offsetHeight; // Force browser reflow to guarantee CSS animation plays
     aside.classList.remove("slide-out");
     aside.classList.add("slide-in");
-    joinBtn.style.display = "block"; // Show the Join Us button when menu opens
+    if (joinBtn) {
+        joinBtn.style.display = "block"; // Show the Join Us button when menu opens
+    }
 };
 
 const closeMenu = () => {
-    // Guard clause: Only run close logic if the menu is actually open
-    if (!aside.classList.contains("slide-in")) return;
+    if (!aside || !aside.classList.contains("slide-in")) return;
 
     aside.classList.remove("slide-in");
     aside.classList.add("slide-out");
     
     // Hide display after CSS transition completes (match your transition duration, e.g., 300ms)
     setTimeout(() => {
-        if (aside.classList.contains("slide-out")) {
+        if (aside && aside.classList.contains("slide-out")) {
             aside.style.display = "none";
         }
     }, 300); 
 };
 
 // 2. Toggle menu when clicking the menu button
-menu.addEventListener("click", (e) => {
-    e.stopPropagation(); // Prevents this click from immediately triggering the document listener
-    const isOpen = aside.classList.contains("slide-in");
-    
-    if (isOpen) {
-        closeMenu();
-    } else {
-        openMenu();
-    }
-});
+if (menu) {
+    menu.addEventListener("click", (e) => {
+        e.stopPropagation(); // Prevents this click from immediately triggering the document listener
+        const isOpen = aside && aside.classList.contains("slide-in");
+        
+        if (isOpen) {
+            closeMenu();
+        } else {
+            openMenu();
+        }
+    });
+}
 
 // 3. Auto-close when clicking outside the aside section
 document.addEventListener("click", (e) => {
+    if (!aside) return;
     // If the click happened OUTSIDE the aside AND OUTSIDE the menu button, close it
-    if (!aside.contains(e.target) && !menu.contains(e.target)) {
+    if (!aside.contains(e.target) && !(menu && menu.contains(e.target))) {
         closeMenu();
     }
 });
