@@ -2,10 +2,15 @@ const CACHE_NAME = 'keru-main-pwa-v1';
 const ASSETS = [
   '/',
   '/index.html',
+  '/login.html',
+  '/register.html',
+  '/blogs.html',
   '/admin.html',
   '/announcements.html',
   '/css/style.css',
   '/js/script.js',
+  '/js/auth.js',
+  '/js/blog.js',
   '/assets/images/sda logo.png',
   '/assets/images/photo.jpg'
 ];

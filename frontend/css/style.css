@@ -203,6 +203,132 @@
         transform: translateY(-1px);
     }
 
+    /* Community account screens */
+    .account-page {
+        min-height: 100vh;
+        background: #f2eee6;
+        background-image: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(230,238,237,0.72));
+    }
+    .account-shell {
+        width: min(1120px, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 2rem 0 4rem;
+    }
+    .account-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.7rem;
+        color: var(--primary-color);
+        font-family: 'Playfair Display', serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+        text-decoration: none;
+    }
+    .account-brand img { height: 38px; width: auto; }
+    .account-panel {
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        overflow: hidden;
+        max-width: 980px;
+        margin: 3rem auto 0;
+        background: white;
+        border: 1px solid rgba(30, 58, 138, 0.1);
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.1);
+    }
+    .account-copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 540px;
+        padding: clamp(2rem, 6vw, 5rem);
+        color: white;
+        background: linear-gradient(145deg, rgba(30,58,138,0.96), rgba(21,101,92,0.92));
+    }
+    .eyebrow { color: var(--secondary-color); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+    .account-copy h1 { max-width: 410px; margin: 0.8rem 0 1rem; font-family: 'Playfair Display', serif; font-size: clamp(2.4rem, 5vw, 4.4rem); line-height: 1.03; }
+    .account-copy p { max-width: 390px; color: rgba(255,255,255,0.82); font-size: 1.05rem; }
+    .account-note { display: flex; gap: 0.75rem; align-items: center; margin-top: 3rem; color: var(--secondary-color); font-weight: 700; }
+    .account-note i { font-size: 1.5rem; }
+    .account-form { align-self: center; padding: clamp(2rem, 6vw, 4.5rem); }
+    .account-form h2 { margin-bottom: 0.3rem; color: var(--primary-color); font-family: 'Playfair Display', serif; font-size: 2rem; }
+    .form-intro { margin-bottom: 1.8rem; color: var(--text-light); }
+    .account-form label { display: block; margin: 1rem 0 0.35rem; color: var(--text-dark); font-size: 0.9rem; font-weight: 700; }
+    .account-form input { width: 100%; padding: 0.85rem 0.9rem; border: 1px solid #d5dbe5; border-radius: 3px; color: var(--text-dark); font: inherit; }
+    .account-form input:focus { outline: 2px solid rgba(30,58,138,0.2); border-color: var(--primary-color); }
+    .form-submit { display: flex; align-items: center; justify-content: center; gap: 0.4rem; width: 100%; margin-top: 1.6rem; border: 0; cursor: pointer; font: inherit; }
+    .form-message { min-height: 1.5rem; margin-top: 0.8rem; color: #16704f; font-size: 0.88rem; }
+    .form-message.is-error { color: #b42318; }
+    .account-switch { margin-top: 1.5rem; color: var(--text-light); font-size: 0.9rem; text-align: center; }
+    .account-switch a { color: var(--primary-color); font-weight: 700; }
+
+    /* Community stories */
+    .community-page { background: #f7f6f1; }
+    .community-header { background: white; border-bottom: 1px solid #e6e8e2; }
+    .community-nav { display: flex; align-items: center; justify-content: space-between; width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: 1rem 0; }
+    .community-nav .logo { left: 0; font-size: 1.2rem; }
+    .community-nav .logo img { height: 38px; }
+    .community-actions { display: flex; align-items: center; gap: 1rem; }
+    .icon-link { display: grid; width: 38px; height: 38px; place-items: center; color: var(--primary-color); font-size: 1.35rem; text-decoration: none; }
+    .member-name { color: var(--text-light); font-size: 0.9rem; font-weight: 700; }
+    .text-button { padding: 0; border: 0; background: none; color: var(--primary-color); cursor: pointer; font: inherit; font-size: 0.9rem; font-weight: 700; }
+    .community-main { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: 4.5rem 0 6rem; }
+    .community-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; padding-bottom: 3.5rem; }
+    .community-intro h1 { margin: 0.7rem 0 1rem; color: var(--primary-color); font-family: 'Playfair Display', serif; font-size: clamp(3rem, 7vw, 6.2rem); line-height: 0.95; }
+    .community-intro h1 em { color: #247b70; font-weight: 600; }
+    .community-intro p { max-width: 510px; color: var(--text-light); font-size: 1.05rem; }
+    .intro-stat { display: flex; align-items: center; gap: 0.7rem; padding: 1rem 0 0.35rem; border-bottom: 2px solid var(--secondary-color); color: var(--primary-color); text-align: right; }
+    .intro-stat strong { font-family: 'Playfair Display', serif; font-size: 3rem; line-height: 1; }
+    .intro-stat span { color: var(--text-light); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .community-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 3.5rem; align-items: start; }
+    .feed-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+    .filter-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    .filter-tab { padding: 0.5rem 0.8rem; border: 0; border-radius: 99px; background: transparent; color: var(--text-light); cursor: pointer; font: inherit; font-size: 0.85rem; font-weight: 700; }
+    .filter-tab.is-active, .filter-tab:hover { background: var(--primary-color); color: white; }
+    #sort-posts { padding: 0.5rem; border: 1px solid #d9ded8; border-radius: 3px; background: transparent; color: var(--text-light); font: inherit; font-size: 0.8rem; }
+    .post-card { margin-bottom: 1.2rem; padding: 1.8rem 2rem 1.25rem; background: white; border: 1px solid #e7e9e3; box-shadow: 0 5px 18px rgba(15,23,42,0.035); }
+    .post-meta { display: flex; align-items: center; gap: 0.8rem; color: #8a928e; font-size: 0.78rem; }
+    .post-category { color: #247b70; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .post-card h2 { margin: 0.7rem 0 0.55rem; color: var(--primary-color); font-family: 'Playfair Display', serif; font-size: clamp(1.5rem, 3vw, 2rem); }
+    .post-card > p { color: #56615f; }
+    .post-footer { display: flex; align-items: center; gap: 1rem; margin-top: 1.6rem; padding-top: 1rem; border-top: 1px solid #edf0eb; }
+    .post-author { display: flex; align-items: center; gap: 0.4rem; flex: 1; color: var(--text-light); font-size: 0.85rem; font-weight: 700; }
+    .post-author i { color: #247b70; font-size: 1.2rem; }
+    .like-button, .comment-toggle { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0; border: 0; background: none; color: var(--text-light); cursor: pointer; font: inherit; font-size: 0.88rem; }
+    .like-button.is-liked, .like-button:hover { color: #c2415a; }
+    .comments { display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #edf0eb; }
+    .comments-open .comments { display: block; }
+    .comment { display: flex; gap: 0.6rem; margin-bottom: 0.7rem; color: #56615f; font-size: 0.82rem; }
+    .comment strong { color: var(--primary-color); }
+    .comment-form { display: flex; margin-top: 1rem; }
+    .comment-form input { width: 100%; padding: 0.65rem; border: 1px solid #d9ded8; border-right: 0; font: inherit; font-size: 0.82rem; }
+    .comment-form button { width: 42px; border: 0; background: var(--primary-color); color: white; cursor: pointer; }
+    .compose-card { padding: 1.8rem; background: #e9f0e9; border-top: 4px solid var(--secondary-color); }
+    .compose-card h2 { margin: 0.55rem 0; color: var(--primary-color); font-family: 'Playfair Display', serif; font-size: 1.7rem; }
+    .compose-card > p { color: #56615f; font-size: 0.9rem; }
+    #post-form { margin-top: 1.25rem; }
+    #post-form input, #post-form select, #post-form textarea { width: 100%; margin-top: 0.55rem; padding: 0.75rem; border: 1px solid #cfdacf; background: rgba(255,255,255,0.8); color: var(--text-dark); font: inherit; font-size: 0.85rem; }
+    #post-form textarea { resize: vertical; }
+    #post-form .btn { width: 100%; margin-top: 0.7rem; padding: 0.7rem 1rem; border: 0; cursor: pointer; font: inherit; font-size: 0.85rem; }
+    .community-message { min-height: 1.2rem; margin-top: 0.7rem; color: #247b70 !important; font-size: 0.8rem !important; }
+    .community-aside-note { margin-top: 2.5rem; padding: 0 1rem; color: var(--primary-color); }
+    .community-aside-note i { color: var(--secondary-color); font-size: 2rem; }
+    .community-aside-note p { margin: 0.6rem 0; font-family: 'Playfair Display', serif; font-size: 1.3rem; }
+    .community-aside-note span { color: var(--text-light); font-size: 0.8rem; font-weight: 700; }
+    .empty-state { padding: 3rem 0; color: var(--text-light); text-align: center; }
+
+    @media (max-width: 760px) {
+        .account-panel, .community-layout { grid-template-columns: 1fr; }
+        .account-copy { min-height: auto; padding: 2.5rem 2rem; }
+        .account-copy h1 { font-size: 3rem; }
+        .account-note { margin-top: 2rem; }
+        .community-main { padding-top: 3rem; }
+        .community-intro { align-items: flex-start; flex-direction: column; padding-bottom: 2.5rem; }
+        .intro-stat { align-self: flex-start; }
+        .community-layout { gap: 2rem; }
+        .community-nav .logo span { display: none; }
+        .member-name { display: none; }
+    }
+
     /* Mission Section */
     .mission {
         padding: 5rem 2rem;

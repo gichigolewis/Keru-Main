@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community stories | Kerugoya Main SDA</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+</head>
+<body class="community-page">
+    <header class="community-header">
+        <nav class="community-nav">
+            <a class="logo" href="index.html"><img src="assets/images/sda logo.png" alt="Seventh-day Adventist Logo"><span>Kerugoya Main SDA</span></a>
+            <div class="community-actions">
+                <a class="icon-link" href="announcements.html" title="Announcements"><i class="bx bxs-bell"></i></a>
+                <span class="member-name" id="member-name"></span>
+                <button class="text-button" id="logout-button" type="button">Sign out</button>
+            </div>
+        </nav>
+    </header>
+
+    <main class="community-main">
+        <section class="community-intro">
+            <div>
+                <span class="eyebrow">The church beyond Sunday</span>
+                <h1>Stories worth<br><em>sharing.</em></h1>
+                <p>A warm corner for reflections, questions, encouragement, and the everyday ways our community is living faith.</p>
+            </div>
+            <div class="intro-stat"><strong id="post-count">0</strong><span>community<br>stories</span></div>
+        </section>
+
+        <section class="community-layout">
+            <div class="feed-column">
+                <div class="feed-toolbar">
+                    <div class="filter-tabs" role="tablist" aria-label="Filter posts">
+                        <button class="filter-tab is-active" data-category="All" type="button">All stories</button>
+                        <button class="filter-tab" data-category="Faith" type="button">Faith</button>
+                        <button class="filter-tab" data-category="Life" type="button">Life</button>
+                        <button class="filter-tab" data-category="Service" type="button">Service</button>
+                    </div>
+                    <select id="sort-posts" aria-label="Sort posts">
+                        <option value="recent">Most recent</option>
+                        <option value="liked">Most loved</option>
+                    </select>
+                </div>
+                <div id="posts-list" class="posts-list"></div>
+            </div>
+
+            <aside class="community-sidebar">
+                <section class="compose-card" id="compose-card">
+                    <span class="eyebrow">Your turn</span>
+                    <h2>What is on your heart?</h2>
+                    <p>Share a thought, a lesson, or a small piece of joy with the church family.</p>
+                    <form id="post-form">
+                        <input id="post-title" type="text" placeholder="Give your story a title" maxlength="80" required>
+                        <select id="post-category" aria-label="Story category">
+                            <option>Faith</option>
+                            <option>Life</option>
+                            <option>Service</option>
+                        </select>
+                        <textarea id="post-content" rows="5" placeholder="Start writing..." maxlength="700" required></textarea>
+                        <button class="btn" type="submit">Publish story <i class="bx bx-send"></i></button>
+                    </form>
+                    <p class="community-message" id="compose-message" role="status"></p>
+                </section>
+                <section class="community-aside-note">
+                    <i class="bx bxs-quote-alt-left"></i>
+                    <p>“Encourage one another and build each other up.”</p>
+                    <span>1 Thessalonians 5:11</span>
+                </section>
+            </aside>
+        </section>
+    </main>
+    <script src="js/blog.js"></script>
+</body>
+</html>
