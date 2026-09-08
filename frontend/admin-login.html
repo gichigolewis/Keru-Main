@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Admin Login</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">
+            <img src="assets/images/sda logo.png" alt="Logo" style="height:36px;">
+            <span>Kerugoya Main SDA</span>
+        </a>
+    </nav>
+
+    <main style="display:flex; align-items:center; justify-content:center; padding:4rem 1rem;">
+        <div style="width:420px; max-width:100%; background:white; padding:1.5rem; border-radius:8px; box-shadow:0 8px 30px rgba(2,6,23,0.12);">
+            <h1 style="margin-top:0;">Admin Login</h1>
+            <form id="admin-login-form" autocomplete="off">
+                <label for="admin-user">Username</label>
+                <input id="admin-user" name="admin-user" type="text" required>
+
+                <label for="admin-pass" style="margin-top:0.5rem; display:block;">Password</label>
+                <input id="admin-pass" name="admin-pass" type="password" required>
+
+                <div style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center;">
+                    <a href="index.html" class="btn" style="background:transparent; border:1px solid #ddd; color:#333; padding:0.5rem 0.9rem;">Back</a>
+                    <button type="submit" class="btn">Login</button>
+                </div>
+            </form>
+            <div id="login-result" style="margin-top:0.8rem; color:var(--primary-color); font-weight:600; display:none;"></div>
+        </div>
+    </main>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
+
