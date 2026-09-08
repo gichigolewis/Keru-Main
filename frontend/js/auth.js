@@ -18,6 +18,16 @@ function showAccountMessage(element, message, isError = false) {
     element.classList.toggle("is-error", isError);
 }
 
+document.querySelectorAll(".password-toggle").forEach((button) => {
+    button.addEventListener("click", () => {
+        const input = document.getElementById(button.dataset.passwordTarget);
+        const isPassword = input.type === "password";
+        input.type = isPassword ? "text" : "password";
+        button.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
+        button.innerHTML = `<i class="bx ${isPassword ? "bx-hide" : "bx-show"}"></i>`;
+    });
+});
+
 const loginForm = document.getElementById("login-form");
 if (loginForm) {
     loginForm.addEventListener("submit", (event) => {
