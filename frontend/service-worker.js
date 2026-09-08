@@ -2,7 +2,6 @@ const CACHE_NAME = 'keru-main-pwa-v1';
 const ASSETS = [
   '/',
   '/index.html',
-  '/admin-login.html',
   '/admin.html',
   '/announcements.html',
   '/css/style.css',

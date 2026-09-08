@@ -152,29 +152,13 @@ document.addEventListener("click", (e) => {
             }
         }
 
-        function updateAnnouncementsPageAdminLink() {
-            const adminPanelLink = document.getElementById('admin-panel-link');
-            if (!adminPanelLink) return;
-
-            if (isAdminLoggedIn()) {
-                adminPanelLink.style.display = 'inline-flex';
-                adminPanelLink.href = 'admin.html';
-            } else {
-                adminPanelLink.style.display = 'none';
-                adminPanelLink.href = 'admin-login.html';
-            }
-        }
-
         function isAdminLoggedIn() {
             return !!getStoredAuth();
         }
 
-        function requireAdminLogin() {
-            if (!isAdminLoggedIn()) {
-                window.location.href = 'admin-login.html';
-                return false;
-            }
-            return true;
+        async function requireAdminLogin() {
+            if (isAdminLoggedIn()) return true;
+            return !!(await ensureAuth());
         }
 
         async function verifyAuthHeader(header) {
@@ -291,12 +275,6 @@ document.addEventListener("click", (e) => {
             if (stored) {
                 authHeader = stored;
                 return authHeader;
-            }
-
-            const loginForm = document.getElementById('admin-login-form');
-            if (loginForm) {
-                window.location.href = 'admin-login.html';
-                return null;
             }
 
             const modal = document.getElementById('admin-login-modal');
@@ -424,13 +402,6 @@ document.addEventListener("click", (e) => {
             if (announcementsContainer) await renderAnnouncementsList(announcementsContainer);
             // Initialize login UI
             updateLoginUI();
-            if (typeof updateAnnouncementsPageAdminLink === 'function') {
-                updateAnnouncementsPageAdminLink();
-            }
-            if (window.location.pathname.endsWith('admin-login.html') && isAdminLoggedIn()) {
-                window.location.href = 'admin.html';
-                return;
-            }
             const loginBtn = document.getElementById('admin-login-btn');
             const modal = document.getElementById('admin-login-modal');
             const loginForm = document.getElementById('admin-login-form');
@@ -487,7 +458,7 @@ document.addEventListener("click", (e) => {
             // Admin page bindings
             const form = document.getElementById('announcement-form');
             if (form) {
-                if (!requireAdminLogin()) return;
+                if (!(await requireAdminLogin())) return;
                 await renderAdminList();
 
                 form.addEventListener('submit', async (e) => {
