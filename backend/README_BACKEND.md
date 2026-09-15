@@ -1,4 +1,4 @@
-Node/Express backend for announcements
+Node/Express backend for announcements, sermons, and admin accounts
 
 Run the server from the project root:
 
@@ -28,5 +28,13 @@ API endpoints:
 - `POST /api/announcements` — create (requires Basic Auth)
 - `PUT /api/announcements/:id` — update (requires Basic Auth)
 - `DELETE /api/announcements/:id` — delete (requires Basic Auth)
+- `POST /api/admin-login` — validate an admin login
+- `GET /api/admins` — list admin accounts (requires Basic Auth)
+- `POST /api/admins` — add an admin account (requires Basic Auth)
+- `DELETE /api/admins/:id` — remove an admin account (requires Basic Auth)
+- `GET /api/sermons` — list published sermons
+- `POST /api/sermons` — publish a sermon (requires Basic Auth)
+- `PUT /api/sermons/:id` — update a sermon (requires Basic Auth)
+- `DELETE /api/sermons/:id` — delete a sermon (requires Basic Auth)
 
 After starting the server open `http://localhost:3000/admin.html`.

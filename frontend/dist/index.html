@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#1e3a8a" />
+        <meta name="description" content="Kerugoya Main SDA Church" />
+        <link rel="manifest" href="/assets/manifest-k4ZEHETy.json" />
+        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+        <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+        <title>Kerugoya Main SDA Church</title>
+      <script type="module" crossorigin src="/assets/index-B5WLN0YE.js"></script>
+      <link rel="stylesheet" crossorigin href="/assets/index-DNHT6k1M.css">
+    </head>
+    <body>
+        <div id="root"></div>
+        <script>
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then((registrations) => {
+                    registrations.forEach((registration) => registration.unregister());
+                });
+                caches.keys().then((keys) => {
+                    keys.filter((key) => key.startsWith('keru-main-pwa-')).forEach((key) => caches.delete(key));
+                });
+            }
+        </script>
+    </body>
+</html>
