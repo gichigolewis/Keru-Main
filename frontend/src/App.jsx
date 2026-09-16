@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import logoImage from "../assets/images/sda logo.png";
 
-const imagePath = "/assets/images/sda logo.png";
+const imagePath = logoImage;
 const currentUserKey = "keruCurrentUser";
 const accountKey = "keruAccounts";
 const postsKey = "keruCommunityPosts";
@@ -214,7 +215,7 @@ function PublicHeader() {
             <i className="bx bx-bell" />
           </Link>
         </div>
-        <aside style={menuOpen ? { display: "block" } : undefined}>
+        <aside className={`mobile-side-panel ${menuOpen ? "is-open" : ""}`}>
           <div className="side-menu">
             <ul>
               <li>
@@ -970,30 +971,39 @@ function Community() {
                 Share a reflection, lesson, or small piece of joy with the
                 church family.
               </p>
-              <form id="post-form" onSubmit={publish}>
-                <input
-                  name="title"
-                  type="text"
-                  placeholder="Give your story a title"
-                  maxLength="80"
-                  required
-                />
-                <select name="category" aria-label="Story category">
-                  <option>Faith</option>
-                  <option>Life</option>
-                  <option>Service</option>
-                </select>
-                <textarea
-                  name="content"
-                  rows="5"
-                  placeholder="Start writing..."
-                  maxLength="700"
-                  required
-                />
-                <button className="btn" type="submit">
-                  Publish story <i className="bx bx-send" />
-                </button>
-              </form>
+              {user ? (
+                <form id="post-form" onSubmit={publish}>
+                  <input
+                    name="title"
+                    type="text"
+                    placeholder="Give your story a title"
+                    maxLength="80"
+                    required
+                  />
+                  <select name="category" aria-label="Story category">
+                    <option>Faith</option>
+                    <option>Life</option>
+                    <option>Service</option>
+                  </select>
+                  <textarea
+                    name="content"
+                    rows="5"
+                    placeholder="Start writing..."
+                    maxLength="700"
+                    required
+                  />
+                  <button className="btn" type="submit">
+                    Publish story <i className="bx bx-send" />
+                  </button>
+                </form>
+              ) : (
+                <div className="member-submit-prompt">
+                  <p>Sign in as a member to share your story with the church family.</p>
+                  <Link className="btn" href="/login.html">
+                    Sign in to submit <i className="bx bx-log-in" />
+                  </Link>
+                </div>
+              )}
             </section>
             <section className="community-aside-note">
               <i className="bx bx-quote-alt-left" />

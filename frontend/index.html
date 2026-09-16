@@ -12,16 +12,6 @@
     </head>
     <body>
         <div id="root"></div>
-        <script>
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then((registrations) => {
-                    registrations.forEach((registration) => registration.unregister());
-                });
-                caches.keys().then((keys) => {
-                    keys.filter((key) => key.startsWith('keru-main-pwa-')).forEach((key) => caches.delete(key));
-                });
-            }
-        </script>
         <script type="module" src="/src/main.jsx"></script>
     </body>
 </html>

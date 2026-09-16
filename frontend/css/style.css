@@ -64,6 +64,166 @@
         width: auto;
     }
 
+    /* Responsive navigation, community layout, announcements, and footer. */
+    .community-layout {
+        display: flex;
+        align-items: flex-start;
+        gap: clamp(1.5rem, 4vw, 3.5rem);
+    }
+    .feed-column {
+        flex: 1 1 0;
+    }
+    .community-sidebar {
+        flex: 0 1 clamp(280px, 32%, 340px);
+    }
+    .compose-card,
+    #post-form,
+    .member-submit-prompt {
+        width: 100%;
+    }
+    .ann-sect {
+        min-height: 60vh;
+        height: auto;
+        padding: 5rem 1rem 6rem;
+    }
+    .ann-sect h1 {
+        position: static;
+        margin-bottom: 2rem;
+    }
+    .ann-list {
+        margin: 0 auto;
+    }
+    footer {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 2.5rem;
+        padding: 4rem clamp(1.25rem, 5vw, 4rem) 5rem;
+        border-radius: 0;
+    }
+    footer .footer-contact,
+    footer .links,
+    footer .resources,
+    footer .newsletter {
+        flex: 1 1 10rem;
+        min-width: 10rem;
+    }
+    footer .copy {
+        position: static;
+        width: 100%;
+        margin: 1rem 0 0;
+        transform: none;
+        text-align: center;
+    }
+    .mobile-side-panel {
+        display: none;
+    }
+
+    @media (max-width: 888px) {
+        nav {
+            min-height: 4.5rem;
+            padding: 0.75rem 1rem;
+        }
+        .menu {
+            z-index: 1101;
+            display: grid;
+            visibility: visible;
+            width: 2.75rem;
+            height: 2.75rem;
+            margin-left: auto;
+            place-items: center;
+            border: 1px solid rgba(30, 58, 138, 0.18);
+            border-radius: 0.5rem;
+            background: white;
+            color: var(--primary-color);
+            font-size: 1.8rem;
+            line-height: 1;
+        }
+        .menu:hover,
+        .menu:focus-visible {
+            background: var(--primary-color);
+            color: white;
+        }
+        .mobile-side-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            z-index: 1100;
+            display: flex;
+            width: min(19rem, 86vw);
+            height: 100dvh;
+            padding: 5.5rem 1.5rem 2rem;
+            flex-direction: column;
+            justify-content: space-between;
+            background: var(--primary-color);
+            box-shadow: -12px 0 30px rgba(15, 23, 42, 0.2);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(100%);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .mobile-side-panel.is-open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(0);
+        }
+        .mobile-side-panel .side-menu {
+            display: block;
+        }
+        .mobile-side-panel .side-menu ul {
+            display: flex;
+            margin: 0;
+            padding: 0;
+            flex-direction: column;
+            gap: 1rem;
+            list-style: none;
+        }
+        .mobile-side-panel .side-menu li {
+            margin: 0;
+        }
+        .mobile-side-panel .side-menu a {
+            justify-content: flex-start;
+            gap: 0.75rem;
+            padding: 0.65rem 0;
+            color: white;
+            font-size: 1rem;
+        }
+        .mobile-side-panel .join-btn {
+            width: 100%;
+        }
+        .mobile-side-panel .join {
+            width: 100%;
+            right: auto;
+        }
+        .community-layout {
+            flex-direction: column;
+        }
+        .community-sidebar {
+            width: 100%;
+            flex-basis: auto;
+        }
+        .compose-card {
+            position: static;
+        }
+        footer {
+            align-items: center;
+            flex-direction: column;
+            text-align: center;
+        }
+        footer .footer-contact,
+        footer .links,
+        footer .resources,
+        footer .newsletter {
+            width: min(100%, 22rem);
+            min-width: 0;
+            align-items: center;
+            text-align: center;
+        }
+        footer .links ul,
+        footer .resources ul {
+            text-align: center;
+        }
+    }
+
     .announcements {
         /* position: absolute;
         right: 10rem; */
@@ -323,6 +483,9 @@
     .compose-card h2 { margin: 0.55rem 0; color: var(--primary-color); font-family: 'Playfair Display', serif; font-size: 1.7rem; }
     .compose-card > p { color: #56615f; font-size: 0.9rem; }
     #post-form { margin-top: 1.25rem; }
+    .member-submit-prompt { margin-top: 1.25rem; }
+    .member-submit-prompt p { color: #56615f; font-size: 0.9rem; }
+    .member-submit-prompt .btn { width: 100%; margin-top: 0.7rem; justify-content: center; }
     #post-form input, #post-form select, #post-form textarea { width: 100%; margin-top: 0.55rem; padding: 0.75rem; border: 1px solid #cfdacf; background: rgba(255,255,255,0.8); color: var(--text-dark); font: inherit; font-size: 0.85rem; }
     #post-form textarea { resize: vertical; }
     #post-form .btn { width: 100%; margin-top: 0.7rem; padding: 0.7rem 1rem; border: 0; cursor: pointer; font: inherit; font-size: 0.85rem; }
@@ -1294,5 +1457,98 @@
             flex-direction: column;
             gap: 0.15rem;
         }
+    }
+
+    /* Final responsive overrides for the shared legacy navigation styles. */
+    .community-layout {
+        display: flex;
+        align-items: flex-start;
+        gap: clamp(1.5rem, 4vw, 3.5rem);
+    }
+    .feed-column { flex: 1 1 0; }
+    .community-sidebar { flex: 0 1 clamp(280px, 32%, 340px); }
+    .ann-sect {
+        height: auto;
+        min-height: 60vh;
+        padding: 5rem 1rem 6rem;
+    }
+    .ann-sect h1 { position: static; margin-bottom: 2rem; }
+    .ann-list { margin: 0 auto; }
+    footer {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 2.5rem;
+        padding: 4rem clamp(1.25rem, 5vw, 4rem) 5rem;
+        border-radius: 0;
+    }
+    footer .footer-contact,
+    footer .links,
+    footer .resources,
+    footer .newsletter {
+        flex: 1 1 10rem;
+        min-width: 10rem;
+    }
+    footer .copy {
+        position: static;
+        width: 100%;
+        margin: 1rem 0 0;
+        transform: none;
+        text-align: center;
+    }
+
+    @media (max-width: 888px) {
+        nav { min-height: 4.5rem; padding: 0.75rem 1rem; }
+        .menu {
+            z-index: 1101;
+            display: grid;
+            visibility: visible;
+            width: 2.75rem;
+            height: 2.75rem;
+            margin-left: auto;
+            place-items: center;
+            border: 1px solid rgba(30, 58, 138, 0.18);
+            border-radius: 0.5rem;
+            background: white;
+            color: var(--primary-color);
+            font-size: 1.8rem;
+            line-height: 1;
+        }
+        .menu:hover, .menu:focus-visible { background: var(--primary-color); color: white; }
+        .mobile-side-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            z-index: 1100;
+            display: flex;
+            width: min(19rem, 86vw);
+            height: 100dvh;
+            padding: 5.5rem 1.5rem 2rem;
+            flex-direction: column;
+            justify-content: space-between;
+            background: var(--primary-color);
+            box-shadow: -12px 0 30px rgba(15, 23, 42, 0.2);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(100%);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .mobile-side-panel.is-open { opacity: 1; pointer-events: auto; transform: translateX(0); }
+        .mobile-side-panel .side-menu { display: block; }
+        .mobile-side-panel .side-menu ul {
+            display: flex;
+            margin: 0;
+            padding: 0;
+            flex-direction: column;
+            gap: 1rem;
+            list-style: none;
+        }
+        .mobile-side-panel .side-menu li { margin: 0; }
+        .mobile-side-panel .side-menu a { justify-content: flex-start; gap: 0.75rem; padding: 0.65rem 0; color: white; font-size: 1rem; }
+        .mobile-side-panel .join-btn, .mobile-side-panel .join { width: 100%; right: auto; }
+        .community-layout { flex-direction: column; }
+        .community-sidebar { width: 100%; flex-basis: auto; position: static; }
+        footer { align-items: center; flex-direction: column; text-align: center; }
+        footer .footer-contact, footer .links, footer .resources, footer .newsletter { width: min(100%, 22rem); min-width: 0; align-items: center; text-align: center; }
+        footer .links ul, footer .resources ul { text-align: center; }
     }
 
