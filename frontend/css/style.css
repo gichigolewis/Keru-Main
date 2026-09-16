@@ -1460,6 +1460,18 @@
     }
 
     /* Final responsive overrides for the shared legacy navigation styles. */
+    .hero,
+    .mission,
+    .ministries,
+    .scripture,
+    .location,
+    .about,
+    .sermons,
+    .ann-sect,
+    .community-main,
+    .responsive-page {
+        min-height: 100vh;
+    }
     footer {
         align-items: flex-start;
         text-align: left;
@@ -1515,11 +1527,15 @@
     .community-sidebar { flex: 0 1 clamp(280px, 32%, 340px); }
     .ann-sect {
         height: auto;
-        min-height: 60vh;
+        min-height: 100vh;
         padding: 5rem 1rem 6rem;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
     }
     .ann-sect h1 { position: static; margin-bottom: 2rem; }
-    .ann-list { margin: 0 auto; }
+    .ann-list { margin: 0 auto; text-align: center; }
+    .announcement { text-align: center; }
     footer {
         align-items: flex-start;
         flex-wrap: wrap;
@@ -1562,13 +1578,14 @@
         .menu:hover, .menu:focus-visible { background: var(--primary-color); color: white; }
         .mobile-side-panel {
             position: fixed;
-            top: 7.25rem;
+            top: 7rem;
             right: 0;
             z-index: 1100;
             display: flex;
             width: min(19rem, 86vw);
+            bottom: 4rem;
             height: auto;
-            max-height: calc(100dvh - 11.5rem);
+            max-height: none;
             min-height: 0;
             padding: 1.5rem;
             flex-direction: column;
