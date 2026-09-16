@@ -3,3 +3,4 @@ backend/node_modules/
 
 # Environment files
 backend/.env
+.vercel

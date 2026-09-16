@@ -38,3 +38,16 @@ API endpoints:
 - `DELETE /api/sermons/:id` — delete a sermon (requires Basic Auth)
 
 After starting the server open `http://localhost:3000/admin.html`.
+
+## Deploy on Vercel
+
+The repository includes a root `vercel.json` and exposes the backend through `api/index.js`.
+In the Vercel project settings, add these environment variables for Production, Preview, and Development as needed:
+
+```text
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<database>
+ADMIN_USER=<admin-username>
+ADMIN_PASS=<strong-admin-password>
+```
+
+Deploy from the repository root. Vercel builds the frontend with `npm --prefix frontend run build`, serves the generated SPA, and routes `/api/*` requests to the Express backend.

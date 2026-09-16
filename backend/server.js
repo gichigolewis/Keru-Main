@@ -52,6 +52,24 @@ const sermonSchema = new mongoose.Schema({
 });
 const Sermon = mongoose.model('Sermon', sermonSchema);
 
+let databasePromise;
+function ensureDatabase() {
+  if (!databasePromise) {
+    databasePromise = mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+      .then(() => Admin.updateOne({ username: ADMIN_USER }, { $setOnInsert: { username: ADMIN_USER, password: ADMIN_PASS } }, { upsert: true }));
+  }
+  return databasePromise;
+}
+
+app.use(async (_req, _res, next) => {
+  try {
+    await ensureDatabase();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/ping', (_req, res) => res.json({ ok: true }));
 
 app.get('/api/announcements', async (_req, res) => {
@@ -166,8 +184,7 @@ app.delete('/api/sermons/:id', checkAuth, async (req, res) => {
 
 async function start() {
   try {
-    await mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-    await Admin.updateOne({ username: ADMIN_USER }, { $setOnInsert: { username: ADMIN_USER, password: ADMIN_PASS } }, { upsert: true });
+    await ensureDatabase();
     console.log('Connected to MongoDB');
     app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
   } catch (e) {
@@ -176,4 +193,6 @@ async function start() {
   }
 }
 
-start();
+if (require.main === module) start();
+
+module.exports = app;
