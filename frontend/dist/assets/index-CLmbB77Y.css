@@ -1810,18 +1810,7 @@ iframe {
     gap: 0.15rem;
   }
 }
-.hero,
-.mission,
-.ministries,
-.scripture,
-.location,
-.about,
-.sermons,
-.ann-sect,
-.community-main,
-.responsive-page {
-  min-height: 100vh;
-}
+
 footer {
   text-align: left;
   align-items: flex-start;
