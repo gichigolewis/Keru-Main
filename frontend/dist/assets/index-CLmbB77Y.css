@@ -1674,7 +1674,7 @@ iframe {
     Playfair Display,
     serif;
   font-size: clamp(2.4rem, 6vw, 4rem);
-  position: static;
+  
 }
 .ann-list {
   text-align: left;
@@ -1954,7 +1954,7 @@ footer .copy {
       opacity 0.2s,
       transform 0.2s;
     display: flex;
-    position: absolute;
+    position: static;
     top: 7rem;
     bottom: 4rem;
     right: 0;
