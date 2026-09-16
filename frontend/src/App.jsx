@@ -34,54 +34,11 @@ const ministries = [
   ],
 ];
 
-const starterPosts = [
-  {
-    id: "welcome-story",
-    title: "The quiet miracle of showing up",
-    content:
-      "Some weeks, faith looks less like a grand answer and more like making it to church, sitting beside someone, and choosing hope again. I am grateful for the people who keep showing up.",
-    category: "Faith",
-    author: "Miriam Njeri",
-    date: "2026-09-06",
-    likes: 18,
-    likedBy: [],
-    comments: [
-      {
-        author: "Daniel K.",
-        content: "This met me exactly where I am. Thank you.",
-      },
-    ],
-  },
-  {
-    id: "school-drive",
-    title: "A Saturday of practical love",
-    content:
-      "Our youth team packed learning kits for forty students this weekend. The best part was hearing everyone share what they hope to become. Thank you to every hand that helped.",
-    category: "Service",
-    author: "Joel Mwangi",
-    date: "2026-09-04",
-    likes: 12,
-    likedBy: [],
-    comments: [
-      {
-        author: "Grace W.",
-        content: "Proud of this team. Count me in for the next one.",
-      },
-    ],
-  },
-  {
-    id: "small-table",
-    title: "What I learned around a small table",
-    content:
-      "Our home fellowship was only six people, but the conversation stayed with me all week. There is something powerful about being known by name and prayed for specifically.",
-    category: "Life",
-    author: "Faith Wambui",
-    date: "2026-09-01",
-    likes: 9,
-    likedBy: [],
-    comments: [],
-  },
-];
+const seededPostIds = new Set([
+  "welcome-story",
+  "school-drive",
+  "small-table",
+]);
 
 function readJson(key, fallback) {
   try {
@@ -189,10 +146,11 @@ function PublicHeader() {
         <button
           className="menu"
           type="button"
-          aria-label="Open menu"
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}
         >
-          <i className="bx bx-menu-alt-right" />
+          <i className={`bx ${menuOpen ? "bx-x" : "bx-menu-alt-right"}`} />
         </button>
         <ul className="nav-links">
           {links.map(([href, icon, label]) => (
@@ -219,29 +177,29 @@ function PublicHeader() {
           <div className="side-menu">
             <ul>
               <li>
-                <Link href="/">
+                <Link href="/leaders.html">
                   <i className="bx bx-user-voice" /> <span>Leaders</span>
                 </Link>
               </li>
               <li>
-                <Link href="/">
+                <Link href="/program.html">
                   <i className="bx bx-calendar" /> <span>Program</span>
                 </Link>
               </li>
               <li>
-                <Link href="/about.html">
+                <Link href="/prayer.html">
                   <i className="bx bx-book-open" /> <span>Prayer</span>
                 </Link>
               </li>
               <li>
-                <Link href="/">
+                <Link href="/feedback.html">
                   <i className="bx bx-info-circle" /> <span>Feedback</span>
                 </Link>
               </li>
               <li>
-                <a href="tel:+254712345678">
+                <Link href="/contact.html">
                   <i className="bx bx-phone" /> <span>Contact Us</span>
-                </a>
+                </Link>
               </li>
               <li>
                 <Link href="/admin.html">
@@ -701,13 +659,72 @@ function Announcements() {
   );
 }
 
+const responsivePages = {
+  leaders: {
+    title: "Church leaders",
+    eyebrow: "Leadership",
+    body: "Meet the people who serve Kerugoya Main SDA Church with prayer, care, and steady leadership.",
+  },
+  program: {
+    title: "Church program",
+    eyebrow: "Gatherings",
+    body: "Find a place to worship, learn, serve, and grow with the church family throughout the week.",
+  },
+  prayer: {
+    title: "Prayer ministry",
+    eyebrow: "Prayer",
+    body: "Share a prayer need with the church family. Every request is treated with care and brought before God.",
+  },
+  feedback: {
+    title: "Share feedback",
+    eyebrow: "Your voice matters",
+    body: "Help us make the church experience more welcoming, useful, and connected for everyone.",
+  },
+  contact: {
+    title: "Contact the church",
+    eyebrow: "We are here to help",
+    body: "Reach the Kerugoya Main SDA Church team for questions, prayer, and ministry information.",
+  },
+};
+
+function ResponsivePage({ page }) {
+  const content = responsivePages[page];
+  const isFormPage = page === "prayer" || page === "feedback";
+  return (
+    <PublicShell>
+      <main className="responsive-page">
+        <span className="eyebrow">{content.eyebrow}</span>
+        <h1>{content.title}</h1>
+        <p>{content.body}</p>
+        {isFormPage ? (
+          <form className="responsive-form" onSubmit={(event) => event.preventDefault()}>
+            <label>
+              Your name
+              <input name="name" required />
+            </label>
+            <label>
+              Your message
+              <textarea name="message" rows="5" required />
+            </label>
+            <button className="btn" type="submit">Send message <i className="bx bx-send" /></button>
+          </form>
+        ) : (
+          <a className="btn" href="tel:+254712345678">Call the church <i className="bx bx-phone" /></a>
+        )}
+      </main>
+    </PublicShell>
+  );
+}
+
 function Community() {
   const [user, setUser] = useState(() => readJson(currentUserKey, null));
   const [posts, setPosts] = useState(() => {
     const saved = readJson(postsKey, []);
-    if (saved.length) return saved;
-    localStorage.setItem(postsKey, JSON.stringify(starterPosts));
-    return starterPosts;
+    const memberPosts = saved.filter((post) => !seededPostIds.has(post.id));
+    if (memberPosts.length !== saved.length) {
+      localStorage.setItem(postsKey, JSON.stringify(memberPosts));
+    }
+    return memberPosts;
   });
   const [category, setCategory] = useState("All");
   const [sort, setSort] = useState("recent");
@@ -1338,6 +1355,9 @@ export default function App() {
   if (route === "/login") return <Account />;
   if (route === "/register") return <Account register />;
   if (route === "/announcements") return <Announcements />;
+  if (responsivePages[route.slice(1)]) {
+    return <ResponsivePage page={route.slice(1)} />;
+  }
   if (route === "/admin") return <Admin />;
   return <Home />;
 }
