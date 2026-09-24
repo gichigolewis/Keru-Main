@@ -226,7 +226,7 @@ aside .side-menu a:hover {
   justify-content: center;
   align-items: center;
   display: flex;
-  right: 30%;
+  right: 10%;
 }
 .join a {
   color: #fff;
@@ -561,6 +561,7 @@ aside .side-menu a:hover {
   align-items: center;
   gap: 1rem;
   display: flex;
+  flex-direction: column;
 }
 .icon-link {
   width: 38px;
@@ -646,7 +647,7 @@ aside .side-menu a:hover {
 }
 .community-layout {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.32fr);
-  align-items: start;
+  align-items: center;
   gap: clamp(1.5rem, 4vw, 3.5rem);
   display: grid;
 }
@@ -1097,7 +1098,7 @@ footer .copy a:hover {
 .about {
   text-align: center;
   background: #fff;
-  max-width: 800px;
+  max-width: 50vh;
   margin: 0 auto;
   padding: 5rem 2rem;
 }

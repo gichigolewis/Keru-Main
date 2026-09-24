@@ -365,10 +365,6 @@ aside .side-menu a:hover {
     transform 0.08s;
 }
 
-#admin-login-btn {
-  display: none;
-}
-
 .join-btn button#admin-login-btn:hover {
   background: var(--primary-color);
   color: white;
