@@ -1101,6 +1101,9 @@ footer .copy a:hover {
   max-width: 50vh;
   margin: 0 auto;
   padding: 5rem 2rem;
+  justify-content: center;
+  align-items: center;
+  display: flex;
 }
 .about h1 {
   color: var(--primary-color);
