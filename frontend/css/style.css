@@ -915,6 +915,7 @@ aside .side-menu a:hover {
   font-size: 0.8rem !important;
 }
 .community-aside-note {
+    position: relative;
   margin-top: 2.5rem;
   padding: 0 1rem;
   color: var(--primary-color);

@@ -842,7 +842,7 @@ function Community() {
       <main className="community-main">
         <section className="community-intro">
           <div>
-            <span className="eyebrow">The church beyond Sunday</span>
+            <span className="eyebrow">The church beyond Today</span>
             <h1>
               Stories worth
               <br />
