@@ -351,6 +351,7 @@ aside .side-menu a:hover {
 
 /* Admin button in the join area: smaller, outlined variant */
 .join-btn button#admin-login-btn {
+    display: none;
   background: transparent;
   color: var(--primary-color);
   border: 2px solid var(--primary-color);
