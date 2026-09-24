@@ -230,10 +230,10 @@ function Footer() {
         <div className="contact-info">
           <h3>Contact Us</h3>
           <p>
-            <i className="bx bx-phone" /> +254 712 345 678
+            <i className="bx bx-phone" /> +254 796 563 833
           </p>
           <p>
-            <i className="bx bx-envelope" /> info@kerugoyasda.org
+            <i className="bx bx-envelope" /> kerugoyamainsda@gmail.com
           </p>
         </div>
       </div>
@@ -286,11 +286,7 @@ function Footer() {
           </li>
         </ul>
       </div>
-      <form className="newsletter" onSubmit={(event) => event.preventDefault()}>
-        <h3>Subscribe to Our Newsletter</h3>
-        <input type="email" placeholder="Enter your email" required />
-        <button type="submit">Subscribe</button>
-      </form>
+      
       <div className="copy">
         <p>
           &copy; {new Date().getFullYear()} SDA Church Kerugoya. All rights
@@ -356,9 +352,6 @@ function Home() {
           <a href="#ministries" className="btn">
             Discover Our Ministries
           </a>
-          <Link className="hero-admin-link" href="/admin.html">
-            <i className="bx bx-lock-alt" /> Admin portal
-          </Link>
         </div>
       </header>
       <section className="mission">
