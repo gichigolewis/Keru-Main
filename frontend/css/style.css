@@ -1188,7 +1188,7 @@ footer .copy a:hover {
 
 .ann-sect {
   position: relative;
-  height: 50vh;
+  height: 100vh;
   min-height: 100%;
   background: var(--bg-light);
   display: flex;
@@ -1200,7 +1200,7 @@ footer .copy a:hover {
 
 .ann-sect h1 {
   position: absolute;
-  top: 3rem;
+  top: .5rem;
   color: var(--primary-color);
   font-size: 2.3rem;
 }
