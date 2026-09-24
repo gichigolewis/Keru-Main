@@ -702,7 +702,7 @@ function ResponsivePage({ page }) {
             <button className="btn" type="submit">Send message <i className="bx bx-send" /></button>
           </form>
         ) : (
-          <a className="btn" href="tel:+254712345678">Call the church <i className="bx bx-phone" /></a>
+          <a className="btn" href="tel:+25496563833">Call the church <i className="bx bx-phone" /></a>
         )}
       </main>
     </PublicShell>
