@@ -150,7 +150,7 @@ footer .copy {
     z-index: 1100;
     display: flex;
     width: min(19rem, 86vw);
-    height: 100dvh;
+    height: 100vh;
     padding: 5.5rem 1.5rem 2rem;
     flex-direction: column;
     justify-content: space-between;
@@ -194,7 +194,8 @@ footer .copy {
   }
   .mobile-side-panel .join {
     width: 100%;
-    right: auto;
+    justify-content: center;
+    align-items: center;
   }
   .community-layout {
     flex-direction: column;
