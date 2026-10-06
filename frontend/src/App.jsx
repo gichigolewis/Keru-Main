@@ -430,6 +430,13 @@ function renderSermon(sermon) {
     />
   );
 }
+const featuredSermons = [
+  ["Mq3AE7uncHw", "THE MAN WHO CHOPPED THE SCRIPTURES || Bro. DENNIS MURIITHI"],
+  ["nWpu9D5tE1g", "KERUGOYA MAIN SDA CHURCH || GOOD FAITH CHILDRENS HOME"],
+  ["G183uFMOWMI", "Ni Mbaya || Sis. Eliza || Kerugoya Main SDA church"],
+  ["Dmbi12ChCec", "Who is your Redeemer || Pr. Rei Kesis"],
+  ["k1Yg0Lh5DCA", "Tunataka Power By Bro. Edwin Murimi"],
+];
 function Sermons() {
   const [videos, setVideos] = useState([]);
   useEffect(() => {
@@ -437,28 +444,24 @@ function Sermons() {
       try {
         const response = await fetch("/api/sermons");
         if (response.ok) {
-          setVideos(await response.json());
-          return;
+          const sermons = await response.json();
+          if (Array.isArray(sermons) && sermons.length > 0) {
+            setVideos(sermons);
+            return;
+          }
         }
       } catch {}
-      setVideos([
-        [
-          "Mq3AE7uncHw",
-          "THE MAN WHO CHOPPED THE SCRIPTURES || Bro. DENNIS MURIITHI",
-        ],
-        [
-          "nWpu9D5tE1g",
-          "KERUGOYA MAIN SDA CHURCH || GOOD FAITH CHILDRENS HOME",
-        ],
-        ["G183uFMOWMI", "Ni Mbaya || Sis. Eliza || Kerugoya Main SDA church"],
-        ["Dmbi12ChCec", "Who is your Redeemer || Pr. Rei Kesis"],
-        ["k1Yg0Lh5DCA", "Tunataka Power By Bro. Edwin Murimi"],
-      ]);
+      setVideos(featuredSermons);
     })();
   }, []);
   return (
     <PublicShell>
       <section className="sermons">
+        <div className="sermons-heading">
+          <p className="eyebrow">Watch and grow</p>
+          <h1>Sermons &amp; Messages</h1>
+          <p>Worship with us and explore messages from Kerugoya Main SDA Church.</p>
+        </div>
         <div className="video-gallery">{videos.map(renderSermon)}</div>
       </section>
     </PublicShell>
