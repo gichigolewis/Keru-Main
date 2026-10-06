@@ -2011,7 +2011,7 @@ footer .copy {
 }
 .ann-sect {
   height: auto;
-  min-height: 0;
+  min-height: 100vh;
   padding: 5rem 1rem 6rem;
   align-items: center;
   justify-content: center;
@@ -2077,19 +2077,21 @@ footer .copy {
   }
   .mobile-side-panel {
     position: fixed;
-    top: 7rem;
+    top: max(clamp(5.5rem, 14vh, 7rem), env(safe-area-inset-top));
     right: 0;
     z-index: 1100;
     display: flex;
-    width: min(19rem, 86vw);
-    bottom: 4rem;
+    width: min(22rem, 86vw);
+    bottom: calc(4rem + env(safe-area-inset-bottom));
     height: auto;
-    max-height: none;
+    max-height: calc(100dvh - 4.5rem - env(safe-area-inset-top));
     min-height: 0;
-    padding: 1.5rem;
+    padding: clamp(1rem, 5vh, 2rem) clamp(1rem, 5vw, 1.5rem);
     flex-direction: column;
     justify-content: space-between;
+    overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior: contain;
     background: var(--primary-color);
     box-shadow: -12px 0 30px rgba(15, 23, 42, 0.2);
     opacity: 0;
