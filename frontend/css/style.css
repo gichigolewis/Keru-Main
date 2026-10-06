@@ -2051,12 +2051,24 @@ footer .copy {
 }
 
 @media (max-width: 888px) {
+  .top-bar {
+    position: relative;
+    z-index: 1101;
+  }
   nav {
     min-height: 4.5rem;
     padding: 0.75rem 1rem;
     z-index: 1100;
     isolation: isolate;
     background: white;
+  }
+  nav::before {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    background: white;
+    content: "";
+    pointer-events: none;
   }
   nav > .logo,
   nav > .announcements {
