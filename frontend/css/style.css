@@ -2054,6 +2054,13 @@ footer .copy {
   nav {
     min-height: 4.5rem;
     padding: 0.75rem 1rem;
+    z-index: 1100;
+    isolation: isolate;
+    background: white;
+  }
+  nav > .logo,
+  nav > .announcements {
+    z-index: 1101;
   }
   .nav-links {
     position: fixed;
@@ -2122,7 +2129,7 @@ footer .copy {
     top: 0;
     right: 0;
     bottom: 0;
-    z-index: 999;
+    z-index: 0;
     display: flex;
     width: min(24rem, 88vw);
     height: auto;
