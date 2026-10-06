@@ -322,6 +322,10 @@ aside .side-menu a:hover {
     url("../assets/images/photo.jpg") center/cover fixed;
   color: white;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding: 5rem 2rem;
   min-height: 100vh;
   width: 100%;
@@ -1293,8 +1297,8 @@ iframe {
   }
 
   .hero {
-    min-height: min(100vh, 48rem);
-    padding: 8rem 1rem 10rem;
+    min-height: 100vh;
+    padding: 6rem 1rem;
   }
 
   .hero h1 {
@@ -1541,7 +1545,7 @@ iframe {
   grid-template-columns: 280px minmax(0, 1fr);
   width: min(100%, 1180px);
   max-width: 1180px;
-  min-height: calc(100vh - 78px);
+  min-height: 0;
   margin: 0 auto;
 }
 .admin-sidebar {
@@ -1929,7 +1933,9 @@ iframe {
 }
 
 /* Final responsive overrides for the shared legacy navigation styles. */
-.hero,
+.hero {
+  min-height: 100vh;
+}
 .mission,
 .ministries,
 .scripture,
@@ -1938,8 +1944,10 @@ iframe {
 .sermons,
 .ann-sect,
 .community-main,
-.responsive-page {
-  min-height: 100vh;
+.responsive-page,
+.account-page,
+.admin-page {
+  min-height: 0;
 }
 footer {
   align-items: flex-start;
@@ -1950,9 +1958,8 @@ footer .copy {
 }
 .responsive-page {
   width: min(100% - 2rem, 760px);
-  min-height: 60vh;
   margin: 0 auto;
-  padding: clamp(4rem, 10vw, 8rem) 0;
+  padding: clamp(3rem, 7vw, 5rem) 0;
 }
 .responsive-page h1 {
   margin: 0.75rem 0 1rem;
@@ -2004,7 +2011,7 @@ footer .copy {
 }
 .ann-sect {
   height: auto;
-  min-height: 100vh;
+  min-height: 0;
   padding: 5rem 1rem 6rem;
   align-items: center;
   justify-content: center;
