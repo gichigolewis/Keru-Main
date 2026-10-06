@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import logoImage from "../assets/images/sda logo.png";
 
 const imagePath = logoImage;
-const currentUserKey = "keruCurrentUser";
-const accountKey = "keruAccounts";
-const postsKey = "keruCommunityPosts";
+const memberSessionKey = "keruMemberSession";
 const announcementsKey = "announcements";
 
 const ministries = [
@@ -33,12 +31,6 @@ const ministries = [
     "Bringing up children in a God fearing manner and teaching them about Christ's second return.",
   ],
 ];
-
-const seededPostIds = new Set([
-  "welcome-story",
-  "school-drive",
-  "small-table",
-]);
 
 function readJson(key, fallback) {
   try {
@@ -471,37 +463,34 @@ function Sermons() {
 function Account({ register = false }) {
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const submit = (event) => {
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const email = data.get("email").trim().toLowerCase();
-    const password = data.get("password");
-    const accounts = readJson(accountKey, []);
-    if (register) {
-      const name = data.get("name").trim();
-      if (accounts.some((account) => account.email === email)) {
-        setMessage("An account with that email already exists.");
+    const payload = {
+      email: data.get("email").trim().toLowerCase(),
+      password: data.get("password"),
+    };
+    if (register) payload.name = data.get("name").trim();
+    setSubmitting(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/members/${register ? "register" : "login"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(result.error || "We could not sign you in. Please try again.");
         return;
       }
-      accounts.push({ name, email, password });
-      localStorage.setItem(accountKey, JSON.stringify(accounts));
-      localStorage.setItem(currentUserKey, JSON.stringify({ name, email }));
+      localStorage.setItem(memberSessionKey, JSON.stringify({ token: result.token, user: result.member }));
       navigate("/blogs.html");
-    } else {
-      const account = accounts.find(
-        (item) => item.email === email && item.password === password,
-      );
-      if (!account) {
-        setMessage(
-          "We could not match those details. Try again or create an account.",
-        );
-        return;
-      }
-      localStorage.setItem(
-        currentUserKey,
-        JSON.stringify({ name: account.name, email: account.email }),
-      );
-      navigate("/blogs.html");
+    } catch {
+      setMessage("We could not connect to the member service. Please try again shortly.");
+    } finally {
+      setSubmitting(false);
     }
   };
   return (
@@ -544,7 +533,7 @@ function Account({ register = false }) {
           <h2>{register ? "Create account" : "Sign in"}</h2>
           <p className="form-intro">
             {register
-              ? "Your first name will appear beside your posts."
+              ? "Your name will appear beside your posts. Use a password with at least 8 characters."
               : "Pick up where you left off."}
           </p>
           {register && (
@@ -555,6 +544,8 @@ function Account({ register = false }) {
                 name="name"
                 type="text"
                 autoComplete="name"
+                minLength="2"
+                maxLength="80"
                 required
               />
             </>
@@ -576,7 +567,8 @@ function Account({ register = false }) {
               id="password"
               name="password"
               type={showPassword ? "text" : "password"}
-              minLength={register ? 6 : undefined}
+              minLength={register ? 8 : undefined}
+              maxLength="128"
               required
             />
             <button
@@ -588,8 +580,8 @@ function Account({ register = false }) {
               <i className={`bx ${showPassword ? "bx-hide" : "bx-show"}`} />
             </button>
           </div>
-          <button className="btn form-submit" type="submit">
-            {register ? "Create account" : "Sign in"}{" "}
+          <button className="btn form-submit" type="submit" disabled={submitting}>
+            {submitting ? "Please wait…" : register ? "Create account" : "Sign in"}{" "}
             <i className="bx bx-right-arrow-alt" />
           </button>
           <p className="form-message is-error" role="status">
@@ -713,96 +705,147 @@ function ResponsivePage({ page }) {
 }
 
 function Community() {
-  const [user, setUser] = useState(() => readJson(currentUserKey, null));
-  const [posts, setPosts] = useState(() => {
-    const saved = readJson(postsKey, []);
-    const memberPosts = saved.filter((post) => !seededPostIds.has(post.id));
-    if (memberPosts.length !== saved.length) {
-      localStorage.setItem(postsKey, JSON.stringify(memberPosts));
-    }
-    return memberPosts;
-  });
+  const [session, setSession] = useState(() => readJson(memberSessionKey, null));
+  const user = session?.user || null;
+  const [posts, setPosts] = useState([]);
   const [category, setCategory] = useState("All");
   const [sort, setSort] = useState("recent");
   const [openComments, setOpenComments] = useState(null);
-  const save = (next) => {
-    setPosts(next);
-    localStorage.setItem(postsKey, JSON.stringify(next));
-  };
+  const [communityMessage, setCommunityMessage] = useState("");
+  const [feedLoading, setFeedLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const storedSession = readJson(memberSessionKey, null);
+    const token = storedSession?.token;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    if (!token) {
+      localStorage.removeItem(memberSessionKey);
+      setSession(null);
+    }
+
+    (async () => {
+      if (token) {
+        try {
+          const response = await fetch("/api/members/me", { headers });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error("Session expired");
+          if (active) {
+            const nextSession = { token, user: result.member };
+            setSession(nextSession);
+            localStorage.setItem(memberSessionKey, JSON.stringify(nextSession));
+          }
+        } catch {
+          localStorage.removeItem(memberSessionKey);
+          if (active) setSession(null);
+        }
+      }
+
+      try {
+        const response = await fetch("/api/community/posts", { headers });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || "Unable to load stories.");
+        if (active) setPosts(Array.isArray(result) ? result : []);
+      } catch {
+        if (active) setCommunityMessage("Stories could not be loaded. Check your connection and try again.");
+      } finally {
+        if (active) setFeedLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const visible = posts
     .filter((post) => category === "All" || post.category === category)
     .sort((a, b) =>
-      sort === "liked"
-        ? b.likes - a.likes
-        : new Date(b.date) - new Date(a.date),
+      sort === "liked" ? (b.likes || 0) - (a.likes || 0) : new Date(b.date) - new Date(a.date),
     );
-  const like = (post) => {
-    if (!user) {
-      navigate("/login.html");
-      return;
-    }
-    save(
-      posts.map((item) =>
-        item.id === post.id
-          ? {
-              ...item,
-              likes: item.likedBy.includes(user.email)
-                ? item.likes - 1
-                : item.likes + 1,
-              likedBy: item.likedBy.includes(user.email)
-                ? item.likedBy.filter((email) => email !== user.email)
-                : [...item.likedBy, user.email],
-            }
-          : item,
-      ),
-    );
+
+  const replacePost = (updatedPost) => {
+    setPosts((current) => current.map((post) => post.id === updatedPost.id ? updatedPost : post));
   };
-  const addComment = (event, post) => {
-    event.preventDefault();
-    if (!user) {
+
+  const like = async (post) => {
+    if (!session?.token) {
       navigate("/login.html");
       return;
     }
-    const value = new FormData(event.currentTarget).get("comment").trim();
-    if (!value) return;
-    save(
-      posts.map((item) =>
-        item.id === post.id
-          ? {
-              ...item,
-              comments: [
-                ...item.comments,
-                { author: user.name, content: value },
-              ],
-            }
-          : item,
-      ),
-    );
-    event.currentTarget.reset();
-    setOpenComments(post.id);
+    setCommunityMessage("");
+    try {
+      const response = await fetch(`/api/community/posts/${post.id}/like`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Could not update your reaction.");
+      replacePost(result.post);
+    } catch (error) {
+      setCommunityMessage(error.message || "Could not update your reaction.");
+    }
   };
-  const publish = (event) => {
+
+  const addComment = async (event, post) => {
     event.preventDefault();
-    if (!user) {
+    if (!session?.token) {
       navigate("/login.html");
       return;
     }
-    const data = new FormData(event.currentTarget);
-    save([
-      {
-        id: `post-${Date.now()}`,
-        title: data.get("title").trim(),
-        content: data.get("content").trim(),
-        category: data.get("category"),
-        author: user.name,
-        date: new Date().toISOString().slice(0, 10),
-        likes: 0,
-        likedBy: [],
-        comments: [],
-      },
-      ...posts,
-    ]);
-    event.currentTarget.reset();
+    const form = event.currentTarget;
+    const content = new FormData(form).get("comment").trim();
+    if (!content) return;
+    try {
+      const response = await fetch(`/api/community/posts/${post.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+        body: JSON.stringify({ content }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Could not add your comment.");
+      replacePost(result.post);
+      form.reset();
+      setOpenComments(post.id);
+      setCommunityMessage("");
+    } catch (error) {
+      setCommunityMessage(error.message || "Could not add your comment.");
+    }
+  };
+
+  const publish = async (event) => {
+    event.preventDefault();
+    if (!session?.token) {
+      navigate("/login.html");
+      return;
+    }
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const payload = {
+      title: data.get("title").trim(),
+      content: data.get("content").trim(),
+      category: data.get("category"),
+    };
+    setPosting(true);
+    setCommunityMessage("");
+    try {
+      const response = await fetch("/api/community/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Your story could not be published.");
+      setPosts((current) => [result.post, ...current]);
+      form.reset();
+      setCommunityMessage("Your story has been published.");
+    } catch (error) {
+      setCommunityMessage(error.message || "Your story could not be published.");
+    } finally {
+      setPosting(false);
+    }
   };
   return (
     <div className="community-page">
@@ -828,8 +871,15 @@ function Community() {
                 className="text-button"
                 type="button"
                 onClick={() => {
-                  localStorage.removeItem(currentUserKey);
-                  setUser(null);
+                  const token = session?.token;
+                  if (token) {
+                    fetch("/api/members/session", {
+                      method: "DELETE",
+                      headers: { Authorization: `Bearer ${token}` },
+                    }).catch(() => {});
+                  }
+                  localStorage.removeItem(memberSessionKey);
+                  setSession(null);
                 }}
               >
                 Sign out
@@ -898,7 +948,9 @@ function Community() {
               </select>
             </div>
             <div className="posts-list">
-              {visible.length ? (
+              {feedLoading ? (
+                <p className="empty-state">Loading community stories…</p>
+              ) : visible.length ? (
                 visible.map((post) => (
                   <article
                     className={`post-card ${openComments === post.id ? "comments-open" : ""}`}
@@ -921,13 +973,13 @@ function Community() {
                         <i className="bx bx-user-circle" /> {post.author}
                       </span>
                       <button
-                        className={`like-button ${user && post.likedBy.includes(user.email) ? "is-liked" : ""}`}
+                        className={`like-button ${user && post.likedByMe ? "is-liked" : ""}`}
                         data-action="like"
                         type="button"
                         onClick={() => like(post)}
                       >
                         <i
-                          className={`bx ${user && post.likedBy.includes(user.email) ? "bx-heart" : "bx-heart"}`}
+                          className="bx bx-heart"
                         />{" "}
                         {post.likes}
                       </button>
@@ -1005,9 +1057,10 @@ function Community() {
                     maxLength="700"
                     required
                   />
-                  <button className="btn" type="submit">
-                    Publish story <i className="bx bx-send" />
+                  <button className="btn" type="submit" disabled={posting}>
+                    {posting ? "Publishing…" : "Publish story"} <i className="bx bx-send" />
                   </button>
+                  <p className="community-message" role="status">{communityMessage}</p>
                 </form>
               ) : (
                 <div className="member-submit-prompt">
@@ -1017,6 +1070,7 @@ function Community() {
                   </Link>
                 </div>
               )}
+              {!user && <p className="community-message" role="status">{communityMessage}</p>}
             </section>
             <section className="community-aside-note">
               <i className="bx bx-quote-alt-left" />

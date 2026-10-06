@@ -2260,9 +2260,30 @@ footer .copy {
     flex-direction: column;
   }
   .community-sidebar {
-    width: 100%;
-    flex-basis: auto;
+    display: block;
     position: static;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    flex-basis: auto;
+    order: -1;
+    top: auto;
+    right: auto;
+    background: transparent;
+    box-shadow: none;
+  }
+  #post-form input,
+  #post-form select,
+  #post-form textarea {
+    min-height: 48px;
+    font-size: 16px;
+  }
+  #post-form textarea {
+    min-height: 8rem;
+  }
+  #post-form .btn {
+    min-height: 48px;
   }
   footer {
     align-items: flex-start;
