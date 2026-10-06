@@ -2119,16 +2119,16 @@ footer .copy {
   }
   .mobile-side-panel {
     position: fixed;
-    top: max(clamp(4.75rem, 16vh, 6.5rem), env(safe-area-inset-top));
+    top: 0;
     right: 0;
     bottom: 0;
     z-index: 999;
     display: flex;
     width: min(24rem, 88vw);
     height: auto;
-    max-height: calc(100dvh - max(4.75rem, env(safe-area-inset-top)));
+    max-height: 100dvh;
     min-height: 0;
-    padding: clamp(1rem, 4vh, 1.75rem) clamp(1rem, 5vw, 1.5rem) calc(5rem + env(safe-area-inset-bottom));
+    padding: max(clamp(6.5rem, 20vh, 10rem), calc(env(safe-area-inset-top) + 1rem)) clamp(1rem, 5vw, 1.5rem) calc(5rem + env(safe-area-inset-bottom));
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
