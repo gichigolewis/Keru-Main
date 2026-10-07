@@ -6,3 +6,5 @@ backend/node_modules/
 backend/.env
 .vercel
 .env*
+.agents/
+skills-lock.json
