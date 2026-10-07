@@ -19,6 +19,7 @@ const ADMIN_USER = process.env.ADMIN_USER?.trim();
 const ADMIN_PASS = process.env.ADMIN_PASS;
 
 app.use(express.json());
+app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
 
 const appRoutes = [
   '/', '/index.html', '/about', '/about.html', '/ministries', '/ministries.html',
@@ -410,15 +411,12 @@ app.delete('/api/sermons/:id', checkAuth, async (req, res) => {
   res.status(204).end();
 });
 
-async function start() {
-  try {
-    await ensureDatabase();
-    console.log('Connected to MongoDB');
-    app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
-  } catch (e) {
-    console.error('Failed to start server', e);
-    process.exit(1);
-  }
+function start() {
+  const server = app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+  ensureDatabase()
+    .then(() => console.log('Connected to MongoDB'))
+    .catch((error) => console.error('Initial MongoDB connection failed; API requests will retry.', error.message));
+  return server;
 }
 
 if (require.main === module) start();

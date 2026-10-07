@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: keru-main-api
+    runtime: node
+    plan: free
+    region: ohio
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASS
+        sync: false
