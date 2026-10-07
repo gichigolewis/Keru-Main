@@ -1,7 +1,7 @@
-require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const mongoose = require('mongoose');
 const { createHash, randomBytes, scrypt: scryptCallback, timingSafeEqual } = require('crypto');
 const { promisify } = require('util');
@@ -14,9 +14,9 @@ const APP_ENTRY = fs.existsSync(path.join(BUILD_PATH, 'index.html'))
   ? path.join(BUILD_PATH, 'index.html')
   : path.join(FRONTEND_PATH, 'index.html');
 const PORT = process.env.PORT || 3000;
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/keru';
-const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'admin';
+const MONGO_URI = process.env.MONGODB_URI?.trim();
+const ADMIN_USER = process.env.ADMIN_USER?.trim();
+const ADMIN_PASS = process.env.ADMIN_PASS;
 
 app.use(express.json());
 
@@ -89,11 +89,17 @@ const CommunityPost = mongoose.model('CommunityPost', communityPostSchema);
 
 let databasePromise;
 function ensureDatabase() {
+  if (!MONGO_URI) {
+    return Promise.reject(new Error('MONGODB_URI is not configured. Set it in backend/.env or your deployment environment.'));
+  }
   if (!databasePromise) {
-    databasePromise = mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    databasePromise = mongoose.connect(MONGO_URI)
       .then(async () => {
-        await Admin.updateOne({ username: ADMIN_USER }, { $setOnInsert: { username: ADMIN_USER, password: ADMIN_PASS } }, { upsert: true });
         await Promise.all([Member.init(), MemberSession.init(), CommunityPost.init()]);
+      })
+      .catch((error) => {
+        databasePromise = undefined;
+        throw error;
       });
   }
   return databasePromise;
@@ -315,7 +321,9 @@ app.get('/api/auth-check', checkAuth, (_req, res) => {
 
 async function findAdmin(username, password) {
   if (!username || !password) return null;
-  if (username === ADMIN_USER && password === ADMIN_PASS) return { username };
+  if (ADMIN_USER && ADMIN_PASS && username === ADMIN_USER && password === ADMIN_PASS) {
+    return { username: ADMIN_USER };
+  }
   return Admin.findOne({ username, password }).lean();
 }
 

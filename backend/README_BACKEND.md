@@ -4,21 +4,32 @@ Install dependencies from the project root, configure MongoDB, then start the ba
 
 ```powershell
 npm install
-$env:MONGODB_URI = 'mongodb://localhost:27017/keru'
+Copy-Item backend/.env.example backend/.env
+# Edit backend/.env and replace the MONGODB_URI and admin credentials.
 npm --prefix backend start
 ```
 
+The backend reads `MONGODB_URI` from `backend/.env` locally or from the deployment environment. It no longer silently falls back to a local MongoDB instance, so the server reports a clear configuration error if the URI is missing. For local MongoDB instead of Atlas, explicitly set `MONGODB_URI=mongodb://localhost:27017/keru`.
+
 In a second terminal, start the frontend with `npm --prefix frontend run dev`.
 
-By default the admin credentials are `admin` / `admin`.
-To override them in PowerShell, run:
+Set the initial admin login in `backend/.env` using `ADMIN_USER` and `ADMIN_PASS`. There are no built-in admin credentials. Additional administrators can be created from the dashboard.
+To set credentials for the current PowerShell session instead, run:
 
 ```powershell
 $env:ADMIN_USER = 'youruser'
 $env:ADMIN_PASS = 'yourpass'
 ```
 
-For MongoDB Atlas, set `MONGODB_URI` to your Atlas connection string instead. The backend must be able to reach this database for member sign-up, sign-in, and community posts to work.
+## Connect MongoDB Atlas
+
+1. Create an Atlas cluster and a **database user** (this is separate from your Atlas website login). Grant the user read/write access to the app database.
+2. In Atlas **Network Access**, allow connections from the machine running the backend. For deployment, configure the Vercel app's supported/static outbound IP access as appropriate; avoid opening the database to all IPs unless you have deliberately accepted that exposure.
+3. In Atlas, choose **Connect → Drivers → Node.js**, copy the SRV connection string, and replace the username, password, cluster host, and database name. Put the finished URI in `backend/.env` as `MONGODB_URI=...`.
+4. URL-encode reserved characters in the database user's password (for example, `@` becomes `%40`). Keep `backend/.env` private; it is ignored by Git. Never put the URI in frontend code or commit it.
+5. Start the backend and look for `Connected to MongoDB` in its output. The announcements, sermons, admin accounts, members, sessions, and community content all use this database.
+
+Use the safe template in `backend/.env.example`. Do not commit your populated `.env` file or share a connection string in chat.
 
 API endpoints:
 - `POST /api/members/register` — create a member account and start a session (`name`, `email`, `password`)
@@ -52,9 +63,9 @@ The repository includes a root `vercel.json` and exposes the backend through `ap
 In the Vercel project settings, add these environment variables for Production, Preview, and Development as needed:
 
 ```text
-MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<database>
+MONGODB_URI=mongodb+srv://<db-user>:<encoded-password>@<cluster-host>/keru?retryWrites=true&w=majority
 ADMIN_USER=<admin-username>
 ADMIN_PASS=<strong-admin-password>
 ```
 
-Deploy from the repository root. Vercel builds the frontend with `npm --prefix frontend run build`, serves the generated SPA, and routes `/api/*` requests to the Express backend.
+Configure Atlas Network Access so Vercel can reach the cluster, following Vercel's current outbound IP guidance for your plan and region. Deploy from the repository root. Vercel builds the frontend with `npm --prefix frontend run build`, serves the generated SPA, and routes `/api/*` requests to the Express backend. Do not use the development admin credentials in a deployed environment.

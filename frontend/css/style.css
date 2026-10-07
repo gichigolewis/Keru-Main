@@ -2191,6 +2191,491 @@ footer .copy {
     gap: 1.5rem;
     overflow-x: hidden;
     overflow-y: auto;
+
+  /* Admin dashboard refresh */
+  .admin-page {
+    min-height: 100vh;
+    background: #f5f7fb;
+    color: #182230;
+  }
+  .admin-header {
+    position: relative;
+    z-index: 2;
+    min-height: 76px;
+    padding: 0 clamp(1.25rem, 5vw, 4rem);
+    border-bottom: 1px solid #e8edf3;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.025);
+  }
+  .admin-header .logo {
+    gap: 0.75rem;
+    color: #15294f;
+    font-family: "Inter", sans-serif;
+    font-size: 1rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+  }
+  .admin-header .logo img {
+    height: 40px;
+  }
+  .admin-header > div {
+    gap: 1.25rem;
+  }
+  .admin-welcome {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #526174;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .admin-welcome i {
+    color: #8290a3;
+    font-size: 1.2rem;
+  }
+  .admin-header .text-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #e0e6ee;
+    border-radius: 8px;
+    background: white;
+    color: #40516a;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .admin-header .text-button:hover {
+    border-color: #c6d2e2;
+    background: #f8fafc;
+  }
+  .admin-layout {
+    width: min(100%, 1440px);
+    max-width: 1440px;
+    min-height: calc(100vh - 76px);
+    grid-template-columns: 264px minmax(0, 1fr);
+    margin: 0 auto;
+  }
+  .admin-sidebar {
+    position: relative;
+    display: flex;
+    min-height: 100%;
+    padding: 2.5rem 1.25rem 1.5rem;
+    border-right: 1px solid #e8edf3;
+    background: #fff;
+    color: #182230;
+    flex-direction: column;
+  }
+  .admin-sidebar-label,
+  .admin-overline {
+    color: #8592a5;
+    font-size: 0.68rem;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+  }
+  .admin-sidebar h1 {
+    margin: 0.35rem 0 0.35rem;
+    color: #182a4c;
+    font-family: "Inter", sans-serif;
+    font-size: 1.55rem;
+    font-weight: 750;
+    letter-spacing: -0.045em;
+  }
+  .admin-sidebar-copy {
+    margin-bottom: 2rem;
+    color: #778397;
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+  .admin-tab-list {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .admin-page .admin-tab {
+    min-height: 46px;
+    margin: 0;
+    padding: 0.7rem 0.8rem;
+    border-radius: 8px;
+    color: #657287;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: background 150ms ease, color 150ms ease;
+  }
+  .admin-page .admin-tab i {
+    width: 1.2rem;
+    color: #8c9aae;
+    font-size: 1.15rem;
+  }
+  .admin-page .admin-tab:hover {
+    background: #f4f6fa;
+    color: #243b67;
+  }
+  .admin-page .admin-tab.is-active {
+    background: #edf3ff;
+    box-shadow: none;
+    color: #244b91;
+    font-weight: 700;
+  }
+  .admin-page .admin-tab.is-active i {
+    color: #3769b5;
+  }
+  .admin-sidebar-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding: 1rem 0.25rem 0;
+    border-top: 1px solid #edf0f4;
+    color: #8b97a8;
+    font-size: 0.75rem;
+  }
+  .admin-sidebar-foot i {
+    color: #6ca58b;
+    font-size: 1rem;
+  }
+  .admin-content {
+    width: 100%;
+    max-width: 1050px;
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 3.75rem) clamp(1.25rem, 5vw, 4rem);
+  }
+  .admin-page-intro {
+    margin-bottom: 1.75rem;
+  }
+  .admin-page-intro h2 {
+    margin: 0.35rem 0 0.4rem;
+    color: #172b4d;
+    font-family: "Inter", sans-serif;
+    font-size: clamp(1.8rem, 3vw, 2.35rem);
+    font-weight: 750;
+    letter-spacing: -0.05em;
+    line-height: 1.2;
+  }
+  .admin-page-intro > p {
+    color: #778397;
+    font-size: 0.92rem;
+  }
+  .admin-notice {
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #d9e7fb;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #315c91;
+  }
+  .admin-panel {
+    margin-bottom: 2rem;
+    padding: clamp(1.25rem, 3vw, 1.75rem);
+    border: 1px solid #e6ebf2;
+    border-radius: 12px;
+    background: white;
+    box-shadow: 0 4px 16px rgba(23, 43, 77, 0.035);
+  }
+  .admin-panel-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin-bottom: 1.35rem;
+  }
+  .admin-panel-icon,
+  .admin-item-icon {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    place-items: center;
+    border-radius: 10px;
+    background: #eef4ff;
+    color: #3769b5;
+    font-size: 1.25rem;
+  }
+  .admin-panel-heading h3,
+  .admin-list-heading h3 {
+    color: #233650;
+    font-size: 1rem;
+    font-weight: 720;
+    letter-spacing: -0.015em;
+  }
+  .admin-panel-heading p,
+  .admin-list-heading p {
+    margin-top: 0.1rem;
+    color: #8590a0;
+    font-size: 0.8rem;
+  }
+  .admin-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    max-width: none;
+    margin: 0;
+  }
+  .admin-field {
+    display: flex;
+    min-width: 0;
+    color: #42516a;
+    font-size: 0.8rem;
+    font-weight: 650;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .admin-field > span {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .admin-field small {
+    color: #98a2b1;
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+  .admin-field input,
+  .admin-field textarea {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.72rem 0.8rem;
+    border: 1px solid #dce3ec;
+    border-radius: 7px;
+    outline: none;
+    background: #fff;
+    color: #24344d;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 450;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .admin-field input::placeholder,
+  .admin-field textarea::placeholder {
+    color: #a4adba;
+  }
+  .admin-field input:focus,
+  .admin-field textarea:focus {
+    border-color: #6e94d0;
+    box-shadow: 0 0 0 3px rgba(75, 119, 187, 0.13);
+  }
+  .admin-field textarea {
+    resize: vertical;
+    line-height: 1.55;
+  }
+  .admin-field-wide {
+    grid-column: 1 / -1;
+  }
+  .admin-form .btn {
+    display: inline-flex;
+    width: fit-content;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.65rem 1rem;
+    border: 0;
+    border-radius: 7px;
+    background: #244b86;
+    box-shadow: none;
+    color: white;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 150ms ease, transform 150ms ease;
+  }
+  .admin-form .btn:hover {
+    transform: translateY(-1px);
+    background: #1b3d72;
+  }
+  .admin-list-section {
+    margin-top: 2rem;
+  }
+  .admin-list-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.85rem;
+  }
+  .admin-count {
+    display: inline-grid;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 0.45rem;
+    place-items: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #fff;
+    color: #657287;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .admin-list {
+    gap: 0.6rem;
+  }
+  .admin-list article {
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid #e8edf3;
+    border-radius: 9px;
+    background: #fff;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .admin-list article:hover {
+    border-color: #d5dfed;
+    box-shadow: 0 4px 12px rgba(23, 43, 77, 0.04);
+  }
+  .admin-item-icon {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+    border-radius: 8px;
+    background: #f2f5fa;
+    color: #74839a;
+    font-size: 1.1rem;
+  }
+  .admin-item-copy {
+    min-width: 0;
+    flex: 1;
+  }
+  .admin-item-copy strong {
+    display: block;
+    color: #2c3d56;
+    font-size: 0.87rem;
+    font-weight: 700;
+  }
+  .admin-item-copy p {
+    display: -webkit-box;
+    margin-top: 0.2rem;
+    overflow: hidden;
+    color: #7c899a;
+    font-size: 0.79rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .admin-list .icon-button {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: #8b96a5;
+    font-size: 1rem;
+    transition: background 150ms ease, color 150ms ease;
+  }
+  .admin-list .icon-button:hover {
+    border-color: #f4d9d8;
+    background: #fff5f4;
+    color: #bd4c49;
+  }
+  .admin-empty-state {
+    display: flex;
+    min-height: 88px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    padding: 1.25rem;
+    border: 1px dashed #d9e1eb;
+    border-radius: 9px;
+    color: #8793a3;
+    font-size: 0.83rem;
+    text-align: center;
+  }
+  .admin-empty-state i {
+    color: #a2adbc;
+    font-size: 1.2rem;
+  }
+  .admin-page :is(button, input, textarea):focus-visible {
+    outline: 3px solid rgba(75, 119, 187, 0.35);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 760px) {
+    .admin-header {
+      min-height: 66px;
+      flex-wrap: nowrap;
+      padding: 0 1rem;
+    }
+    .admin-header .logo span,
+    .admin-welcome {
+      display: inline-flex;
+    }
+    .admin-header .logo span {
+      max-width: 11rem;
+      font-size: 0.88rem;
+    }
+    .admin-header > div {
+      gap: 0.5rem;
+    }
+    .admin-header .text-button {
+      padding: 0.5rem 0.6rem;
+      font-size: 0.78rem;
+    }
+    .admin-layout {
+      min-height: calc(100vh - 66px);
+      grid-template-columns: 1fr;
+    }
+    .admin-sidebar {
+      display: block;
+      min-height: 0;
+      padding: 1rem;
+      border-right: 0;
+      border-bottom: 1px solid #e8edf3;
+    }
+    .admin-sidebar-label,
+    .admin-sidebar h1,
+    .admin-sidebar-copy,
+    .admin-sidebar-foot {
+      display: none;
+    }
+    .admin-page .admin-tab-list {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.35rem;
+    }
+    .admin-page .admin-tab {
+      justify-content: center;
+      min-height: 42px;
+      padding: 0.55rem 0.35rem;
+      font-size: 0.78rem;
+    }
+    .admin-content {
+      padding: 1.75rem 1rem 3rem;
+    }
+  }
+  @media (max-width: 520px) {
+    .admin-header .logo {
+      gap: 0.45rem;
+    }
+    .admin-header .logo img {
+      height: 34px;
+    }
+    .admin-header .logo span {
+      max-width: 8.2rem;
+      line-height: 1.2;
+    }
+    .admin-header .text-button {
+      gap: 0.25rem;
+    }
+    .admin-form {
+      grid-template-columns: 1fr;
+    }
+    .admin-field-wide {
+      grid-column: auto;
+    }
+    .admin-form .btn {
+      width: 100%;
+    }
+    .admin-panel-heading {
+      align-items: flex-start;
+    }
+    .admin-empty-state {
+      align-items: flex-start;
+      justify-content: flex-start;
+      text-align: left;
+    }
+  }
     overscroll-behavior: contain;
     border-left: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 1rem 0 0 1rem;

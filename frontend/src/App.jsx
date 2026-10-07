@@ -1201,17 +1201,18 @@ function AdminDashboard({ auth, username, onLogout }) {
           <span>Kerugoya Main SDA</span>
         </Link>
         <div>
-          <span className="admin-welcome">Hi, {username}</span>
+          <span className="admin-welcome"><i className="bx bx-user-circle" /> Hi, {username}</span>
           <button className="text-button" type="button" onClick={onLogout}>
-            Sign out
+            <i className="bx bx-log-out" /> Sign out
           </button>
         </div>
       </header>
       <div className="admin-layout">
         <aside className="admin-sidebar">
-          <span className="eyebrow">Control room</span>
+          <span className="admin-sidebar-label">Workspace</span>
           <h1>Dashboard</h1>
-          <div className="admin-tab-list">
+          <p className="admin-sidebar-copy">Manage your church website content.</p>
+          <nav className="admin-tab-list" aria-label="Dashboard sections">
             {[
               ["announcements", "Announcements"],
               ["sermons", "Sermons"],
@@ -1221,6 +1222,7 @@ function AdminDashboard({ auth, username, onLogout }) {
                 className={tab === value ? "admin-tab is-active" : "admin-tab"}
                 type="button"
                 key={value}
+                aria-current={tab === value ? "page" : undefined}
                 onClick={() => setTab(value)}
               >
                 <i
@@ -1229,121 +1231,79 @@ function AdminDashboard({ auth, username, onLogout }) {
                 {label}
               </button>
             ))}
-          </div>
+          </nav>
+          <div className="admin-sidebar-foot"><i className="bx bx-shield-quarter" /> Secure admin area</div>
         </aside>
         <section className="admin-content">
-          <p className="form-message" role="status">
-            {message}
-          </p>
+          <div className="admin-page-intro">
+            <span className="admin-overline">CONTENT MANAGEMENT</span>
+            <h2>{tab === "announcements" ? "Announcements" : tab === "sermons" ? "Sermons" : "Administrators"}</h2>
+            <p>Keep your community informed with timely, well-organized updates.</p>
+          </div>
+          {message && <p className="form-message admin-notice" role="status">{message}</p>}
           {tab === "announcements" && (
             <>
-              <h2>Create announcement</h2>
-              <form
-                className="admin-form"
-                onSubmit={(event) => submit(event, "/api/announcements")}
-              >
-                <input name="title" placeholder="Title" required />
-                <input name="date" type="date" />
-                <textarea
-                  name="content"
-                  rows="5"
-                  placeholder="Announcement details"
-                  required
-                />
-                <button className="btn" type="submit">
-                  Publish announcement
-                </button>
-              </form>
-              <div className="admin-list">
-                {announcements.map((item) => (
-                  <article key={item.id}>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <p>{item.content}</p>
-                    </div>
-                    <button
-                      className="icon-button"
-                      type="button"
-                      aria-label="Delete announcement"
-                      onClick={() => remove(`/api/announcements/${item.id}`)}
-                    >
-                      <i className="bx bx-trash" />
-                    </button>
-                  </article>
-                ))}
+              <div className="admin-panel">
+                <div className="admin-panel-heading"><span className="admin-panel-icon"><i className="bx bx-edit-alt" /></span><div><h3>New announcement</h3><p>Share an important update with your congregation.</p></div></div>
+                <form className="admin-form" onSubmit={(event) => submit(event, "/api/announcements")}>
+                  <label className="admin-field"><span>Title</span><input name="title" placeholder="e.g. Sunday service schedule" required /></label>
+                  <label className="admin-field"><span>Display date <small>Optional</small></span><input name="date" type="date" /></label>
+                  <label className="admin-field admin-field-wide"><span>Details</span><textarea name="content" rows="4" placeholder="Write the announcement for your community…" required /></label>
+                  <button className="btn" type="submit"><i className="bx bx-send" /> Publish announcement</button>
+                </form>
+              </div>
+              <div className="admin-list-section">
+                <div className="admin-list-heading"><div><h3>Published announcements</h3><p>Updates currently available on your site</p></div><span className="admin-count">{announcements.length}</span></div>
+                <div className="admin-list">
+                  {announcements.length ? announcements.map((item) => (
+                    <article key={item.id}>
+                      <div className="admin-item-icon"><i className="bx bx-megaphone" /></div>
+                      <div className="admin-item-copy"><strong>{item.title}</strong><p>{item.content}</p></div>
+                      <button className="icon-button" type="button" aria-label={`Delete announcement: ${item.title}`} onClick={() => remove(`/api/announcements/${item.id}`)}><i className="bx bx-trash" /></button>
+                    </article>
+                  )) : <p className="admin-empty-state"><i className="bx bx-inbox" /> No announcements yet. Your published updates will appear here.</p>}
+                </div>
               </div>
             </>
           )}
           {tab === "sermons" && (
             <>
-              <h2>Post sermon</h2>
-              <form
-                className="admin-form"
-                onSubmit={(event) => submit(event, "/api/sermons")}
-              >
-                <input name="title" placeholder="Sermon title" required />
-                <input
-                  name="youtubeId"
-                  placeholder="YouTube video ID"
-                  required
-                />
-                <input name="date" type="date" />
-                <button className="btn" type="submit">
-                  Publish sermon
-                </button>
-              </form>
-              <div className="admin-list">
-                {sermons.map((item) => (
-                  <article key={item.id}>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <p>{item.youtubeId}</p>
-                    </div>
-                    <button
-                      className="icon-button"
-                      type="button"
-                      aria-label="Delete sermon"
-                      onClick={() => remove(`/api/sermons/${item.id}`)}
-                    >
-                      <i className="bx bx-trash" />
-                    </button>
-                  </article>
-                ))}
+              <div className="admin-panel">
+                <div className="admin-panel-heading"><span className="admin-panel-icon"><i className="bx bx-video-plus" /></span><div><h3>Add a sermon</h3><p>Publish a recording so members can watch it anytime.</p></div></div>
+                <form className="admin-form" onSubmit={(event) => submit(event, "/api/sermons")}>
+                  <label className="admin-field"><span>Sermon title</span><input name="title" placeholder="Enter the sermon title" required /></label>
+                  <label className="admin-field"><span>YouTube video ID</span><input name="youtubeId" placeholder="e.g. dQw4w9WgXcQ" required /><small>Use the ID from the end of the YouTube video URL.</small></label>
+                  <label className="admin-field"><span>Service date <small>Optional</small></span><input name="date" type="date" /></label>
+                  <button className="btn" type="submit"><i className="bx bx-upload" /> Publish sermon</button>
+                </form>
+              </div>
+              <div className="admin-list-section">
+                <div className="admin-list-heading"><div><h3>Published sermons</h3><p>Recordings available to your community</p></div><span className="admin-count">{sermons.length}</span></div>
+                <div className="admin-list">
+                  {sermons.length ? sermons.map((item) => (
+                    <article key={item.id}><div className="admin-item-icon"><i className="bx bx-play-circle" /></div><div className="admin-item-copy"><strong>{item.title}</strong><p>YouTube ID: {item.youtubeId}</p></div><button className="icon-button" type="button" aria-label={`Delete sermon: ${item.title}`} onClick={() => remove(`/api/sermons/${item.id}`)}><i className="bx bx-trash" /></button></article>
+                  )) : <p className="admin-empty-state"><i className="bx bx-inbox" /> No sermons yet. Published recordings will appear here.</p>}
+                </div>
               </div>
             </>
           )}
           {tab === "admins" && (
             <>
-              <h2>Add another admin</h2>
-              <form
-                className="admin-form"
-                onSubmit={(event) => submit(event, "/api/admins")}
-              >
-                <input name="username" placeholder="Username" required />
-                <input
-                  name="password"
-                  type="password"
-                  placeholder="Temporary password"
-                  required
-                />
-                <button className="btn" type="submit">
-                  Add admin
-                </button>
-              </form>
-              <div className="admin-list">
-                {admins.map((item) => (
-                  <article key={item.id}>
-                    <strong>{item.username}</strong>
-                    <button
-                      className="icon-button"
-                      type="button"
-                      aria-label="Remove admin"
-                      onClick={() => remove(`/api/admins/${item.id}`)}
-                    >
-                      <i className="bx bx-trash" />
-                    </button>
-                  </article>
-                ))}
+              <div className="admin-panel">
+                <div className="admin-panel-heading"><span className="admin-panel-icon"><i className="bx bx-user-plus" /></span><div><h3>Add an administrator</h3><p>Give a trusted team member access to manage this site.</p></div></div>
+                <form className="admin-form" onSubmit={(event) => submit(event, "/api/admins")}>
+                  <label className="admin-field"><span>Username</span><input name="username" placeholder="Choose a username" autoComplete="off" required /></label>
+                  <label className="admin-field"><span>Temporary password</span><input name="password" type="password" placeholder="Create a temporary password" autoComplete="new-password" required /></label>
+                  <button className="btn" type="submit"><i className="bx bx-user-plus" /> Add administrator</button>
+                </form>
+              </div>
+              <div className="admin-list-section">
+                <div className="admin-list-heading"><div><h3>Current administrators</h3><p>People with access to this dashboard</p></div><span className="admin-count">{admins.length}</span></div>
+                <div className="admin-list">
+                  {admins.length ? admins.map((item) => (
+                    <article key={item.id}><div className="admin-item-icon"><i className="bx bx-user" /></div><div className="admin-item-copy"><strong>{item.username}</strong><p>Dashboard administrator</p></div><button className="icon-button" type="button" aria-label={`Remove admin: ${item.username}`} onClick={() => remove(`/api/admins/${item.id}`)}><i className="bx bx-trash" /></button></article>
+                  )) : <p className="admin-empty-state"><i className="bx bx-inbox" /> No additional administrators have been added.</p>}
+                </div>
               </div>
             </>
           )}
