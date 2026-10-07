@@ -2292,6 +2292,7 @@ footer .copy {
     color: #0f172a;
     display: grid;
     gap: 0.35rem;
+    z-index: 999;
   }
   .admin-page .admin-tab {
     min-height: 46px;
