@@ -2289,6 +2289,7 @@ footer .copy {
     line-height: 1.55;
   }
   .admin-tab-list {
+    color: var(--text-dark);
     display: grid;
     gap: 0.35rem;
   }
