@@ -1246,7 +1246,7 @@ function AdminDashboard({ auth, username, onLogout }) {
               <div className="admin-panel">
                 <div className="admin-panel-heading"><span className="admin-panel-icon"><i className="bx bx-edit-alt" /></span><div><h3>New announcement</h3><p>Share an important update with your congregation.</p></div></div>
                 <form className="admin-form" onSubmit={(event) => submit(event, "/api/announcements")}>
-                  <label className="admin-field"><span>Title</span><input name="title" placeholder="e.g. Sunday service schedule" required /></label>
+                  <label className="admin-field"><span>Title</span><input name="title" placeholder="e.g. Sabbath service schedule" required /></label>
                   <label className="admin-field"><span>Display date <small>Optional</small></span><input name="date" type="date" /></label>
                   <label className="admin-field admin-field-wide"><span>Details</span><textarea name="content" rows="4" placeholder="Write the announcement for your community…" required /></label>
                   <button className="btn" type="submit"><i className="bx bx-send" /> Publish announcement</button>
