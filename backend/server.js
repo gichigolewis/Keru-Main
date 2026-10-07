@@ -20,6 +20,7 @@ const ADMIN_PASS = process.env.ADMIN_PASS;
 
 app.use(express.json());
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
+app.get('/api/healthz', (_req, res) => res.status(200).json({ ok: true }));
 
 const appRoutes = [
   '/', '/index.html', '/about', '/about.html', '/ministries', '/ministries.html',

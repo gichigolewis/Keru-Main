@@ -59,8 +59,7 @@ After starting the server open `http://localhost:3000/admin.html`.
 
 ## Deploy on Vercel
 
-The repository includes a root `vercel.json` and exposes the backend through `api/index.js`.
-In the Vercel project settings, add these environment variables for Production, Preview, and Development as needed:
+The repository includes a root `vercel.json` and exposes the Express backend directly as Vercel Node.js Functions through `api/index.js` and `api/[...path].js`. API requests no longer proxy through Render. Set the following environment variables in Vercel Project Settings → Environment Variables for each environment you use:
 
 ```text
 MONGODB_URI=mongodb+srv://<db-user>:<encoded-password>@<cluster-host>/keru?retryWrites=true&w=majority
@@ -68,7 +67,11 @@ ADMIN_USER=<admin-username>
 ADMIN_PASS=<strong-admin-password>
 ```
 
-Configure Atlas Network Access so Vercel can reach the cluster, following Vercel's current outbound IP guidance for your plan and region. Deploy from the repository root. Vercel builds the frontend with `npm --prefix frontend run build`, serves the generated SPA, and routes `/api/*` requests to the Express backend. Do not use the development admin credentials in a deployed environment.
+Deploy from the repository root. Vercel builds the frontend with `npm --prefix frontend run build`, serves the generated SPA, and invokes the backend function for `/api/*`. Do not use the development admin credentials in a deployed environment. Vercel functions use dynamic outbound IPs by default, so a database that requires narrow IP allowlisting may require paid Vercel Static IPs or a different database/network plan.
+
+### Database recommendation
+
+For this serverless app, consider **Neon Postgres** (or Vercel Marketplace Postgres powered by Neon): it has a serverless-friendly connection option and does not require pinning a Vercel function egress IP for ordinary public TLS connections. PostgreSQL also fits the member, session, announcement, sermon, and community-post data well. This requires migrating the current Mongoose collections and queries; it is not a drop-in URI replacement. Until that migration is completed, MongoDB Atlas can remain the database once its URI and credentials are corrected.
 
 ## Host the API on Render
 
