@@ -4,9 +4,8 @@ services:
     runtime: node
     plan: free
     region: ohio
-    rootDir: backend
-    buildCommand: npm ci
-    startCommand: npm start
+    buildCommand: npm install --prefix backend
+    startCommand: npm --prefix backend start
     healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV

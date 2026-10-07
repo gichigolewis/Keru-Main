@@ -72,7 +72,7 @@ Configure Atlas Network Access so Vercel can reach the cluster, following Vercel
 
 ## Host the API on Render
 
-The root `render.yaml` defines a low-traffic Render web service for the API. To create it, push this repository to GitHub, sign in to Render, choose **New → Blueprint**, and connect the repository. Render will read `render.yaml` and prompt for `MONGODB_URI`, `ADMIN_USER`, and `ADMIN_PASS`; enter the same values used by the current deployment without committing them to the repository. The service is configured for the Ohio region and the free plan; free services can spin down when idle.
+The root `render.yaml` defines a low-traffic Render web service for the API. It installs and starts the backend from the repository root using an explicit `backend` prefix, so Render can find the backend lockfile in this monorepo. To create it, push this repository to GitHub, sign in to Render, choose **New → Blueprint**, and connect the repository. Render will read `render.yaml` and prompt for `MONGODB_URI`, `ADMIN_USER`, and `ADMIN_PASS`; enter the same values used by the current deployment without committing them to the repository. The service is configured for the Ohio region and the free plan; free services can spin down when idle.
 
 After the service is created, open its Render dashboard page and choose **Connect → Outbound**. Copy the displayed outbound IP ranges and add them as CIDR entries in Atlas **Security → Database & Network Access → IP Access List**. These default ranges are shared by Render services in the region; Render offers dedicated outbound IPs as a separately billed option.
 
