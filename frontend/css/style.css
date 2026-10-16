@@ -2055,9 +2055,8 @@ footer .copy {
   text-align: center;
 }
 .ann-sect h1 {
-  position: static;
-
-  margin-top: 2rem;
+  position: fixed;
+  top: 2rem;
 }
 .ann-list {
   margin: 0 auto;
