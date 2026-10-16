@@ -1129,7 +1129,7 @@ function AdminLogin({ onLogin }) {
   const submit = async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
-    const header = `Basic ${window.btoa(`${data.username}:${data.password}`)}`;
+    const header = `Basic ${window.btoa(unescape(encodeURIComponent(`${data.username}:${data.password}`)))}`;
     try {
       const response = await fetch("/api/admin-login", {
         method: "POST",
@@ -1198,11 +1198,14 @@ function AdminDashboard({ auth, username, onLogout }) {
   const load = async () => {
     const [announcementResponse, sermonResponse, adminResponse, postsResponse] =
       await Promise.all([
-        fetch("/api/announcements"),
-        fetch("/api/sermons"),
-        fetch("/api/admins", { headers: { Authorization: auth } }),
-        fetch("/api/community/posts"),
+        fetch("/api/announcements", { cache: "no-store" }),
+        fetch("/api/sermons", { cache: "no-store" }),
+        fetch("/api/admins", { headers: { Authorization: auth }, cache: "no-store" }),
+        fetch("/api/community/posts", { cache: "no-store" }),
       ]);
+    if (adminResponse.status === 401) {
+      setMessage("Admin session expired or invalid credentials. Please sign out and sign in again.");
+    }
     setAnnouncements(
       announcementResponse.ok ? await announcementResponse.json() : [],
     );
@@ -1242,9 +1245,23 @@ function AdminDashboard({ auth, username, onLogout }) {
         method: "DELETE",
         headers: { Authorization: auth },
       });
+      if (response.status === 401) {
+        throw new Error("Admin session expired or invalid credentials. Please sign out and sign in again.");
+      }
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || `Failed to delete ${label} (HTTP ${response.status})`);
+      }
+      // Optimistically remove from state immediately so UI updates instantly
+      const id = endpoint.split("/").pop();
+      if (endpoint.includes("/announcements/")) {
+        setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+      } else if (endpoint.includes("/community/posts/")) {
+        setPosts((prev) => prev.filter((p) => p.id !== id));
+      } else if (endpoint.includes("/sermons/")) {
+        setSermons((prev) => prev.filter((s) => s.id !== id));
+      } else if (endpoint.includes("/admins/")) {
+        setAdmins((prev) => prev.filter((a) => a.id !== id));
       }
       setMessage(`Deleted ${label} successfully.`);
       await load();
