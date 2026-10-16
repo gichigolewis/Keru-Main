@@ -2056,7 +2056,8 @@ footer .copy {
 }
 .ann-sect h1 {
   position: static;
-  margin-bottom: 2rem;
+
+  margin-top: 2rem;
 }
 .ann-list {
   margin: 0 auto;
@@ -2129,13 +2130,6 @@ footer .copy {
     background: var(--bg-light);
     box-shadow: 0 -4px 18px rgba(15, 23, 42, 0.12);
   }
-
-  .nav-links li:hover {
-    background: var(--primary-color);
-    color: var(--bg-light);
-    border-radius: 10px;
-  }
-
   .nav-links li {
     min-width: 0;
   }
@@ -2178,7 +2172,7 @@ footer .copy {
   .menu:hover,
   .menu:focus-visible {
     background: var(--primary-color);
-    color: var(--bg-light);
+    color: white;
   }
   .mobile-side-panel {
     position: fixed;
