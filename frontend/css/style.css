@@ -2129,6 +2129,13 @@ footer .copy {
     background: var(--bg-light);
     box-shadow: 0 -4px 18px rgba(15, 23, 42, 0.12);
   }
+
+  .nav-links:hover {
+    background: var(--primary-color);
+    color: var(--bg-light);
+    border-radius: 10px;
+  }
+
   .nav-links li {
     min-width: 0;
   }
@@ -2171,7 +2178,7 @@ footer .copy {
   .menu:hover,
   .menu:focus-visible {
     background: var(--primary-color);
-    color: white;
+    color: var(--bg-light);
   }
   .mobile-side-panel {
     position: fixed;
