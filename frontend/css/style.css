@@ -2047,18 +2047,16 @@ footer .copy {
   flex: 0 1 clamp(280px, 32%, 340px);
 }
 .ann-sect {
-  position: absolute;
   height: auto;
   min-height: 100vh;
   padding: 5rem 1rem 6rem;
   align-items: center;
   justify-content: center;
   text-align: center;
-  top: 0;
 }
 .ann-sect h1 {
   position: static;
-  margin-top: 2rem;
+  margin-bottom: 2rem;
 }
 .ann-list {
   margin: 0 auto;
