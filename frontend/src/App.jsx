@@ -815,6 +815,25 @@ function Community() {
     }
   };
 
+  const deletePost = async (post) => {
+    if (!window.confirm("Are you sure you want to delete your story?")) return;
+    setCommunityMessage("");
+    try {
+      const response = await fetch(`/api/community/posts/${post.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Could not delete your story.");
+      }
+      setPosts((current) => current.filter((p) => p.id !== post.id));
+      setCommunityMessage("Your story has been deleted.");
+    } catch (error) {
+      setCommunityMessage(error.message || "Could not delete your story.");
+    }
+  };
+
   const publish = async (event) => {
     event.preventDefault();
     if (!session?.token) {
@@ -995,6 +1014,27 @@ function Community() {
                         <i className="bx bx-message-rounded" />{" "}
                         {post.comments.length}
                       </button>
+                      {user && (post.memberId === user.id || post.author === user.name) && (
+                        <button
+                          className="icon-button post-delete-button"
+                          type="button"
+                          aria-label="Delete your story"
+                          title="Delete your story"
+                          onClick={() => deletePost(post)}
+                          style={{
+                            marginLeft: "auto",
+                            width: "32px",
+                            height: "32px",
+                            border: "1px solid rgba(189, 76, 73, 0.2)",
+                            borderRadius: "7px",
+                            color: "#bd4c49",
+                            background: "transparent",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <i className="bx bx-trash" />
+                        </button>
+                      )}
                     </div>
                     <div className="comments">
                       {post.comments.map((comment, index) => (
@@ -1148,26 +1188,33 @@ function AdminLogin({ onLogin }) {
 function AdminDashboard({ auth, username, onLogout }) {
   const [tab, setTab] = useState("announcements");
   const [announcements, setAnnouncements] = useState([]);
+  const [posts, setPosts] = useState([]);
   const [sermons, setSermons] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [message, setMessage] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
   const headers = { "Content-Type": "application/json", Authorization: auth };
+
   const load = async () => {
-    const [announcementResponse, sermonResponse, adminResponse] =
+    const [announcementResponse, sermonResponse, adminResponse, postsResponse] =
       await Promise.all([
         fetch("/api/announcements"),
         fetch("/api/sermons"),
         fetch("/api/admins", { headers: { Authorization: auth } }),
+        fetch("/api/community/posts"),
       ]);
     setAnnouncements(
       announcementResponse.ok ? await announcementResponse.json() : [],
     );
     setSermons(sermonResponse.ok ? await sermonResponse.json() : []);
     setAdmins(adminResponse.ok ? await adminResponse.json() : []);
+    setPosts(postsResponse.ok ? await postsResponse.json() : []);
   };
+
   useEffect(() => {
     load().catch(() => setMessage("Could not load dashboard data."));
   }, []);
+
   const submit = async (event, endpoint, method = "POST") => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -1185,14 +1232,29 @@ function AdminDashboard({ auth, username, onLogout }) {
     setMessage("Saved successfully.");
     await load();
   };
-  const remove = async (endpoint) => {
-    if (!window.confirm("Delete this item?")) return;
-    await fetch(endpoint, {
-      method: "DELETE",
-      headers: { Authorization: auth },
-    });
-    await load();
+
+  const remove = async (endpoint, label = "item") => {
+    if (!window.confirm(`Are you sure you want to delete this ${label}?`)) return;
+    setDeletingId(endpoint);
+    setMessage("");
+    try {
+      const response = await fetch(endpoint, {
+        method: "DELETE",
+        headers: { Authorization: auth },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to delete ${label} (HTTP ${response.status})`);
+      }
+      setMessage(`Deleted ${label} successfully.`);
+      await load();
+    } catch (error) {
+      setMessage(error.message || `Could not delete ${label}.`);
+    } finally {
+      setDeletingId(null);
+    }
   };
+
   return (
     <main className="admin-page">
       <header className="admin-header">
@@ -1215,6 +1277,7 @@ function AdminDashboard({ auth, username, onLogout }) {
           <nav className="admin-tab-list" aria-label="Dashboard sections">
             {[
               ["announcements", "Announcements"],
+              ["posts", "Community Posts"],
               ["sermons", "Sermons"],
               ["admins", "Admins"],
             ].map(([value, label]) => (
@@ -1226,7 +1289,15 @@ function AdminDashboard({ auth, username, onLogout }) {
                 onClick={() => setTab(value)}
               >
                 <i
-                  className={`bx ${value === "announcements" ? "bx-megaphone" : value === "sermons" ? "bx-video" : "bx-user-plus"}`}
+                  className={`bx ${
+                    value === "announcements"
+                      ? "bx-megaphone"
+                      : value === "posts"
+                        ? "bx-conversation"
+                        : value === "sermons"
+                          ? "bx-video"
+                          : "bx-user-plus"
+                  }`}
                 />
                 {label}
               </button>
@@ -1237,8 +1308,20 @@ function AdminDashboard({ auth, username, onLogout }) {
         <section className="admin-content">
           <div className="admin-page-intro">
             <span className="admin-overline">CONTENT MANAGEMENT</span>
-            <h2>{tab === "announcements" ? "Announcements" : tab === "sermons" ? "Sermons" : "Administrators"}</h2>
-            <p>Keep your community informed with timely, well-organized updates.</p>
+            <h2>
+              {tab === "announcements"
+                ? "Announcements"
+                : tab === "posts"
+                  ? "Community Posts"
+                  : tab === "sermons"
+                    ? "Sermons"
+                    : "Administrators"}
+            </h2>
+            <p>
+              {tab === "posts"
+                ? "Review and moderate user-submitted stories and reflections."
+                : "Keep your community informed with timely, well-organized updates."}
+            </p>
           </div>
           {message && <p className="form-message admin-notice" role="status">{message}</p>}
           {tab === "announcements" && (
@@ -1259,12 +1342,71 @@ function AdminDashboard({ auth, username, onLogout }) {
                     <article key={item.id}>
                       <div className="admin-item-icon"><i className="bx bx-megaphone" /></div>
                       <div className="admin-item-copy"><strong>{item.title}</strong><p>{item.content}</p></div>
-                      <button className="icon-button" type="button" aria-label={`Delete announcement: ${item.title}`} onClick={() => remove(`/api/announcements/${item.id}`)}><i className="bx bx-trash" /></button>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        aria-label={`Delete announcement: ${item.title}`}
+                        disabled={deletingId === `/api/announcements/${item.id}`}
+                        onClick={() => remove(`/api/announcements/${item.id}`, "announcement")}
+                      >
+                        <i className={`bx ${deletingId === `/api/announcements/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
+                      </button>
                     </article>
                   )) : <p className="admin-empty-state"><i className="bx bx-inbox" /> No announcements yet. Your published updates will appear here.</p>}
                 </div>
               </div>
             </>
+          )}
+          {tab === "posts" && (
+            <div className="admin-list-section" style={{ marginTop: 0 }}>
+              <div className="admin-list-heading">
+                <div>
+                  <h3>Published community stories</h3>
+                  <p>Articles and reflections submitted by members</p>
+                </div>
+                <span className="admin-count">{posts.length}</span>
+              </div>
+              <div className="admin-list">
+                {posts.length ? (
+                  posts.map((item) => (
+                    <article key={item.id}>
+                      <div className="admin-item-icon">
+                        <i className="bx bx-conversation" />
+                      </div>
+                      <div className="admin-item-copy">
+                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.25rem", flexWrap: "wrap" }}>
+                          <span className="post-category" style={{ fontSize: "0.75rem", padding: "0.15rem 0.5rem" }}>
+                            {item.category}
+                          </span>
+                          <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                            by <strong>{item.author}</strong> • {item.date}
+                          </span>
+                        </div>
+                        <strong>{item.title}</strong>
+                        <p>{item.content}</p>
+                        <div style={{ marginTop: "0.35rem", fontSize: "0.8rem", color: "#94a3b8", display: "flex", gap: "1rem" }}>
+                          <span><i className="bx bx-heart" /> {item.likes} {item.likes === 1 ? "like" : "likes"}</span>
+                          <span><i className="bx bx-message-rounded" /> {item.comments?.length || 0} comments</span>
+                        </div>
+                      </div>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        aria-label={`Delete story: ${item.title}`}
+                        disabled={deletingId === `/api/community/posts/${item.id}`}
+                        onClick={() => remove(`/api/community/posts/${item.id}`, "story")}
+                      >
+                        <i className={`bx ${deletingId === `/api/community/posts/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
+                      </button>
+                    </article>
+                  ))
+                ) : (
+                  <p className="admin-empty-state">
+                    <i className="bx bx-inbox" /> No community stories submitted yet.
+                  </p>
+                )}
+              </div>
+            </div>
           )}
           {tab === "sermons" && (
             <>
@@ -1281,7 +1423,19 @@ function AdminDashboard({ auth, username, onLogout }) {
                 <div className="admin-list-heading"><div><h3>Published sermons</h3><p>Recordings available to your community</p></div><span className="admin-count">{sermons.length}</span></div>
                 <div className="admin-list">
                   {sermons.length ? sermons.map((item) => (
-                    <article key={item.id}><div className="admin-item-icon"><i className="bx bx-play-circle" /></div><div className="admin-item-copy"><strong>{item.title}</strong><p>YouTube ID: {item.youtubeId}</p></div><button className="icon-button" type="button" aria-label={`Delete sermon: ${item.title}`} onClick={() => remove(`/api/sermons/${item.id}`)}><i className="bx bx-trash" /></button></article>
+                    <article key={item.id}>
+                      <div className="admin-item-icon"><i className="bx bx-play-circle" /></div>
+                      <div className="admin-item-copy"><strong>{item.title}</strong><p>YouTube ID: {item.youtubeId}</p></div>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        aria-label={`Delete sermon: ${item.title}`}
+                        disabled={deletingId === `/api/sermons/${item.id}`}
+                        onClick={() => remove(`/api/sermons/${item.id}`, "sermon")}
+                      >
+                        <i className={`bx ${deletingId === `/api/sermons/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
+                      </button>
+                    </article>
                   )) : <p className="admin-empty-state"><i className="bx bx-inbox" /> No sermons yet. Published recordings will appear here.</p>}
                 </div>
               </div>
@@ -1301,7 +1455,19 @@ function AdminDashboard({ auth, username, onLogout }) {
                 <div className="admin-list-heading"><div><h3>Current administrators</h3><p>People with access to this dashboard</p></div><span className="admin-count">{admins.length}</span></div>
                 <div className="admin-list">
                   {admins.length ? admins.map((item) => (
-                    <article key={item.id}><div className="admin-item-icon"><i className="bx bx-user" /></div><div className="admin-item-copy"><strong>{item.username}</strong><p>Dashboard administrator</p></div><button className="icon-button" type="button" aria-label={`Remove admin: ${item.username}`} onClick={() => remove(`/api/admins/${item.id}`)}><i className="bx bx-trash" /></button></article>
+                    <article key={item.id}>
+                      <div className="admin-item-icon"><i className="bx bx-user" /></div>
+                      <div className="admin-item-copy"><strong>{item.username}</strong><p>Dashboard administrator</p></div>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        aria-label={`Remove admin: ${item.username}`}
+                        disabled={deletingId === `/api/admins/${item.id}`}
+                        onClick={() => remove(`/api/admins/${item.id}`, "administrator")}
+                      >
+                        <i className={`bx ${deletingId === `/api/admins/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
+                      </button>
+                    </article>
                   )) : <p className="admin-empty-state"><i className="bx bx-inbox" /> No additional administrators have been added.</p>}
                 </div>
               </div>

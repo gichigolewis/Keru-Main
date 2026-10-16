@@ -2,6 +2,12 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+if (!process.env.DATABASE_URL) {
+  require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
+}
+if (!process.env.DATABASE_URL) {
+  require('dotenv').config({ path: path.join(__dirname, '../.env') });
+}
 const { createHash, randomBytes, randomUUID, scrypt: scryptCallback, timingSafeEqual } = require('crypto');
 const { promisify } = require('util');
 const { getSql, ensureDatabase } = require('./db');
@@ -16,8 +22,18 @@ const APP_ENTRY = fs.existsSync(path.join(BUILD_PATH, 'index.html'))
 const PORT = process.env.PORT || 3000;
 const ADMIN_USER = process.env.ADMIN_USER?.trim();
 const ADMIN_PASS = process.env.ADMIN_PASS;
-const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '');
+const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value || '');
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
 
 app.use(express.json());
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
@@ -132,7 +148,7 @@ app.delete('/api/members/session', requireMember, asyncRoute(async (req, res) =>
 
 async function fetchCommunityPost(id, viewerId = null) {
   const query = getSql();
-  const rows = await query`SELECT p.id, p.title, p.content, p.category, p.author, p.created_at,
+  const rows = await query`SELECT p.id, p.member_id, p.title, p.content, p.category, p.author, p.created_at,
       (SELECT COUNT(*)::int FROM community_likes l WHERE l.post_id = p.id) AS likes,
       EXISTS (SELECT 1 FROM community_likes l WHERE l.post_id = p.id AND l.member_id = ${viewerId}) AS liked_by_me,
       COALESCE((SELECT json_agg(json_build_object('author', c.author, 'content', c.content) ORDER BY c.created_at)
@@ -145,6 +161,7 @@ function formatCommunityPost(post) {
   const createdAt = new Date(post.created_at || Date.now());
   return {
     id: post.id,
+    memberId: post.member_id,
     title: post.title,
     content: post.content,
     category: post.category,
@@ -159,7 +176,7 @@ function formatCommunityPost(post) {
 app.get('/api/community/posts', optionalMember, asyncRoute(async (req, res) => {
   const query = getSql();
   const viewerId = req.member?.id || null;
-  const posts = await query`SELECT p.id, p.title, p.content, p.category, p.author, p.created_at,
+  const posts = await query`SELECT p.id, p.member_id, p.title, p.content, p.category, p.author, p.created_at,
       (SELECT COUNT(*)::int FROM community_likes l WHERE l.post_id = p.id) AS likes,
       EXISTS (SELECT 1 FROM community_likes l WHERE l.post_id = p.id AND l.member_id = ${viewerId}) AS liked_by_me,
       COALESCE((SELECT json_agg(json_build_object('author', c.author, 'content', c.content) ORDER BY c.created_at)
@@ -209,6 +226,45 @@ app.post('/api/community/posts/:id/comments', requireMember, asyncRoute(async (r
     VALUES (${req.params.id}, ${req.member.id}, ${req.member.name}, ${content})`;
   const updatedPost = await fetchCommunityPost(req.params.id, req.member.id);
   res.status(201).json({ post: formatCommunityPost(updatedPost) });
+}));
+
+app.delete('/api/community/posts/:id', asyncRoute(async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Story not found.' });
+
+  let isAdmin = false;
+  const authHeader = req.headers.authorization || '';
+  if (authHeader.startsWith('Basic ')) {
+    const creds = Buffer.from(authHeader.split(' ')[1], 'base64').toString();
+    const separator = creds.indexOf(':');
+    const username = separator < 0 ? '' : creds.slice(0, separator);
+    const password = separator < 0 ? '' : creds.slice(separator + 1);
+    if (await findAdmin(username, password)) {
+      isAdmin = true;
+    }
+  }
+
+  let member = null;
+  if (!isAdmin) {
+    member = await resolveMember(req);
+  }
+
+  if (!isAdmin && !member) {
+    return res.status(401).json({ error: 'Sign in to delete this story.' });
+  }
+
+  const query = getSql();
+  let rows;
+  if (isAdmin) {
+    rows = await query`DELETE FROM community_posts WHERE id = ${req.params.id} RETURNING id`;
+  } else {
+    rows = await query`DELETE FROM community_posts WHERE id = ${req.params.id} AND member_id = ${member.id} RETURNING id`;
+  }
+
+  if (!rows.length) {
+    return res.status(404).json({ error: 'Story not found or you are not authorized to delete it.' });
+  }
+
+  res.status(204).end();
 }));
 
 app.get('/api/announcements', asyncRoute(async (_req, res) => {
