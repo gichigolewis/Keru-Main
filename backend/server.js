@@ -345,6 +345,32 @@ app.delete('/api/admins/:id', checkAuth, asyncRoute(async (req, res) => {
   res.status(204).end();
 }));
 
+app.get('/api/admin/users', checkAuth, asyncRoute(async (_req, res) => {
+  const query = getSql();
+  const sessions = await query`
+    SELECT 
+      s.id AS "sessionId",
+      m.id AS "memberId",
+      m.name,
+      m.email,
+      s.created_at AS "loggedInAt",
+      s.expires_at AS "expiresAt"
+    FROM member_sessions s
+    JOIN members m ON m.id = s.member_id
+    WHERE s.expires_at > NOW()
+    ORDER BY s.created_at DESC
+  `;
+  res.json(sessions);
+}));
+
+app.delete('/api/admin/users/:sessionId', checkAuth, asyncRoute(async (req, res) => {
+  if (!isUuid(req.params.sessionId)) return res.status(404).json({ error: 'not found' });
+  const query = getSql();
+  const rows = await query`DELETE FROM member_sessions WHERE id = ${req.params.sessionId} RETURNING id`;
+  if (!rows.length) return res.status(404).json({ error: 'not found' });
+  res.status(204).end();
+}));
+
 app.post('/api/announcements', checkAuth, asyncRoute(async (req, res) => {
   const { title, content, date } = req.body || {};
   if (!title || !content) return res.status(400).json({ error: 'title and content required' });

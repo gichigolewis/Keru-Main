@@ -111,6 +111,7 @@ function useCountdown() {
 
 function PublicHeader() {
   const countdown = useCountdown();
+  const route = useRoute();
   const [menuOpen, setMenuOpen] = useState(false);
   const links = [
     ["/", "bx-home-alt-2", "Home"],
@@ -119,6 +120,14 @@ function PublicHeader() {
     ["/sermons.html", "bx-tv", "Sermons"],
     ["/blogs.html", "bx-conversation", "Community"],
   ];
+
+  const isLinkActive = (href) => {
+    const clean = href.replace(/\.html$/, "");
+    if (clean === "/") return route === "/";
+    if (clean === "/blogs") return route === "/blogs" || route === "/community";
+    return route === clean;
+  };
+
   return (
     <>
       <div className="top-bar">
@@ -145,14 +154,21 @@ function PublicHeader() {
           <i className={`bx ${menuOpen ? "bx-x" : "bx-menu-alt-right"}`} />
         </button>
         <ul className="nav-links">
-          {links.map(([href, icon, label]) => (
-            <li key={href}>
-              <Link href={href}>
-                <i className={`bx ${icon}`} />
-                <span>{label}</span>
-              </Link>
-            </li>
-          ))}
+          {links.map(([href, icon, label]) => {
+            const active = isLinkActive(href);
+            return (
+              <li key={href}>
+                <Link
+                  href={href}
+                  className={active ? "active is-active" : ""}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <i className={`bx ${icon}`} />
+                  <span>{label}</span>
+                </Link>
+              </li>
+            );
+          })}
           <li>
             <a href="#">
               <i className="bx bx-donate-heart" />
@@ -1285,17 +1301,19 @@ function AdminDashboard({ auth, username, onLogout }) {
   const [posts, setPosts] = useState([]);
   const [sermons, setSermons] = useState([]);
   const [admins, setAdmins] = useState([]);
+  const [users, setUsers] = useState([]);
   const [message, setMessage] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const headers = { "Content-Type": "application/json", Authorization: auth };
 
   const load = async () => {
-    const [announcementResponse, sermonResponse, adminResponse, postsResponse] =
+    const [announcementResponse, sermonResponse, adminResponse, postsResponse, usersResponse] =
       await Promise.all([
         fetch("/api/announcements", { cache: "no-store" }),
         fetch("/api/sermons", { cache: "no-store" }),
         fetch("/api/admins", { headers: { Authorization: auth }, cache: "no-store" }),
         fetch("/api/community/posts", { cache: "no-store" }),
+        fetch("/api/admin/users", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
       ]);
     if (adminResponse.status === 401) {
       setMessage("Admin session expired or invalid credentials. Please sign out and sign in again.");
@@ -1306,6 +1324,7 @@ function AdminDashboard({ auth, username, onLogout }) {
     setSermons(sermonResponse.ok ? await sermonResponse.json() : []);
     setAdmins(adminResponse.ok ? await adminResponse.json() : []);
     setPosts(postsResponse.ok ? await postsResponse.json() : []);
+    setUsers(usersResponse.ok ? await usersResponse.json() : []);
   };
 
   useEffect(() => {
@@ -1354,6 +1373,8 @@ function AdminDashboard({ auth, username, onLogout }) {
         setPosts((prev) => prev.filter((p) => p.id !== id));
       } else if (endpoint.includes("/sermons/")) {
         setSermons((prev) => prev.filter((s) => s.id !== id));
+      } else if (endpoint.includes("/admin/users/")) {
+        setUsers((prev) => prev.filter((u) => u.sessionId !== id));
       } else if (endpoint.includes("/admins/")) {
         setAdmins((prev) => prev.filter((a) => a.id !== id));
       }
@@ -1393,6 +1414,7 @@ function AdminDashboard({ auth, username, onLogout }) {
               ["announcements", "Announcements", announcements.length],
               ["posts", "Community Posts", posts.length],
               ["sermons", "Sermons", sermons.length],
+              ["users", "Logged in Users", users.length],
               ["admins", "Admins", admins.length],
             ].map(([value, label, count]) => (
               <button
@@ -1410,7 +1432,9 @@ function AdminDashboard({ auth, username, onLogout }) {
                         ? "bx-conversation"
                         : value === "sermons"
                           ? "bx-video"
-                          : "bx-user-plus"
+                          : value === "users"
+                            ? "bx-user-check"
+                            : "bx-user-plus"
                   }`}
                 />
                 <span className="admin-tab-text">{label}</span>
@@ -1433,12 +1457,16 @@ function AdminDashboard({ auth, username, onLogout }) {
                   ? "Community Posts"
                   : tab === "sermons"
                     ? "Sermons"
-                    : "Administrators"}
+                    : tab === "users"
+                      ? "Logged in Users"
+                      : "Administrators"}
             </h2>
             <p>
               {tab === "posts"
                 ? "Review and moderate user-submitted stories and reflections."
-                : "Keep your community informed with timely, well-organized updates."}
+                : tab === "users"
+                  ? "View and manage active member sessions across your church website."
+                  : "Keep your community informed with timely, well-organized updates."}
             </p>
           </div>
           {message && <p className="form-message admin-notice" role="status">{message}</p>}
@@ -1558,6 +1586,57 @@ function AdminDashboard({ auth, username, onLogout }) {
                 </div>
               </div>
             </>
+          )}
+          {tab === "users" && (
+            <div className="admin-list-section" style={{ marginTop: 0 }}>
+              <div className="admin-list-heading">
+                <div>
+                  <h3>Logged in members</h3>
+                  <p>Members who currently have an active signed-in session</p>
+                </div>
+                <span className="admin-count">{users.length}</span>
+              </div>
+              <div className="admin-list">
+                {users.length ? (
+                  users.map((session) => (
+                    <article key={session.sessionId}>
+                      <div className="admin-item-icon" style={{ background: "#ecfdf5", color: "#059669" }}>
+                        <i className="bx bx-user-check" />
+                      </div>
+                      <div className="admin-item-copy">
+                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.25rem", flexWrap: "wrap" }}>
+                          <strong>{session.name}</strong>
+                          <span className="online-badge">
+                            <span className="online-dot" /> Online
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, color: "#475569", fontSize: "0.85rem" }}>
+                          <i className="bx bx-envelope" /> {session.email}
+                        </p>
+                        <div style={{ marginTop: "0.35rem", fontSize: "0.8rem", color: "#94a3b8", display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
+                          <span><i className="bx bx-time-five" /> Signed in: {new Date(session.loggedInAt).toLocaleString()}</span>
+                          <span><i className="bx bx-calendar-check" /> Session expires: {new Date(session.expiresAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        aria-label={`Log out session for ${session.name}`}
+                        title="Disconnect this active session"
+                        disabled={deletingId === `/api/admin/users/${session.sessionId}`}
+                        onClick={() => remove(`/api/admin/users/${session.sessionId}`, "user session")}
+                      >
+                        <i className={`bx ${deletingId === `/api/admin/users/${session.sessionId}` ? "bx-loader-alt bx-spin" : "bx-log-out-circle"}`} />
+                      </button>
+                    </article>
+                  ))
+                ) : (
+                  <p className="admin-empty-state">
+                    <i className="bx bx-user-x" /> No users are currently logged in.
+                  </p>
+                )}
+              </div>
+            </div>
           )}
           {tab === "admins" && (
             <>
