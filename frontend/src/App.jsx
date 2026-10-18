@@ -599,8 +599,59 @@ function Account({ register = false }) {
   );
 }
 
+function FormattedContent({ text, className }) {
+  if (!text) return null;
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+  const parts = String(text).split(urlRegex);
+  return (
+    <p className={className} style={{ whiteSpace: "pre-wrap", overflowWrap: "break-word", wordBreak: "break-word" }}>
+      {parts.map((part, i) => {
+        if (part && part.match(urlRegex)) {
+          const href = part.startsWith("http://") || part.startsWith("https://") ? part : `https://${part}`;
+          return (
+            <a
+              key={i}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="content-link"
+            >
+              {part}
+            </a>
+          );
+        }
+        return part;
+      })}
+    </p>
+  );
+}
+
 function Announcements() {
   const [items, setItems] = useState([]);
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleShare = async (item) => {
+    const url = `${window.location.origin}/announcements.html`;
+    const title = item.title || "Church Announcement";
+    const text = item.content ? (item.content.length > 200 ? `${item.content.slice(0, 197)}...` : item.content) : title;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        return;
+      } catch (err) {
+        if (err.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${title}\n\n${item.content || ""}\n\nRead more: ${url}`);
+      setCopiedId(item.id || item.title);
+      setTimeout(() => setCopiedId(null), 2500);
+    } catch {
+      window.prompt("Copy link to share:", url);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
@@ -635,7 +686,18 @@ function Announcements() {
               <article className="announcement" key={item.id || item.title}>
                 <h3>{item.title}</h3>
                 {item.date && <time>{item.date}</time>}
-                <p>{item.content}</p>
+                <FormattedContent text={item.content} />
+                <div className="announcement-footer">
+                  <button
+                    type="button"
+                    className="share-btn"
+                    aria-label={`Share ${item.title}`}
+                    onClick={() => handleShare(item)}
+                  >
+                    <i className={`bx ${copiedId === (item.id || item.title) ? "bx-check text-success" : "bx-share-alt"}`} />
+                    <span>{copiedId === (item.id || item.title) ? "Link Copied!" : "Share"}</span>
+                  </button>
+                </div>
               </article>
             ))
           ) : (
@@ -714,6 +776,29 @@ function Community() {
   const [communityMessage, setCommunityMessage] = useState("");
   const [feedLoading, setFeedLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleShare = async (post) => {
+    const url = `${window.location.origin}/blogs.html`;
+    const title = post.title || "Community Story";
+    const text = post.content ? (post.content.length > 200 ? `${post.content.slice(0, 197)}...` : post.content) : title;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        return;
+      } catch (err) {
+        if (err.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${title} - by ${post.author}\n\n${post.content || ""}\n\nRead more: ${url}`);
+      setCopiedId(post.id);
+      setTimeout(() => setCopiedId(null), 2500);
+    } catch {
+      window.prompt("Copy link to share:", url);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -986,7 +1071,7 @@ function Community() {
                       </time>
                     </div>
                     <h2>{post.title}</h2>
-                    <p>{post.content}</p>
+                    <FormattedContent text={post.content} />
                     <div className="post-footer">
                       <span className="post-author">
                         <i className="bx bx-user-circle" /> {post.author}
@@ -1013,6 +1098,15 @@ function Community() {
                       >
                         <i className="bx bx-message-rounded" />{" "}
                         {post.comments.length}
+                      </button>
+                      <button
+                        className="share-btn"
+                        type="button"
+                        aria-label={`Share ${post.title}`}
+                        onClick={() => handleShare(post)}
+                      >
+                        <i className={`bx ${copiedId === post.id ? "bx-check text-success" : "bx-share-alt"}`} />
+                        <span>{copiedId === post.id ? "Link Copied!" : "Share"}</span>
                       </button>
                       {user && (post.memberId === user.id || post.author === user.name) && (
                         <button
@@ -1280,6 +1374,9 @@ function AdminDashboard({ auth, username, onLogout }) {
           <span>Kerugoya Main SDA</span>
         </Link>
         <div>
+          <Link className="text-button" href="/" title="Return to public site">
+            <i className="bx bx-globe" /> View Site
+          </Link>
           <span className="admin-welcome"><i className="bx bx-user-circle" /> Hi, {username}</span>
           <button className="text-button" type="button" onClick={onLogout}>
             <i className="bx bx-log-out" /> Sign out
@@ -1293,11 +1390,11 @@ function AdminDashboard({ auth, username, onLogout }) {
           <p className="admin-sidebar-copy">Manage your church website content.</p>
           <nav className="admin-tab-list" aria-label="Dashboard sections">
             {[
-              ["announcements", "Announcements"],
-              ["posts", "Community Posts"],
-              ["sermons", "Sermons"],
-              ["admins", "Admins"],
-            ].map(([value, label]) => (
+              ["announcements", "Announcements", announcements.length],
+              ["posts", "Community Posts", posts.length],
+              ["sermons", "Sermons", sermons.length],
+              ["admins", "Admins", admins.length],
+            ].map(([value, label, count]) => (
               <button
                 className={tab === value ? "admin-tab is-active" : "admin-tab"}
                 type="button"
@@ -1316,10 +1413,14 @@ function AdminDashboard({ auth, username, onLogout }) {
                           : "bx-user-plus"
                   }`}
                 />
-                {label}
+                <span className="admin-tab-text">{label}</span>
+                {count > 0 && <span className="admin-tab-badge">{count}</span>}
               </button>
             ))}
           </nav>
+          <Link className="admin-sidebar-back-link" href="/" title="Return to church homepage">
+            <i className="bx bx-arrow-back" /> Back to Website
+          </Link>
           <div className="admin-sidebar-foot"><i className="bx bx-shield-quarter" /> Secure admin area</div>
         </aside>
         <section className="admin-content">
@@ -1358,7 +1459,7 @@ function AdminDashboard({ auth, username, onLogout }) {
                   {announcements.length ? announcements.map((item) => (
                     <article key={item.id}>
                       <div className="admin-item-icon"><i className="bx bx-megaphone" /></div>
-                      <div className="admin-item-copy"><strong>{item.title}</strong><p>{item.content}</p></div>
+                      <div className="admin-item-copy"><strong>{item.title}</strong><FormattedContent text={item.content} /></div>
                       <button
                         className="icon-button"
                         type="button"
@@ -1400,7 +1501,7 @@ function AdminDashboard({ auth, username, onLogout }) {
                           </span>
                         </div>
                         <strong>{item.title}</strong>
-                        <p>{item.content}</p>
+                        <FormattedContent text={item.content} />
                         <div style={{ marginTop: "0.35rem", fontSize: "0.8rem", color: "#94a3b8", display: "flex", gap: "1rem" }}>
                           <span><i className="bx bx-heart" /> {item.likes} {item.likes === 1 ? "like" : "likes"}</span>
                           <span><i className="bx bx-message-rounded" /> {item.comments?.length || 0} comments</span>
