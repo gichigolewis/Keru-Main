@@ -2578,7 +2578,7 @@ footer .copy {
     font-size: 0.8rem;
   }
   .admin-layout {
-    min-height: calc(100vh - 66px);
+    min-height: 3rem;
     grid-template-columns: 1fr;
   }
   .admin-sidebar {
