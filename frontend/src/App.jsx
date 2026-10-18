@@ -169,12 +169,6 @@ function PublicHeader() {
               </li>
             );
           })}
-          <li>
-            <a href="#">
-              <i className="bx bx-donate-heart" />
-              <span>Giving</span>
-            </a>
-          </li>
         </ul>
         <div className="announcements">
           <Link href="/announcements.html">
@@ -262,9 +256,6 @@ function Footer() {
           </li>
           <li>
             <Link href="/blogs.html">Blogs & Community</Link>
-          </li>
-          <li>
-            <a href="#">Giving</a>
           </li>
         </ul>
       </div>
