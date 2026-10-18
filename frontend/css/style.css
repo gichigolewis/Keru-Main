@@ -2203,7 +2203,7 @@ footer .copy {
   padding: 2.5rem 1.5rem 1.5rem;
   border-right: 1px solid #e2e8f0;
   background: #ffffff;
-  color: #0f172a;
+  color: var(--bg-light);
   flex-direction: column;
 }
 .admin-sidebar-label,
@@ -2558,6 +2558,7 @@ footer .copy {
 /* Admin responsive adjustments */
 @media (max-width: 888px) {
   .admin-header {
+    display: flex;
     width: 100%;
     min-height: 66px;
     flex-wrap: nowrap;
@@ -2579,7 +2580,7 @@ footer .copy {
     font-size: 0.8rem;
   }
   .admin-layout {
-    min-height: 3rem;
+    min-height: 0;
     grid-template-columns: 1fr;
   }
   .admin-sidebar {
