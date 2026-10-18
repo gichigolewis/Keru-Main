@@ -403,7 +403,6 @@ function About() {
           serve our community with love.
         </p>
       </section>
-      <Scripture />
     </PublicShell>
   );
 }
