@@ -1394,9 +1394,6 @@ function AdminDashboard({ auth, username, onLogout }) {
           <span>Kerugoya Main SDA</span>
         </Link>
         <div>
-          <Link className="text-button" href="/" title="Return to public site">
-            <i className="bx bx-globe" /> View Site
-          </Link>
           <span className="admin-welcome"><i className="bx bx-user-circle" /> Hi, {username}</span>
           <button className="text-button" type="button" onClick={onLogout}>
             <i className="bx bx-log-out" /> Sign out
