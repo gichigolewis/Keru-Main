@@ -2134,6 +2134,8 @@ footer .copy {
   color: #0f172a;
 }
 .admin-header {
+  display: flex;
+  align-items: center;
   width: 100%;
   position: relative;
   z-index: 2;
