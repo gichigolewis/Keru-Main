@@ -2584,7 +2584,7 @@ footer .copy {
   .admin-sidebar {
     display: block;
     width: 100%;
-    min-height: calc(100vh - 66px);
+    min-height: 2rem;
     padding: 1.25rem 1rem 1.25rem;
     border-right: 0;
     border-bottom: 1px solid #e2e8f0;
