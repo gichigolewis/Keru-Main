@@ -2561,6 +2561,7 @@ footer .copy {
 @media (max-width: 888px) {
   .admin-header {
     display: flex;
+    align-items: center;
     width: 100%;
     min-height: 66px;
     flex-wrap: nowrap;
