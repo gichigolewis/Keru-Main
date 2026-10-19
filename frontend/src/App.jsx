@@ -238,7 +238,7 @@ function Footer() {
         <div className="contact-info">
           <h3>Contact Us</h3>
           <p>
-            <i className="bx bx-phone" /> +254 796 563 833
+            <i className="bx bx-phone" /> +254 706 663 186
           </p>
           <p>
             <i className="bx bx-envelope" /> kerugoyamainsda@gmail.com
