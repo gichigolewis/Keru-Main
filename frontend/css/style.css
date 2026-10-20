@@ -2592,17 +2592,19 @@ footer .copy {
     display: block;
     width: 100%;
     min-height: 0;
-    padding: 1.25rem 1rem 1.5rem;
+    padding: 1rem 1rem 1rem;
     border-right: 0;
     border-bottom: 1px solid #e2e8f0;
     background: #f8fafc;
+    max-height: 70vh;
+    overflow-y: auto;
   }
   .admin-sidebar-label {
     display: block !important;
     visibility: visible !important;
-    margin: 0 0 0.5rem;
+    margin: 0 0 0.4rem;
     color: #1d4ed8 !important;
-    font-size: 0.7rem !important;
+    font-size: 0.68rem !important;
     font-weight: 800 !important;
     letter-spacing: 0.14em !important;
     text-transform: uppercase !important;
@@ -2611,8 +2613,8 @@ footer .copy {
   .admin-sidebar h1 {
     display: block !important;
     visibility: visible !important;
-    margin: 0 0 0.75rem;
-    font-size: 1.5rem !important;
+    margin: 0 0 0.5rem;
+    font-size: 1.35rem !important;
     color: #0f172a !important;
     font-weight: 800 !important;
     letter-spacing: -0.02em;
@@ -2621,10 +2623,10 @@ footer .copy {
   .admin-sidebar-copy {
     display: block !important;
     visibility: visible !important;
-    margin-bottom: 1.5rem;
-    font-size: 0.86rem !important;
+    margin-bottom: 1rem;
+    font-size: 0.84rem !important;
     color: #64748b !important;
-    line-height: 1.5;
+    line-height: 1.45;
   }
   .admin-sidebar-foot {
     display: none;
@@ -2632,24 +2634,24 @@ footer .copy {
   .admin-page .admin-tab-list {
     display: flex !important;
     grid-template-columns: 1fr;
-    gap: 0.5rem;
+    gap: 0.4rem;
     flex-direction: column;
   }
   .admin-page .admin-tab {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 0.75rem;
+    gap: 0.7rem;
     width: 100%;
-    min-height: 48px;
-    padding: 0.75rem 1rem;
-    font-size: 0.9rem;
+    min-height: 44px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.88rem;
     border-radius: 10px;
     text-align: left;
   }
   .admin-page .admin-tab i {
-    width: 1.4rem;
-    font-size: 1.35rem;
+    width: 1.3rem;
+    font-size: 1.25rem;
     flex-shrink: 0;
   }
   .admin-page .admin-tab .admin-tab-text {
@@ -2657,9 +2659,9 @@ footer .copy {
     font-weight: 600;
   }
   .admin-page .admin-tab-badge {
-    font-size: 0.72rem;
-    padding: 0.18rem 0.5rem;
-    min-width: 22px;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.45rem;
+    min-width: 20px;
     height: auto;
     border-radius: 999px;
     font-weight: 700;
@@ -2682,10 +2684,13 @@ footer .copy {
     color: #ffffff !important;
   }
   .admin-sidebar-back-link {
-    margin-top: 2rem;
-    padding: 0.75rem 1rem;
+    margin-top: 1.5rem;
+    padding: 0.65rem 0.9rem;
     border-radius: 10px;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
+  }
+  .admin-content {
+    padding: 1.5rem 1rem 2rem;
   }
   .admin-content {
     padding: 1.75rem 1rem 3rem;
