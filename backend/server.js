@@ -42,9 +42,9 @@ app.get('/api/healthz', (_req, res) => res.status(200).json({ ok: true }));
 
 const appRoutes = [
   '/', '/index.html', '/about', '/about.html', '/ministries', '/ministries.html',
-  '/sermons', '/sermons.html', '/blogs', '/blogs.html', '/login', '/login.html',
-  '/register', '/register.html', '/announcements', '/announcements.html', '/admin',
-  '/admin.html'
+  '/sermons', '/sermons.html', '/giving', '/giving.html', '/blogs', '/blogs.html',
+  '/login', '/login.html', '/register', '/register.html', '/announcements',
+  '/announcements.html', '/admin', '/admin.html'
 ];
 app.get(appRoutes, (_req, res) => res.sendFile(APP_ENTRY));
 app.use(express.static(BUILD_PATH));

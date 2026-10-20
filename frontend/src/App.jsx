@@ -171,10 +171,10 @@ function PublicHeader() {
             );
           })}
           <li>
-            <a href="#">
+            <Link href="/giving.html">
               <i className="bx bx-donate-heart" />
               <span>Giving</span>
-            </a>
+            </Link>
           </li>
         </ul>
         <div className="announcements">
@@ -265,7 +265,7 @@ function Footer() {
             <Link href="/blogs.html">Blogs & Community</Link>
           </li>
           <li>
-            <a href="#">Giving</a>
+            <Link href="/giving.html">Giving</Link>
           </li>
         </ul>
       </div>
@@ -725,6 +725,99 @@ function Announcements() {
   );
 }
 
+const givingDetails = {
+  paybill: "247247",
+  account: "563833",
+};
+
+function Giving() {
+  const [copied, setCopied] = useState("");
+
+  const copy = async (label, value) => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      window.prompt(`Copy the ${label}:`, value);
+      return;
+    }
+    setCopied(label);
+    setTimeout(() => setCopied(""), 2000);
+  };
+
+  return (
+    <PublicShell>
+      <main className="giving-page">
+        <section className="giving-intro">
+          <span className="eyebrow">Give</span>
+          <h1>
+            Partner with us in
+            <br />
+            <em>God's work.</em>
+          </h1>
+          <p>
+            Your generous offering supports worship, discipleship, outreach and
+            the many ministries of Kerugoya Main SDA Church. Thank you for
+            partnering with us.
+          </p>
+        </section>
+
+        <section className="giving-details">
+          <h2 className="section-title">Give via M-Pesa</h2>
+          <div className="giving-cards">
+            {[
+              ["Paybill Number", givingDetails.paybill],
+              ["Account Number", givingDetails.account],
+            ].map(([label, value]) => (
+              <div className="giving-card" key={label}>
+                <span className="giving-label">{label}</span>
+                <strong className="giving-value">{value}</strong>
+                <button
+                  className="giving-copy"
+                  type="button"
+                  onClick={() => copy(label, value)}
+                  aria-label={`Copy ${label.toLowerCase()}`}
+                >
+                  <i
+                    className={`bx ${
+                      copied === label ? "bx-check text-success" : "bx-copy"
+                    }`}
+                  />
+                  <span>{copied === label ? "Copied" : "Copy"}</span>
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="giving-steps">
+            <h3>How to give</h3>
+            <ol>
+              <li>
+                On your phone, open the M-Pesa menu and choose{" "}
+                <strong>Pay Bill</strong>.
+              </li>
+              <li>
+                Select <strong>Buy Goods and Services</strong> (Lipa Na M-PESA).
+              </li>
+              <li>
+                Enter the paybill number <strong>{givingDetails.paybill}</strong>.
+              </li>
+              <li>
+                Enter the account number <strong>{givingDetails.account}</strong>.
+              </li>
+              <li>Enter the amount, confirm the details and enter your PIN.</li>
+            </ol>
+            <p className="giving-note">
+              <i className="bx bx-info-circle" /> Please confirm the details
+              before completing your payment. For other giving options, contact
+              the church office.
+            </p>
+          </div>
+        </section>
+      </main>
+    </PublicShell>
+  );
+}
+
 const responsivePages = {
   leaders: {
     title: "Church leaders",
@@ -802,10 +895,10 @@ function BottomNav({ route }) {
           );
         })}
         <li>
-          <a href="#">
+          <Link href="/giving.html">
             <i className="bx bx-donate-heart" />
             <span>Giving</span>
-          </a>
+          </Link>
         </li>
       </ul>
     </nav>
@@ -1748,11 +1841,14 @@ export default function App() {
     document.title =
       route === "/blogs"
         ? "Community stories | Kerugoya Main SDA"
-        : "Kerugoya Main SDA Church";
+        : route === "/giving"
+          ? "Giving | Kerugoya Main SDA Church"
+          : "Kerugoya Main SDA Church";
   }, [route]);
   if (route === "/about") return <About />;
   if (route === "/ministries") return <Ministries />;
   if (route === "/sermons") return <Sermons />;
+  if (route === "/giving") return <Giving />;
   if (route === "/blogs") return <Community />;
   if (route === "/login") return <Account />;
   if (route === "/register") return <Account register />;
