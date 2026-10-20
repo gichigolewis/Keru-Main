@@ -793,10 +793,10 @@ function Giving() {
             <ol>
               <li>
                 On your phone, open the M-Pesa menu and choose{" "}
-                <strong>Pay Bill</strong>.
+                <strong>Lipa na Mpesa</strong>.
               </li>
               <li>
-                Select <strong>Buy Goods and Services</strong> (Lipa Na M-PESA).
+                Select <strong>Paybill</strong> (Lipa Na M-PESA).
               </li>
               <li>
                 Enter the paybill number <strong>{givingDetails.paybill}</strong>.
