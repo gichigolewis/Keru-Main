@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 if (!process.env.DATABASE_URL) {
   require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
@@ -24,6 +25,15 @@ const ADMIN_USER = process.env.ADMIN_USER?.trim();
 const ADMIN_PASS = process.env.ADMIN_PASS;
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value || '');
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+
+const upload = multer({
+  dest: path.join(__dirname, '../frontend/public/assets/leaders'),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) return cb(null, true);
+    cb(new Error('Only image files are allowed.'));
+  },
+});
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -422,6 +432,35 @@ app.delete('/api/sermons/:id', checkAuth, asyncRoute(async (req, res) => {
   const query = getSql();
   const rows = await query`DELETE FROM sermons WHERE id = ${req.params.id} RETURNING id`;
   if (!rows.length) return res.status(404).json({ error: 'not found' });
+  res.status(204).end();
+}));
+
+app.get('/api/leaders', asyncRoute(async (_req, res) => {
+  const query = getSql();
+  const list = await query`SELECT id, name, role, details, photo_url, created_at FROM leaders ORDER BY created_at DESC`;
+  res.json(list);
+}));
+
+app.post('/api/leaders', checkAuth, upload.single('photo'), asyncRoute(async (req, res) => {
+  const { name, role, details } = req.body || {};
+  if (!name || !role || !details) return res.status(400).json({ error: 'name, role and details are required' });
+  if (!req.file) return res.status(400).json({ error: 'photo is required' });
+  const query = getSql();
+  const photoUrl = `/assets/leaders/${req.file.filename}`;
+  const rows = await query`INSERT INTO leaders (name, role, details, photo_url)
+    VALUES (${name.trim()}, ${role.trim()}, ${details.trim()}, ${photoUrl})
+    RETURNING id, name, role, details, photo_url, created_at`;
+  res.status(201).json(rows[0]);
+}));
+
+app.delete('/api/leaders/:id', checkAuth, asyncRoute(async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: 'not found' });
+  const query = getSql();
+  const rows = await query`DELETE FROM leaders WHERE id = ${req.params.id} RETURNING id, photo_url`;
+  if (!rows.length) return res.status(404).json({ error: 'not found' });
+  try {
+    fs.unlinkSync(path.join(__dirname, '../frontend/public', rows[0].photo_url));
+  } catch {}
   res.status(204).end();
 }));
 

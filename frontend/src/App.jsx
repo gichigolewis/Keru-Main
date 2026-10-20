@@ -756,6 +756,55 @@ const responsivePages = {
 function ResponsivePage({ page }) {
   const content = responsivePages[page];
   const isFormPage = page === "prayer" || page === "feedback";
+  const [leaders, setLeaders] = useState([]);
+  const [leadersLoading, setLeadersLoading] = useState(true);
+
+  useEffect(() => {
+    if (page === "leaders") {
+      (async () => {
+        try {
+          const response = await fetch("/api/leaders", { cache: "no-store" });
+          if (response.ok) setLeaders(await response.json());
+        } catch {}
+        setLeadersLoading(false);
+      })();
+    }
+  }, [page]);
+
+  if (page === "leaders") {
+    return (
+      <PublicShell>
+        <main className="responsive-page">
+          <span className="eyebrow">{content.eyebrow}</span>
+          <h1>{content.title}</h1>
+          <p>{content.body}</p>
+          {leadersLoading ? (
+            <p className="empty-state">Loading leaders…</p>
+          ) : leaders.length ? (
+            <div className="leaders-grid">
+              {leaders.map((leader) => (
+                <article key={leader.id} className="leader-card">
+                  {leader.photoUrl ? (
+                    <img src={leader.photoUrl} alt={leader.name} className="leader-photo" />
+                  ) : (
+                    <div className="leader-photo-placeholder"><i className="bx bx-user-circle" /></div>
+                  )}
+                  <div className="leader-copy">
+                    <h3>{leader.name}</h3>
+                    <p className="leader-role">{leader.role}</p>
+                    <p>{leader.details}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-state">No leaders have been added yet.</p>
+          )}
+        </main>
+      </PublicShell>
+    );
+  }
+
   return (
     <PublicShell>
       <main className="responsive-page">
@@ -1334,18 +1383,20 @@ function AdminDashboard({ auth, username, onLogout }) {
   const [sermons, setSermons] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [users, setUsers] = useState([]);
+  const [leaders, setLeaders] = useState([]);
   const [message, setMessage] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const headers = { "Content-Type": "application/json", Authorization: auth };
 
   const load = async () => {
-    const [announcementResponse, sermonResponse, adminResponse, postsResponse, usersResponse] =
+    const [announcementResponse, sermonResponse, adminResponse, postsResponse, usersResponse, leaderResponse] =
       await Promise.all([
         fetch("/api/announcements", { cache: "no-store" }),
         fetch("/api/sermons", { cache: "no-store" }),
         fetch("/api/admins", { headers: { Authorization: auth }, cache: "no-store" }),
         fetch("/api/community/posts", { cache: "no-store" }),
         fetch("/api/admin/users", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
+        fetch("/api/leaders", { cache: "no-store" }),
       ]);
     if (adminResponse.status === 401) {
       setMessage("Admin session expired or invalid credentials. Please sign out and sign in again.");
@@ -1357,11 +1408,30 @@ function AdminDashboard({ auth, username, onLogout }) {
     setAdmins(adminResponse.ok ? await adminResponse.json() : []);
     setPosts(postsResponse.ok ? await postsResponse.json() : []);
     setUsers(usersResponse.ok ? await usersResponse.json() : []);
+    setLeaders(leaderResponse.ok ? await leaderResponse.json() : []);
   };
 
   useEffect(() => {
     load().catch(() => setMessage("Could not load dashboard data."));
   }, []);
+
+  const submitLeader = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const response = await fetch("/api/leaders", {
+      method: "POST",
+      headers: { Authorization: auth },
+      body: formData,
+    });
+    if (!response.ok) {
+      setMessage((await response.json()).error || "Request failed.");
+      return;
+    }
+    form.reset();
+    setMessage("Leader added successfully.");
+    await load();
+  };
 
   const submit = async (event, endpoint, method = "POST") => {
     event.preventDefault();
@@ -1444,6 +1514,7 @@ function AdminDashboard({ auth, username, onLogout }) {
               ["posts", "Community Posts", posts.length],
               ["sermons", "Sermons", sermons.length],
               ["users", "Logged in Users", users.length],
+              ["leaders", "Church Leaders", leaders.length],
               ["admins", "Admins", admins.length],
             ].map(([value, label, count]) => (
               <button
@@ -1488,14 +1559,18 @@ function AdminDashboard({ auth, username, onLogout }) {
                     ? "Sermons"
                     : tab === "users"
                       ? "Logged in Users"
-                      : "Administrators"}
+                      : tab === "leaders"
+                        ? "Church Leaders"
+                        : "Administrators"}
             </h2>
             <p>
               {tab === "posts"
                 ? "Review and moderate user-submitted stories and reflections."
                 : tab === "users"
                   ? "View and manage active member sessions across your church website."
-                  : "Keep your community informed with timely, well-organized updates."}
+                  : tab === "leaders"
+                    ? "Add and manage church leaders with photos and details."
+                    : "Keep your community informed with timely, well-organized updates."}
             </p>
           </div>
           {message && <p className="form-message admin-notice" role="status">{message}</p>}
@@ -1695,6 +1770,45 @@ function AdminDashboard({ auth, username, onLogout }) {
                       </button>
                     </article>
                   )) : <p className="admin-empty-state"><i className="bx bx-inbox" /> No additional administrators have been added.</p>}
+                </div>
+              </div>
+            </>
+          )}
+          {tab === "leaders" && (
+            <>
+              <div className="admin-panel">
+                <div className="admin-panel-heading"><span className="admin-panel-icon"><i className="bx bx-user-voice" /></span><div><h3>Add a leader</h3><p>Add a church leader with their photo and details.</p></div></div>
+                <form className="admin-form" onSubmit={submitLeader} encType="multipart/form-data">
+                  <label className="admin-field"><span>Full name</span><input name="name" placeholder="e.g. Pastor John Doe" required /></label>
+                  <label className="admin-field"><span>Role / title</span><input name="role" placeholder="e.g. Senior Pastor" required /></label>
+                  <label className="admin-field admin-field-wide"><span>Details</span><textarea name="details" rows="4" placeholder="Describe their ministry and service…" required /></label>
+                  <label className="admin-field"><span>Photo</span><input name="photo" type="file" accept="image/*" required /></label>
+                  <button className="btn" type="submit"><i className="bx bx-user-plus" /> Add leader</button>
+                </form>
+              </div>
+              <div className="admin-list-section">
+                <div className="admin-list-heading"><div><h3>Church leaders</h3><p>Leaders displayed on the leaders page.</p></div><span className="admin-count">{leaders.length}</span></div>
+                <div className="admin-list">
+                  {leaders.length ? leaders.map((item) => (
+                    <article key={item.id} style={{ display: "flex", gap: 1, alignItems: "center" }}>
+                      {item.photoUrl && <img src={item.photoUrl} alt={item.name} style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }} />}
+                      {!item.photoUrl && <div className="admin-item-icon"><i className="bx bx-user" /></div>}
+                      <div className="admin-item-copy" style={{ flex: 1, minWidth: 0 }}>
+                        <strong>{item.name}</strong>
+                        <p style={{ margin: 0, color: "#64748b", fontSize: "0.85rem" }}>{item.role}</p>
+                        <p style={{ margin: "0.25rem 0 0", color: "#94a3b8", fontSize: "0.8rem", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.details}</p>
+                      </div>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        aria-label={`Remove leader: ${item.name}`}
+                        disabled={deletingId === `/api/leaders/${item.id}`}
+                        onClick={() => remove(`/api/leaders/${item.id}`, "leader")}
+                      >
+                        <i className={`bx ${deletingId === `/api/leaders/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
+                      </button>
+                    </article>
+                  )) : <p className="admin-empty-state"><i className="bx bx-inbox" /> No church leaders have been added yet.</p>}
                 </div>
               </div>
             </>
