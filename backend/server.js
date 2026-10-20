@@ -193,7 +193,7 @@ app.get('/api/community/posts/count', asyncRoute(async (req, res) => {
   const rows = await query`SELECT
       (SELECT COUNT(*)::int FROM community_posts WHERE created_at > to_timestamp(${since / 1000})) AS count,
       (SELECT COALESCE(EXTRACT(EPOCH FROM MAX(created_at)) * 1000, 0) FROM community_posts) AS latest`;
-  res.json({ count: rows[0].count, latest: Math.round(Number(rows[0].latest) || 0) });
+  res.json({ count: rows[0].count, latest: Math.ceil(Number(rows[0].latest) || 0) });
 }));
 
 app.post('/api/community/posts', requireMember, asyncRoute(async (req, res) => {
@@ -290,7 +290,7 @@ app.get('/api/announcements/count', asyncRoute(async (req, res) => {
   const rows = await query`SELECT
       (SELECT COUNT(*)::int FROM announcements WHERE created_at > to_timestamp(${since / 1000})) AS count,
       (SELECT COALESCE(EXTRACT(EPOCH FROM MAX(created_at)) * 1000, 0) FROM announcements) AS latest`;
-  res.json({ count: rows[0].count, latest: Math.round(Number(rows[0].latest) || 0) });
+  res.json({ count: rows[0].count, latest: Math.ceil(Number(rows[0].latest) || 0) });
 }));
 
 app.get('/api/sermons', asyncRoute(async (_req, res) => {

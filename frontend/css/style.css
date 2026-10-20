@@ -239,6 +239,7 @@ footer .copy {
   font-weight: 600;
   color: var(--text-dark);
   list-style: none;
+  text-decoration: none;
 }
 
 .announcement-link {
@@ -268,10 +269,6 @@ footer .copy {
   line-height: 1;
   white-space: nowrap;
   pointer-events: none;
-}
-
-.icon-link {
-  position: relative;
 }
 
 aside {
@@ -684,6 +681,7 @@ aside .side-menu a:hover {
 }
 .icon-link {
   display: grid;
+  position: relative;
   width: 38px;
   height: 38px;
   place-items: center;

@@ -111,26 +111,14 @@ function useCountdown() {
   return countdown;
 }
 
-function latestTimestamp(items) {
-  return (items || []).reduce((max, item) => {
-    const stamp = Date.parse(item?.createdAt || item?.date || "") || 0;
-    return stamp > max ? stamp : max;
-  }, 0);
-}
-
-function markSectionSeen(key, items) {
-  try {
-    const latest = latestTimestamp(items);
-    if (latest) localStorage.setItem(key, String(latest));
-  } catch {}
-}
-
 function useUnreadCounts(route) {
   const [counts, setCounts] = useState({ announcements: 0, community: 0 });
 
   useEffect(() => {
     let active = true;
-    const read = async (key, endpoint) => {
+    const onAnnouncements = route === "/announcements";
+    const onCommunity = route === "/blogs" || route === "/community";
+    const read = async (key, endpoint, isOpen) => {
       try {
         const since = Number(localStorage.getItem(key)) || 0;
         const response = await fetch(`${endpoint}?since=${since}`, {
@@ -138,18 +126,21 @@ function useUnreadCounts(route) {
         });
         if (!response.ok) return { count: 0, latest: 0 };
         const result = await response.json();
-        return {
-          count: Number(result.count) || 0,
-          latest: Number(result.latest) || 0,
-        };
+        const latest = Number(result.latest) || 0;
+        if (isOpen && latest) {
+          // This section is on screen, so everything in it has been opened.
+          localStorage.setItem(key, String(latest));
+          return { count: 0, latest };
+        }
+        return { count: Number(result.count) || 0, latest };
       } catch {
         return { count: 0, latest: 0 };
       }
     };
     (async () => {
       const [announcements, community] = await Promise.all([
-        read(announcementsSeenKey, "/api/announcements/count"),
-        read(communitySeenKey, "/api/community/posts/count"),
+        read(announcementsSeenKey, "/api/announcements/count", onAnnouncements),
+        read(communitySeenKey, "/api/community/posts/count", onCommunity),
       ]);
       if (!active) return;
       setCounts({ announcements: announcements.count, community: community.count });
@@ -746,24 +737,18 @@ function Announcements() {
         });
         if (response.ok) {
           const announcements = await response.json();
-          const list = Array.isArray(announcements) ? announcements : [];
-          setItems(list);
-          markSectionSeen(announcementsSeenKey, list);
+          setItems(Array.isArray(announcements) ? announcements : []);
           return;
         }
       } catch {}
       const saved = readJson(announcementsKey, []);
       if (saved.length) {
-        const list = saved.slice().reverse();
-        setItems(list);
-        markSectionSeen(announcementsSeenKey, list);
+        setItems(saved.slice().reverse());
         return;
       }
       try {
         const response = await fetch("/data/announcements.json");
-        const list = response.ok ? await response.json() : [];
-        setItems(list);
-        markSectionSeen(announcementsSeenKey, list);
+        setItems(response.ok ? await response.json() : []);
       } catch {
         setItems([]);
       }
@@ -1051,11 +1036,7 @@ function Community() {
         const response = await fetch("/api/community/posts", { headers });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || "Unable to load stories.");
-        if (active) {
-          const stories = Array.isArray(result) ? result : [];
-          setPosts(stories);
-          markSectionSeen(communitySeenKey, stories);
-        }
+        if (active) setPosts(Array.isArray(result) ? result : []);
       } catch {
         if (active) setCommunityMessage("Stories could not be loaded. Check your connection and try again.");
       } finally {
