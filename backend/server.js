@@ -168,6 +168,7 @@ function formatCommunityPost(post) {
     category: post.category,
     author: post.author,
     date: createdAt.toISOString().slice(0, 10),
+    createdAt: createdAt.toISOString(),
     likes: Number(post.likes || 0),
     likedByMe: Boolean(post.liked_by_me),
     comments: post.comments || []
@@ -184,6 +185,15 @@ app.get('/api/community/posts', optionalMember, asyncRoute(async (req, res) => {
         FROM community_comments c WHERE c.post_id = p.id), '[]'::json) AS comments
     FROM community_posts p ORDER BY p.created_at DESC LIMIT 100`;
   res.json(posts.map(formatCommunityPost));
+}));
+
+app.get('/api/community/posts/count', asyncRoute(async (req, res) => {
+  const since = Number(req.query.since) || 0;
+  const query = getSql();
+  const rows = await query`SELECT
+      (SELECT COUNT(*)::int FROM community_posts WHERE created_at > to_timestamp(${since / 1000})) AS count,
+      (SELECT COALESCE(EXTRACT(EPOCH FROM MAX(created_at)) * 1000, 0) FROM community_posts) AS latest`;
+  res.json({ count: rows[0].count, latest: Math.round(Number(rows[0].latest) || 0) });
 }));
 
 app.post('/api/community/posts', requireMember, asyncRoute(async (req, res) => {
@@ -270,8 +280,17 @@ app.delete('/api/community/posts/:id', asyncRoute(async (req, res) => {
 
 app.get('/api/announcements', asyncRoute(async (_req, res) => {
   const query = getSql();
-  const list = await query`SELECT id, title, content, date FROM announcements ORDER BY created_at DESC`;
+  const list = await query`SELECT id, title, content, date, created_at AS "createdAt" FROM announcements ORDER BY created_at DESC`;
   res.json(list);
+}));
+
+app.get('/api/announcements/count', asyncRoute(async (req, res) => {
+  const since = Number(req.query.since) || 0;
+  const query = getSql();
+  const rows = await query`SELECT
+      (SELECT COUNT(*)::int FROM announcements WHERE created_at > to_timestamp(${since / 1000})) AS count,
+      (SELECT COALESCE(EXTRACT(EPOCH FROM MAX(created_at)) * 1000, 0) FROM announcements) AS latest`;
+  res.json({ count: rows[0].count, latest: Math.round(Number(rows[0].latest) || 0) });
 }));
 
 app.get('/api/sermons', asyncRoute(async (_req, res) => {

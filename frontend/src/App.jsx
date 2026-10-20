@@ -4,6 +4,8 @@ import logoImage from "../assets/images/sda logo.png";
 const imagePath = logoImage;
 const memberSessionKey = "keruMemberSession";
 const announcementsKey = "announcements";
+const announcementsSeenKey = "keruAnnouncementsSeenAt";
+const communitySeenKey = "keruCommunitySeenAt";
 
 const ministries = [
   [
@@ -109,6 +111,66 @@ function useCountdown() {
   return countdown;
 }
 
+function latestTimestamp(items) {
+  return (items || []).reduce((max, item) => {
+    const stamp = Date.parse(item?.createdAt || item?.date || "") || 0;
+    return stamp > max ? stamp : max;
+  }, 0);
+}
+
+function markSectionSeen(key, items) {
+  try {
+    const latest = latestTimestamp(items);
+    if (latest) localStorage.setItem(key, String(latest));
+  } catch {}
+}
+
+function useUnreadCounts(route) {
+  const [counts, setCounts] = useState({ announcements: 0, community: 0 });
+
+  useEffect(() => {
+    let active = true;
+    const read = async (key, endpoint) => {
+      try {
+        const since = Number(localStorage.getItem(key)) || 0;
+        const response = await fetch(`${endpoint}?since=${since}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) return { count: 0, latest: 0 };
+        const result = await response.json();
+        return {
+          count: Number(result.count) || 0,
+          latest: Number(result.latest) || 0,
+        };
+      } catch {
+        return { count: 0, latest: 0 };
+      }
+    };
+    (async () => {
+      const [announcements, community] = await Promise.all([
+        read(announcementsSeenKey, "/api/announcements/count"),
+        read(communitySeenKey, "/api/community/posts/count"),
+      ]);
+      if (!active) return;
+      setCounts({ announcements: announcements.count, community: community.count });
+    })();
+    return () => {
+      active = false;
+    };
+  }, [route]);
+
+  return counts;
+}
+
+function NavBadge({ count, label }) {
+  if (!count) return null;
+  return (
+    <span className="nav-badge" aria-label={`${count} new ${label}`}>
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
+
 const links = [
   ["/", "bx-home-alt-2", "Home"],
   ["/about.html", "bx-user", "About"],
@@ -129,6 +191,10 @@ function PublicHeader() {
   const countdown = useCountdown();
   const route = useRoute();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { announcements: announcementCount, community: communityCount } =
+    useUnreadCounts(route);
+  const onAnnouncements = route === "/announcements";
+  const onCommunity = route === "/blogs" || route === "/community";
 
   return (
     <>
@@ -158,6 +224,10 @@ function PublicHeader() {
         <ul className="nav-links">
           {links.map(([href, icon, label]) => {
             const active = isLinkActive(href, route);
+            const badge =
+              label === "Community" && !onCommunity ? (
+                <NavBadge count={communityCount} label="community stories" />
+              ) : null;
             return (
               <li key={href}>
                 <Link
@@ -167,14 +237,19 @@ function PublicHeader() {
                 >
                   <i className={`bx ${icon}`} />
                   <span>{label}</span>
+                  {badge}
                 </Link>
               </li>
             );
           })}
         </ul>
         <div className="announcements">
-          <Link href="/announcements.html">
+          <Link href="/announcements.html" className="announcement-link">
             <i className="bx bx-bell" />
+            <NavBadge
+              count={onAnnouncements ? 0 : announcementCount}
+              label="announcements"
+            />
           </Link>
         </div>
         <aside className={`mobile-side-panel ${menuOpen ? "is-open" : ""}`}>
@@ -670,18 +745,25 @@ function Announcements() {
           cache: "no-store",
         });
         if (response.ok) {
-          setItems(await response.json());
+          const announcements = await response.json();
+          const list = Array.isArray(announcements) ? announcements : [];
+          setItems(list);
+          markSectionSeen(announcementsSeenKey, list);
           return;
         }
       } catch {}
       const saved = readJson(announcementsKey, []);
       if (saved.length) {
-        setItems(saved.slice().reverse());
+        const list = saved.slice().reverse();
+        setItems(list);
+        markSectionSeen(announcementsSeenKey, list);
         return;
       }
       try {
         const response = await fetch("/data/announcements.json");
-        setItems(response.ok ? await response.json() : []);
+        const list = response.ok ? await response.json() : [];
+        setItems(list);
+        markSectionSeen(announcementsSeenKey, list);
       } catch {
         setItems([]);
       }
@@ -791,7 +873,7 @@ function Giving() {
                 <strong>Lipa na Mpesa</strong>.
               </li>
               <li>
-                Select <strong>Paybill</strong> (Lipa Na M-PESA).
+                Select <strong>Paybill</strong>.
               </li>
               <li>
                 Enter the paybill number <strong>{givingDetails.paybill}</strong>.
@@ -870,12 +952,17 @@ function ResponsivePage({ page }) {
   );
 }
 
-function BottomNav({ route }) {
+function BottomNav({ route, communityCount = 0 }) {
+  const onCommunity = route === "/blogs" || route === "/community";
   return (
     <nav className="community-bottom-nav">
       <ul className="nav-links">
         {links.map(([href, icon, label]) => {
           const active = isLinkActive(href, route);
+          const badge =
+            label === "Community" && !onCommunity ? (
+              <NavBadge count={communityCount} label="community stories" />
+            ) : null;
           return (
             <li key={href}>
               <Link
@@ -885,6 +972,7 @@ function BottomNav({ route }) {
               >
                 <i className={`bx ${icon}`} />
                 <span>{label}</span>
+                {badge}
               </Link>
             </li>
           );
@@ -906,6 +994,8 @@ function Community() {
   const [posting, setPosting] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const route = useRoute();
+  const { announcements: announcementCount, community: communityCount } =
+    useUnreadCounts(route);
 
   const handleShare = async (post) => {
     const url = `${window.location.origin}/blogs.html`;
@@ -961,7 +1051,11 @@ function Community() {
         const response = await fetch("/api/community/posts", { headers });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || "Unable to load stories.");
-        if (active) setPosts(Array.isArray(result) ? result : []);
+        if (active) {
+          const stories = Array.isArray(result) ? result : [];
+          setPosts(stories);
+          markSectionSeen(communitySeenKey, stories);
+        }
       } catch {
         if (active) setCommunityMessage("Stories could not be loaded. Check your connection and try again.");
       } finally {
@@ -1095,6 +1189,7 @@ function Community() {
               title="Announcements"
             >
               <i className="bx bx-bell" />
+              <NavBadge count={announcementCount} label="announcements" />
             </Link>
             <span className="member-name">
               {user ? `Hi, ${user.name.split(" ")[0]}` : "Guest reader"}
@@ -1343,7 +1438,7 @@ function Community() {
           </aside>
         </section>
       </main>
-      <BottomNav route={route} />
+      <BottomNav route={route} communityCount={communityCount} />
     </div>
   );
 }

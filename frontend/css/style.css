@@ -241,6 +241,39 @@ footer .copy {
   list-style: none;
 }
 
+.announcement-link {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+/* Unread badge for announcements and community links */
+.nav-badge {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  display: inline-flex;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #dc2626;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.icon-link {
+  position: relative;
+}
+
 aside {
   display: flex;
   gap: 1.5rem;
@@ -307,6 +340,10 @@ aside .side-menu a:hover {
   list-style: none;
 }
 .nav-links a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   text-decoration: none;
   color: var(--text-dark);
   font-weight: 600;
@@ -1926,6 +1963,11 @@ footer .copy {
     transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
                 color 250ms cubic-bezier(0.4, 0, 0.2, 1);
   }
+  .nav-links a .nav-badge {
+    top: 0.15rem;
+    right: 50%;
+    transform: translateX(0.9rem);
+  }
   .nav-links a span {
     display: block;
     max-width: 100%;
@@ -2608,8 +2650,9 @@ footer .copy {
     border-right: 0;
     border-bottom: 1px solid #e2e8f0;
     background: #f2eee6;
-    max-height: 4rem;
+    max-height: 10vh;
     overflow-y: auto;
+    color: var(--text-dark);
   }
   .admin-sidebar-label {
     display: block !important;
