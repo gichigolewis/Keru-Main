@@ -2840,3 +2840,17 @@ textarea,
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
 }
 
+/* Community page bottom navigation (mobile), mirroring the home page nav. */
+.community-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 888px) {
+  .community-bottom-nav {
+    display: block;
+  }
+  .community-main {
+    padding-bottom: 8rem;
+  }
+}
+

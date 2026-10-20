@@ -109,24 +109,25 @@ function useCountdown() {
   return countdown;
 }
 
+const links = [
+  ["/", "bx-home-alt-2", "Home"],
+  ["/about.html", "bx-user", "About"],
+  ["/ministries.html", "bx-group", "Ministries"],
+  ["/sermons.html", "bx-tv", "Sermons"],
+  ["/blogs.html", "bx-conversation", "Community"],
+];
+
+function isLinkActive(href, route) {
+  const clean = href.replace(/\.html$/, "");
+  if (clean === "/") return route === "/";
+  if (clean === "/blogs") return route === "/blogs" || route === "/community";
+  return route === clean;
+}
+
 function PublicHeader() {
   const countdown = useCountdown();
   const route = useRoute();
   const [menuOpen, setMenuOpen] = useState(false);
-  const links = [
-    ["/", "bx-home-alt-2", "Home"],
-    ["/about.html", "bx-user", "About"],
-    ["/ministries.html", "bx-group", "Ministries"],
-    ["/sermons.html", "bx-tv", "Sermons"],
-    ["/blogs.html", "bx-conversation", "Community"],
-  ];
-
-  const isLinkActive = (href) => {
-    const clean = href.replace(/\.html$/, "");
-    if (clean === "/") return route === "/";
-    if (clean === "/blogs") return route === "/blogs" || route === "/community";
-    return route === clean;
-  };
 
   return (
     <>
@@ -155,7 +156,7 @@ function PublicHeader() {
         </button>
         <ul className="nav-links">
           {links.map(([href, icon, label]) => {
-            const active = isLinkActive(href);
+            const active = isLinkActive(href, route);
             return (
               <li key={href}>
                 <Link
@@ -781,6 +782,36 @@ function ResponsivePage({ page }) {
   );
 }
 
+function BottomNav({ route }) {
+  return (
+    <nav className="community-bottom-nav">
+      <ul className="nav-links">
+        {links.map(([href, icon, label]) => {
+          const active = isLinkActive(href, route);
+          return (
+            <li key={href}>
+              <Link
+                href={href}
+                className={active ? "active is-active" : ""}
+                aria-current={active ? "page" : undefined}
+              >
+                <i className={`bx ${icon}`} />
+                <span>{label}</span>
+              </Link>
+            </li>
+          );
+        })}
+        <li>
+          <a href="#">
+            <i className="bx bx-donate-heart" />
+            <span>Giving</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  );
+}
+
 function Community() {
   const [session, setSession] = useState(() => readJson(memberSessionKey, null));
   const user = session?.user || null;
@@ -792,6 +823,7 @@ function Community() {
   const [feedLoading, setFeedLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const route = useRoute();
 
   const handleShare = async (post) => {
     const url = `${window.location.origin}/blogs.html`;
@@ -1229,6 +1261,7 @@ function Community() {
           </aside>
         </section>
       </main>
+      <BottomNav route={route} />
     </div>
   );
 }
