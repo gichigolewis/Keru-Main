@@ -2564,7 +2564,9 @@ footer .copy {
     align-items: center;
     width: 100%;
     min-height: 66px;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
     padding: 0 1rem;
   }
   .admin-header .logo span,
@@ -2618,7 +2620,7 @@ footer .copy {
     display: none;
   }
   .admin-page .admin-tab-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 0.45rem;
   }
   .admin-page .admin-tab {
