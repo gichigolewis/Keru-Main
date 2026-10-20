@@ -115,6 +115,7 @@ const links = [
   ["/ministries.html", "bx-group", "Ministries"],
   ["/sermons.html", "bx-tv", "Sermons"],
   ["/blogs.html", "bx-conversation", "Community"],
+  ["/giving.html", "bx-donate-heart", "Giving"],
 ];
 
 function isLinkActive(href, route) {
@@ -170,12 +171,6 @@ function PublicHeader() {
               </li>
             );
           })}
-          <li>
-            <Link href="/giving.html">
-              <i className="bx bx-donate-heart" />
-              <span>Giving</span>
-            </Link>
-          </li>
         </ul>
         <div className="announcements">
           <Link href="/announcements.html">
@@ -893,13 +888,7 @@ function BottomNav({ route }) {
               </Link>
             </li>
           );
-        })}
-        <li>
-          <Link href="/giving.html">
-            <i className="bx bx-donate-heart" />
-            <span>Giving</span>
-          </Link>
-        </li>
+          })}
       </ul>
     </nav>
   );

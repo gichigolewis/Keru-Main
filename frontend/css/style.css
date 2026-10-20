@@ -315,6 +315,18 @@ aside .side-menu a:hover {
 .nav-links a:hover {
   color: var(--primary-color);
 }
+.nav-links a.active,
+.nav-links a.is-active {
+  color: var(--primary-color);
+}
+.nav-links a.active i,
+.nav-links a.is-active i {
+  color: var(--primary-color);
+}
+.nav-links a.active span,
+.nav-links a.is-active span {
+  color: var(--primary-color);
+}
 /* Hero Section */
 .hero {
   background:
