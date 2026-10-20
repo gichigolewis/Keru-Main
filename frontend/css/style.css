@@ -2595,8 +2595,8 @@ footer .copy {
     padding: 1rem 1rem 1rem;
     border-right: 0;
     border-bottom: 1px solid #e2e8f0;
-    background: #f8fafc;
-    max-height: 20vh;
+    background: var(--primary-color);
+    max-height: calc(100vh - 66px);
     overflow-y: auto;
   }
   .admin-sidebar-label {
