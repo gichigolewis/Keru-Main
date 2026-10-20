@@ -79,14 +79,6 @@ async function ensureDatabase() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`;
       await query`CREATE INDEX IF NOT EXISTS community_comments_post_created_idx ON community_comments(post_id, created_at)`;
-      await query`CREATE TABLE IF NOT EXISTS leaders (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        name VARCHAR(80) NOT NULL,
-        role VARCHAR(120) NOT NULL,
-        details TEXT NOT NULL,
-        photo_url TEXT NOT NULL DEFAULT '',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )`;
     })().catch((error) => {
       schemaPromise = undefined;
       throw error;
