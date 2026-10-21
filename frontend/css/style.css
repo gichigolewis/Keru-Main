@@ -1520,6 +1520,9 @@ iframe {
 /* Shared home-page visual language for account, community, and admin surfaces. */
 .account-page,
 .community-page,
+.admin-page {
+  background: var(--bg-light);
+}
 .login-screen::before,
 .login-screen::after {
   display: none;
