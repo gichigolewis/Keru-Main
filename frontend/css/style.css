@@ -1739,6 +1739,9 @@ iframe {
 .community-main,
 .responsive-page,
 .account-page,
+.admin-page {
+  min-height: 0;
+}
 footer {
   align-items: flex-start;
   text-align: left;
