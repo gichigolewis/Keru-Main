@@ -248,22 +248,66 @@ function wrapText(ctx, text, maxWidth, maxLines) {
 
 async function renderPostImage(post) {
   const width = 1200;
-  const height = 630;
+  const minHeight = 630;
+  const maxHeight = 4000;
+  const padding = 72;
+  const contentWidth = width - padding * 2;
+  const top = 104;
+  const brandH = 78;
+  const chipH = 62;
+  const titleGap = 12;
+  const dividerGap = 34;
+  const bodyToFooterGap = 24;
+  const footerBlock = 112;
+
   const canvas = document.createElement("canvas");
   canvas.width = width;
-  canvas.height = height;
   const ctx = canvas.getContext("2d");
 
   try {
     await document.fonts?.ready;
   } catch {}
 
+  // Measure the whole post, shrinking the type only if it grows very long.
+  let titleSize = 44;
+  let bodySize = 24;
+  let titleLineH = 55;
+  let bodyLineH = 36;
+  let titleLines = [];
+  let bodyLines = [];
+  let height = minHeight;
+
+  for (const scale of [1, 0.92, 0.84, 0.76, 0.68, 0.6]) {
+    titleSize = Math.round(44 * scale);
+    bodySize = Math.round(24 * scale);
+    titleLineH = Math.round(titleSize * 1.25);
+    bodyLineH = Math.round(bodySize * 1.5);
+
+    ctx.font = `700 ${titleSize}px 'Playfair Display', Georgia, serif`;
+    titleLines = wrapText(ctx, post.title || "Community Story", contentWidth, Infinity);
+    ctx.font = `400 ${bodySize}px 'Inter', system-ui, sans-serif`;
+    bodyLines = wrapText(ctx, post.content || "", contentWidth, Infinity);
+
+    const contentEnd =
+      top +
+      brandH +
+      chipH +
+      titleLines.length * titleLineH +
+      titleGap +
+      1 +
+      dividerGap +
+      bodyLines.length * bodyLineH;
+
+    height = Math.max(minHeight, contentEnd + bodyToFooterGap + footerBlock);
+    if (height <= maxHeight) break;
+  }
+
+  canvas.height = height;
+
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
 
-  const padding = 72;
-  const contentWidth = width - padding * 2;
-  let y = 104;
+  let y = top;
 
   // Brand row
   let brandX = padding;
@@ -291,7 +335,7 @@ async function renderPostImage(post) {
   ctx.font = "600 17px 'Inter', system-ui, sans-serif";
   ctx.fillText("Community Story", brandX, y + 16);
 
-  y += 78;
+  y += brandH;
 
   // Category chip
   const category = String(post.category || "Story").toUpperCase();
@@ -303,37 +347,33 @@ async function renderPostImage(post) {
   ctx.fillStyle = "#1e3a8a";
   ctx.fillText(category, padding + 16, y + 1);
 
-  y += 62;
+  y += chipH;
 
   // Title
   ctx.fillStyle = "#0f172a";
-  ctx.font = "700 44px 'Playfair Display', Georgia, serif";
-  const titleLines = wrapText(ctx, post.title || "Community Story", contentWidth, 3);
+  ctx.font = `700 ${titleSize}px 'Playfair Display', Georgia, serif`;
   titleLines.forEach((line) => {
-    ctx.fillText(line, padding, y + 24);
-    y += 54;
+    ctx.fillText(line, padding, y + titleLineH / 2);
+    y += titleLineH;
   });
 
-  y += 12;
+  y += titleGap;
 
   // Divider
   ctx.fillStyle = "#e7e9e3";
   ctx.fillRect(padding, y, contentWidth, 1);
-  y += 34;
+  y += dividerGap;
 
-  // Excerpt — line count adapts to the space left above the footer
-  const footerY = height - 78;
-  const available = footerY - 34 - 24 - y;
-  const excerptLimit = Math.max(0, Math.min(4, Math.floor(available / 36)));
+  // The complete post
   ctx.fillStyle = "#475569";
-  ctx.font = "400 24px 'Inter', system-ui, sans-serif";
-  const excerptLines = wrapText(ctx, post.content || "", contentWidth, excerptLimit);
-  excerptLines.forEach((line) => {
-    ctx.fillText(line, padding, y + 12);
-    y += 36;
+  ctx.font = `400 ${bodySize}px 'Inter', system-ui, sans-serif`;
+  bodyLines.forEach((line) => {
+    ctx.fillText(line, padding, y + bodyLineH / 2);
+    y += bodyLineH;
   });
 
   // Footer
+  const footerY = height - 78;
   ctx.fillStyle = "#e7e9e3";
   ctx.fillRect(padding, footerY - 34, contentWidth, 1);
 
