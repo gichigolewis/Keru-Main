@@ -261,12 +261,6 @@ async function renderPostImage(post) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
 
-  const band = ctx.createLinearGradient(0, 0, width, 0);
-  band.addColorStop(0, "#1e3a8a");
-  band.addColorStop(1, "#247b70");
-  ctx.fillStyle = band;
-  ctx.fillRect(0, 0, width, 8);
-
   const padding = 72;
   const contentWidth = width - padding * 2;
   let y = 104;
