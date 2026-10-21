@@ -162,6 +162,209 @@ function NavBadge({ count, label }) {
   );
 }
 
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+function roundRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
+function wrapText(ctx, text, maxWidth, maxLines) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  let truncated = false;
+
+  const splitWord = (word) => {
+    const pieces = [];
+    let chunk = "";
+    for (const ch of word) {
+      if (chunk && ctx.measureText(chunk + ch).width > maxWidth) {
+        pieces.push(chunk);
+        chunk = ch;
+        if (pieces.length >= maxLines) return [pieces, true];
+      } else {
+        chunk += ch;
+      }
+    }
+    if (chunk) pieces.push(chunk);
+    return [pieces, false];
+  };
+
+  for (const word of words) {
+    if (ctx.measureText(word).width > maxWidth) {
+      const [pieces, cut] = splitWord(word);
+      for (const piece of pieces) {
+        if (lines.length >= maxLines) {
+          truncated = true;
+          break;
+        }
+        lines.push(piece);
+      }
+      if (truncated) break;
+      line = "";
+      continue;
+    }
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      if (lines.length >= maxLines) {
+        truncated = true;
+        line = "";
+        break;
+      }
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+
+  if (!truncated && line) {
+    if (lines.length < maxLines) lines.push(line);
+    else truncated = true;
+  }
+  if (truncated && lines.length) {
+    let last = lines[lines.length - 1];
+    while (last && ctx.measureText(`${last}…`).width > maxWidth) {
+      last = last.slice(0, -1);
+    }
+    lines[lines.length - 1] = `${last.trimEnd()}…`;
+  }
+  return lines;
+}
+
+async function renderPostImage(post) {
+  const width = 1200;
+  const height = 630;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+
+  try {
+    await document.fonts?.ready;
+  } catch {}
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+
+  const band = ctx.createLinearGradient(0, 0, width, 0);
+  band.addColorStop(0, "#1e3a8a");
+  band.addColorStop(1, "#247b70");
+  ctx.fillStyle = band;
+  ctx.fillRect(0, 0, width, 8);
+
+  const padding = 72;
+  const contentWidth = width - padding * 2;
+  let y = 104;
+
+  // Brand row
+  let brandX = padding;
+  try {
+    const logo = await loadImage(imagePath);
+    const box = 56;
+    const scale = box / Math.max(logo.width, logo.height);
+    const logoWidth = logo.width * scale;
+    const logoHeight = logo.height * scale;
+    ctx.drawImage(
+      logo,
+      padding,
+      y - logoHeight / 2,
+      logoWidth,
+      logoHeight,
+    );
+    brandX = padding + logoWidth + 22;
+  } catch {}
+
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#1e3a8a";
+  ctx.font = "700 28px 'Playfair Display', Georgia, serif";
+  ctx.fillText("Kerugoya Main SDA", brandX, y - 13);
+  ctx.fillStyle = "#64748b";
+  ctx.font = "600 17px 'Inter', system-ui, sans-serif";
+  ctx.fillText("Community Story", brandX, y + 16);
+
+  y += 78;
+
+  // Category chip
+  const category = String(post.category || "Story").toUpperCase();
+  ctx.font = "700 15px 'Inter', system-ui, sans-serif";
+  const chipWidth = ctx.measureText(category).width + 32;
+  ctx.fillStyle = "#eef2fb";
+  roundRect(ctx, padding, y - 16, chipWidth, 32, 16);
+  ctx.fill();
+  ctx.fillStyle = "#1e3a8a";
+  ctx.fillText(category, padding + 16, y + 1);
+
+  y += 62;
+
+  // Title
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "700 44px 'Playfair Display', Georgia, serif";
+  const titleLines = wrapText(ctx, post.title || "Community Story", contentWidth, 3);
+  titleLines.forEach((line) => {
+    ctx.fillText(line, padding, y + 24);
+    y += 54;
+  });
+
+  y += 12;
+
+  // Divider
+  ctx.fillStyle = "#e7e9e3";
+  ctx.fillRect(padding, y, contentWidth, 1);
+  y += 34;
+
+  // Excerpt — line count adapts to the space left above the footer
+  const footerY = height - 78;
+  const available = footerY - 34 - 24 - y;
+  const excerptLimit = Math.max(0, Math.min(4, Math.floor(available / 36)));
+  ctx.fillStyle = "#475569";
+  ctx.font = "400 24px 'Inter', system-ui, sans-serif";
+  const excerptLines = wrapText(ctx, post.content || "", contentWidth, excerptLimit);
+  excerptLines.forEach((line) => {
+    ctx.fillText(line, padding, y + 12);
+    y += 36;
+  });
+
+  // Footer
+  ctx.fillStyle = "#e7e9e3";
+  ctx.fillRect(padding, footerY - 34, contentWidth, 1);
+
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "600 22px 'Inter', system-ui, sans-serif";
+  ctx.fillText(`— ${post.author || "Community member"}`, padding, footerY);
+
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#64748b";
+  ctx.font = "500 20px 'Inter', system-ui, sans-serif";
+  const dateLabel = post.date
+    ? new Intl.DateTimeFormat("en", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(new Date(`${post.date}T12:00:00`))
+    : "";
+  ctx.fillText(dateLabel, width - padding, footerY);
+  ctx.textAlign = "left";
+
+  return new Promise((resolve) =>
+    canvas.toBlob((blob) => resolve(blob), "image/png", 0.95),
+  );
+}
+
 const links = [
   ["/", "bx-home-alt-2", "Home"],
   ["/about.html", "bx-user", "About"],
@@ -977,30 +1180,48 @@ function Community() {
   const [communityMessage, setCommunityMessage] = useState("");
   const [feedLoading, setFeedLoading] = useState(true);
   const [posting, setPosting] = useState(false);
-  const [copiedId, setCopiedId] = useState(null);
+  const [sharingId, setSharingId] = useState(null);
+  const [sharedId, setSharedId] = useState(null);
   const route = useRoute();
   const { announcements: announcementCount, community: communityCount } =
     useUnreadCounts(route);
 
   const handleShare = async (post) => {
-    const url = `${window.location.origin}/blogs.html`;
-    const title = post.title || "Community Story";
-    const text = post.content ? (post.content.length > 200 ? `${post.content.slice(0, 197)}...` : post.content) : title;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title, text, url });
-        return;
-      } catch (err) {
-        if (err.name === "AbortError") return;
-      }
-    }
+    setSharingId(post.id);
+    setCommunityMessage("");
     try {
-      await navigator.clipboard.writeText(`${title} - by ${post.author}\n\n${post.content || ""}\n\nRead more: ${url}`);
-      setCopiedId(post.id);
-      setTimeout(() => setCopiedId(null), 2500);
-    } catch {
-      window.prompt("Copy link to share:", url);
+      const blob = await renderPostImage(post);
+      if (!blob) throw new Error("The story image could not be created.");
+      const filename = `kerugoya-community-story-${post.id}.png`;
+      const file = new File([blob], filename, { type: "image/png" });
+      const title = post.title || "Community Story";
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title,
+          text: `${title} — a community story from Kerugoya Main SDA Church.`,
+        });
+      } else {
+        const href = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = href;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(href), 2000);
+      }
+      setSharedId(post.id);
+      setTimeout(() => setSharedId(null), 2500);
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        setCommunityMessage(
+          err?.message || "The story image could not be shared right now.",
+        );
+      }
+    } finally {
+      setSharingId(null);
     }
   };
 
@@ -1240,6 +1461,8 @@ function Community() {
                     className={`filter-tab ${category === item ? "is-active" : ""}`}
                     data-category={item}
                     type="button"
+                    role="tab"
+                    aria-selected={category === item}
                     key={item}
                     onClick={() => setCategory(item)}
                   >
@@ -1247,18 +1470,36 @@ function Community() {
                   </button>
                 ))}
               </div>
-              <select
-                value={sort}
-                onChange={(event) => setSort(event.target.value)}
-                aria-label="Sort posts"
-              >
-                <option value="recent">Most recent</option>
-                <option value="liked">Most loved</option>
-              </select>
+              <div className="feed-toolbar-end">
+                <span className="feed-count" aria-live="polite">
+                  {visible.length} {visible.length === 1 ? "story" : "stories"}
+                </span>
+                <label className="sort-control">
+                  <i className="bx bx-sort-alt" aria-hidden="true" />
+                  <select
+                    value={sort}
+                    onChange={(event) => setSort(event.target.value)}
+                    aria-label="Sort posts"
+                  >
+                    <option value="recent">Most recent</option>
+                    <option value="liked">Most loved</option>
+                  </select>
+                </label>
+              </div>
             </div>
             <div className="posts-list">
               {feedLoading ? (
-                <p className="empty-state">Loading community stories…</p>
+                <div className="post-skeletons" aria-hidden="true">
+                  {[0, 1, 2].map((item) => (
+                    <div className="post-card post-skeleton" key={item}>
+                      <span className="skeleton-line skeleton-tag" />
+                      <span className="skeleton-line skeleton-title" />
+                      <span className="skeleton-line" />
+                      <span className="skeleton-line" />
+                      <span className="skeleton-line skeleton-short" />
+                    </div>
+                  ))}
+                </div>
               ) : visible.length ? (
                 visible.map((post) => (
                   <article
@@ -1267,7 +1508,7 @@ function Community() {
                   >
                     <div className="post-meta">
                       <span className="post-category">{post.category}</span>
-                      <time>
+                      <time dateTime={post.date}>
                         {new Intl.DateTimeFormat("en", {
                           month: "short",
                           day: "numeric",
@@ -1279,61 +1520,71 @@ function Community() {
                     <FormattedContent text={post.content} />
                     <div className="post-footer">
                       <span className="post-author">
-                        <i className="bx bx-user-circle" /> {post.author}
+                        <span className="post-avatar" aria-hidden="true">
+                          {(post.author || "?").trim().charAt(0).toUpperCase()}
+                        </span>
+                        <span className="post-author-name">{post.author}</span>
                       </span>
-                      <button
-                        className={`like-button ${user && post.likedByMe ? "is-liked" : ""}`}
-                        data-action="like"
-                        type="button"
-                        onClick={() => like(post)}
-                      >
-                        <i
-                          className="bx bx-heart"
-                        />{" "}
-                        {post.likes}
-                      </button>
-                      <button
-                        className="comment-toggle"
-                        type="button"
-                        onClick={() =>
-                          setOpenComments(
-                            openComments === post.id ? null : post.id,
-                          )
-                        }
-                      >
-                        <i className="bx bx-message-rounded" />{" "}
-                        {post.comments.length}
-                      </button>
-                      <button
-                        className="share-btn"
-                        type="button"
-                        aria-label={`Share ${post.title}`}
-                        onClick={() => handleShare(post)}
-                      >
-                        <i className={`bx ${copiedId === post.id ? "bx-check text-success" : "bx-share-alt"}`} />
-                        <span>{copiedId === post.id ? "Link Copied!" : "Share"}</span>
-                      </button>
-                      {user && (post.memberId === user.id || post.author === user.name) && (
+                      <div className="post-actions">
                         <button
-                          className="icon-button post-delete-button"
+                          className={`like-button ${user && post.likedByMe ? "is-liked" : ""}`}
+                          data-action="like"
                           type="button"
-                          aria-label="Delete your story"
-                          title="Delete your story"
-                          onClick={() => deletePost(post)}
-                          style={{
-                            marginLeft: "auto",
-                            width: "32px",
-                            height: "32px",
-                            border: "1px solid rgba(189, 76, 73, 0.2)",
-                            borderRadius: "7px",
-                            color: "#bd4c49",
-                            background: "transparent",
-                            cursor: "pointer",
-                          }}
+                          aria-pressed={Boolean(user && post.likedByMe)}
+                          aria-label={`Like ${post.title}`}
+                          onClick={() => like(post)}
                         >
-                          <i className="bx bx-trash" />
+                          <i className="bx bx-heart" />
+                          <span>{post.likes}</span>
                         </button>
-                      )}
+                        <button
+                          className="comment-toggle"
+                          type="button"
+                          aria-expanded={openComments === post.id}
+                          aria-label={`Comments on ${post.title}`}
+                          onClick={() =>
+                            setOpenComments(
+                              openComments === post.id ? null : post.id,
+                            )
+                          }
+                        >
+                          <i className="bx bx-message-rounded" />
+                          <span>{post.comments.length}</span>
+                        </button>
+                        <button
+                          className="share-btn"
+                          type="button"
+                          disabled={sharingId === post.id}
+                          aria-label={`Share ${post.title} as an image`}
+                          title="Share this story as an image"
+                          onClick={() => handleShare(post)}
+                        >
+                          {sharingId === post.id ? (
+                            <>
+                              <i className="bx bx-loader-alt bx-spin" />
+                              <span>Preparing</span>
+                            </>
+                          ) : (
+                            <>
+                              <i
+                                className={`bx ${sharedId === post.id ? "bx-check text-success" : "bx-share-alt"}`}
+                              />
+                              <span>{sharedId === post.id ? "Ready" : "Share"}</span>
+                            </>
+                          )}
+                        </button>
+                        {user && (post.memberId === user.id || post.author === user.name) && (
+                          <button
+                            className="icon-button post-delete-button"
+                            type="button"
+                            aria-label="Delete your story"
+                            title="Delete your story"
+                            onClick={() => deletePost(post)}
+                          >
+                            <i className="bx bx-trash" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="comments">
                       {post.comments.map((comment, index) => (
@@ -1361,9 +1612,11 @@ function Community() {
                   </article>
                 ))
               ) : (
-                <p className="empty-state">
-                  No stories in this category yet. Be the first to share one.
-                </p>
+                <div className="empty-state">
+                  <i className="bx bx-message-rounded-dots" aria-hidden="true" />
+                  <h3>No stories in this category yet</h3>
+                  <p>Be the first to share one with the community.</p>
+                </div>
               )}
             </div>
           </div>
