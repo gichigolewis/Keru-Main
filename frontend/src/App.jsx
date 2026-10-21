@@ -1944,7 +1944,7 @@ function AdminDashboard({ auth, username, onLogout }) {
             </>
           )}
           {tab === "posts" && (
-            <div className="admin-list-section" style={{ marginTop: 0 }}>
+            <div className="admin-list-section is-first">
               <div className="admin-list-heading">
                 <div>
                   <h3>Published community stories</h3>
@@ -1960,19 +1960,23 @@ function AdminDashboard({ auth, username, onLogout }) {
                         <i className="bx bx-conversation" />
                       </div>
                       <div className="admin-item-copy">
-                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.25rem", flexWrap: "wrap" }}>
-                          <span className="post-category" style={{ fontSize: "0.75rem", padding: "0.15rem 0.5rem" }}>
-                            {item.category}
-                          </span>
-                          <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                        <div className="admin-item-meta">
+                          <span className="post-category">{item.category}</span>
+                          <span className="admin-item-byline">
                             by <strong>{item.author}</strong> • {item.date}
                           </span>
                         </div>
                         <strong>{item.title}</strong>
                         <FormattedContent text={item.content} />
-                        <div style={{ marginTop: "0.35rem", fontSize: "0.8rem", color: "#94a3b8", display: "flex", gap: "1rem" }}>
-                          <span><i className="bx bx-heart" /> {item.likes} {item.likes === 1 ? "like" : "likes"}</span>
-                          <span><i className="bx bx-message-rounded" /> {item.comments?.length || 0} comments</span>
+                        <div className="admin-item-stats">
+                          <span>
+                            <i className="bx bx-heart" /> {item.likes}{" "}
+                            {item.likes === 1 ? "like" : "likes"}
+                          </span>
+                          <span>
+                            <i className="bx bx-message-rounded" />{" "}
+                            {item.comments?.length || 0} comments
+                          </span>
                         </div>
                       </div>
                       <button
@@ -2028,7 +2032,7 @@ function AdminDashboard({ auth, username, onLogout }) {
             </>
           )}
           {tab === "users" && (
-            <div className="admin-list-section" style={{ marginTop: 0 }}>
+            <div className="admin-list-section is-first">
               <div className="admin-list-heading">
                 <div>
                   <h3>Logged in members</h3>
@@ -2040,22 +2044,28 @@ function AdminDashboard({ auth, username, onLogout }) {
                 {users.length ? (
                   users.map((session) => (
                     <article key={session.sessionId}>
-                      <div className="admin-item-icon" style={{ background: "#ecfdf5", color: "#059669" }}>
+                      <div className="admin-item-icon is-success">
                         <i className="bx bx-user-check" />
                       </div>
                       <div className="admin-item-copy">
-                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.25rem", flexWrap: "wrap" }}>
+                        <div className="admin-item-meta">
                           <strong>{session.name}</strong>
                           <span className="online-badge">
                             <span className="online-dot" /> Online
                           </span>
                         </div>
-                        <p style={{ margin: 0, color: "#475569", fontSize: "0.85rem" }}>
+                        <p className="admin-item-byline">
                           <i className="bx bx-envelope" /> {session.email}
                         </p>
-                        <div style={{ marginTop: "0.35rem", fontSize: "0.8rem", color: "#94a3b8", display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
-                          <span><i className="bx bx-time-five" /> Signed in: {new Date(session.loggedInAt).toLocaleString()}</span>
-                          <span><i className="bx bx-calendar-check" /> Session expires: {new Date(session.expiresAt).toLocaleDateString()}</span>
+                        <div className="admin-item-stats">
+                          <span>
+                            <i className="bx bx-time-five" /> Signed in:{" "}
+                            {new Date(session.loggedInAt).toLocaleString()}
+                          </span>
+                          <span>
+                            <i className="bx bx-calendar-check" /> Expires:{" "}
+                            {new Date(session.expiresAt).toLocaleDateString()}
+                          </span>
                         </div>
                       </div>
                       <button
