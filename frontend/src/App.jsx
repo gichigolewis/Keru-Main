@@ -374,6 +374,15 @@ const links = [
   ["/giving.html", "bx-donate-heart", "Giving"],
 ];
 
+const sideMenuLinks = [
+  ["/leaders.html", "bx-user-voice", "Leaders"],
+  ["/program.html", "bx-calendar", "Program"],
+  ["/prayer.html", "bx-book-open", "Prayer"],
+  ["/feedback.html", "bx-info-circle", "Feedback"],
+  ["/contact.html", "bx-phone", "Contact Us"],
+  ["/admin.html", "bx-lock-alt", "Admin login"],
+];
+
 function isLinkActive(href, route) {
   const clean = href.replace(/\.html$/, "");
   if (clean === "/") return route === "/";
@@ -389,6 +398,24 @@ function PublicHeader() {
     useUnreadCounts(route);
   const onAnnouncements = route === "/announcements";
   const onCommunity = route === "/blogs" || route === "/community";
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [route]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [menuOpen]);
 
   return (
     <>
@@ -446,46 +473,55 @@ function PublicHeader() {
             />
           </Link>
         </div>
-        <aside className={`mobile-side-panel ${menuOpen ? "is-open" : ""}`}>
+        <div
+          className={`side-panel-backdrop ${menuOpen ? "is-open" : ""}`}
+          onClick={() => setMenuOpen(false)}
+          aria-hidden="true"
+        />
+        <aside
+          className={`mobile-side-panel ${menuOpen ? "is-open" : ""}`}
+          aria-label="Site menu"
+          aria-hidden={!menuOpen}
+        >
+          <div className="side-panel-header">
+            <span className="side-panel-brand">
+              <img src={imagePath} alt="" />
+              <span>Kerugoya Main SDA</span>
+            </span>
+            <button
+              className="side-panel-close"
+              type="button"
+              aria-label="Close menu"
+              onClick={() => setMenuOpen(false)}
+            >
+              <i className="bx bx-x" />
+            </button>
+          </div>
           <div className="side-menu">
             <ul>
-              <li>
-                <Link href="/leaders.html">
-                  <i className="bx bx-user-voice" /> <span>Leaders</span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/program.html">
-                  <i className="bx bx-calendar" /> <span>Program</span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/prayer.html">
-                  <i className="bx bx-book-open" /> <span>Prayer</span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/feedback.html">
-                  <i className="bx bx-info-circle" /> <span>Feedback</span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact.html">
-                  <i className="bx bx-phone" /> <span>Contact Us</span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/admin.html">
-                  <i className="bx bx-lock-alt" /> <span>Admin login</span>
-                </Link>
-              </li>
+              {sideMenuLinks.map(([href, icon, label]) => {
+                const active = isLinkActive(href, route);
+                return (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className={active ? "is-active" : ""}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <i className={`bx ${icon}`} />
+                      <span>{label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
           <div className="join-btn">
             <Link
               href="/login.html"
               className="btn join"
-              style={{ padding: "0.5rem 1.5rem" }}
+              onClick={() => setMenuOpen(false)}
             >
               Join Us
             </Link>

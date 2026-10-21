@@ -106,6 +106,9 @@ footer .copy {
 .mobile-side-panel {
   display: none;
 }
+.side-panel-backdrop {
+  display: none;
+}
 
 @media (max-width: 888px) {
   nav {
@@ -132,59 +135,176 @@ footer .copy {
     background: var(--primary-color);
     color: white;
   }
+  .side-panel-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1099;
+    display: block;
+    background: rgba(15, 23, 42, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .side-panel-backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
   .mobile-side-panel {
     position: fixed;
     top: 0;
     right: 0;
     z-index: 1100;
     display: flex;
-    width: min(19rem, 86vw);
+    width: min(20rem, 88vw);
     height: 100vh;
-    padding: 5.5rem 1.5rem 2rem;
+    height: 100dvh;
+    padding: 0;
     flex-direction: column;
-    justify-content: space-between;
-    background: var(--primary-color);
-    box-shadow: -12px 0 30px rgba(15, 23, 42, 0.2);
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0;
+    background: linear-gradient(180deg, #1e3a8a 0%, #16295f 100%);
+    box-shadow: -18px 0 45px rgba(15, 23, 42, 0.3);
     opacity: 0;
     pointer-events: none;
     transform: translateX(100%);
     transition:
-      opacity 0.2s ease,
-      transform 0.2s ease;
+      opacity 0.25s ease,
+      transform 0.25s ease;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .mobile-side-panel.is-open {
     opacity: 1;
     pointer-events: auto;
     transform: translateX(0);
   }
+  .side-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1.1rem 1.1rem 1rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  }
+  .side-panel-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+    color: #ffffff;
+    font-size: 0.92rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .side-panel-brand img {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    border-radius: 7px;
+    background: #ffffff;
+    padding: 2px;
+    object-fit: contain;
+  }
+  .side-panel-close {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 180ms ease, border-color 180ms ease;
+  }
+  .side-panel-close:hover {
+    border-color: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.18);
+  }
   .mobile-side-panel .side-menu {
     display: block;
+    flex: 1 1 auto;
+    padding: 0.85rem 0.75rem;
   }
   .mobile-side-panel .side-menu ul {
     display: flex;
     margin: 0;
     padding: 0;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.2rem;
     list-style: none;
   }
   .mobile-side-panel .side-menu li {
+    display: block;
     margin: 0;
   }
   .mobile-side-panel .side-menu a {
+    display: flex;
+    align-items: center;
     justify-content: flex-start;
-    gap: 0.75rem;
-    padding: 0.65rem 0;
-    color: white;
-    font-size: 1rem;
+    gap: 0.85rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 12px;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 180ms ease, color 180ms ease;
+  }
+  .mobile-side-panel .side-menu a i {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    place-items: center;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    font-size: 1.15rem;
+    transition: background 180ms ease, color 180ms ease;
+  }
+  .mobile-side-panel .side-menu a:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+  }
+  .mobile-side-panel .side-menu a:hover i {
+    background: rgba(255, 255, 255, 0.24);
+  }
+  .mobile-side-panel .side-menu a.is-active {
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+  }
+  .mobile-side-panel .side-menu a.is-active i {
+    background: var(--secondary-color);
+    color: #1e3a8a;
   }
   .mobile-side-panel .join-btn {
     width: 100%;
+    padding: 1rem 1.25rem 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
   }
   .mobile-side-panel .join {
+    display: inline-flex;
     width: 100%;
-    justify-content: center;
+    min-height: 46px;
     align-items: center;
+    justify-content: center;
+    padding: 0.6rem 1.5rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--secondary-color);
+    color: #1e3a8a;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 180ms ease, transform 180ms ease;
+  }
+  .mobile-side-panel .join:hover {
+    background: #fcd34d;
+    transform: translateY(-1px);
   }
   .community-layout {
     flex-direction: column;
@@ -260,38 +380,8 @@ footer .copy {
   pointer-events: none;
 }
 
-aside {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-  justify-content: center;
-}
-
-aside .side-menu {
-  display: flex;
-  display: none;
-  justify-content: center;
-  list-style: none;
-}
-
-aside .side-menu li {
-  display: inline-flex;
-  margin-inline: 0.5rem;
-}
-
-aside .side-menu a {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  color: var(--text-dark);
-  font-weight: 600;
-  text-decoration: none;
-  font-size: 0.89rem;
-}
-aside .side-menu a:hover {
-  color: var(--secondary-color);
-  transition: color 0.3s ease;
-}
+/* Page asides are styled by their own scoped rules (.mobile-side-panel,
+   .community-sidebar, .admin-sidebar) so nothing leaks between them. */
 
 .join {
   display: flex;
@@ -1391,41 +1481,6 @@ iframe {
     /* position: absolute; */
   } /* On very small screens, hide text and just show logo */
 
-  aside {
-    position: absolute;
-    right: 0;
-    top: 4.8rem;
-    height: 100vh;
-    width: 50%;
-    display: none;
-    background-color: var(--primary-color);
-    transition: transform 0.3s ease;
-    /* Ensure it appears above the hero section */
-  }
-  aside .side-menu {
-    display: none;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
-    gap: 1.5rem;
-    list-style: none;
-  }
-  aside .side-menu li {
-    justify-content: center;
-    align-items: center;
-    display: block;
-    margin: 1rem 0;
-  }
-
-  aside .side-menu a {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--bg-light);
-    font-size: 1.2rem;
-    width: 100%;
-  }
-
   .announcements {
     position: sticky;
     right: 5rem;
@@ -1981,90 +2036,6 @@ footer .copy {
     background: var(--primary-color);
     color: white;
   }
-  .mobile-side-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 0;
-    display: flex;
-    width: min(24rem, 88vw);
-    height: auto;
-    max-height: 100dvh;
-    min-height: 0;
-    padding: max(clamp(6.5rem, 20vh, 10rem), calc(env(safe-area-inset-top) + 1rem)) clamp(1rem, 5vw, 1.5rem) calc(5rem + env(safe-area-inset-bottom));
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    gap: 1.5rem;
-    overflow-x: hidden;
-    overflow-y: auto;
-
-    overscroll-behavior: contain;
-    border-left: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 1rem 0 0 1rem;
-    background: linear-gradient(160deg, #1e3a8a 0%, #142b68 100%);
-    box-shadow: -12px 0 36px rgba(15, 23, 42, 0.24);
-    opacity: 0;
-    pointer-events: none;
-    transform: translateX(100%);
-    transition:
-      opacity 0.2s ease,
-      transform 0.2s ease;
-  }
-  .mobile-side-panel.is-open {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateX(0);
-  }
-  .mobile-side-panel .side-menu {
-    display: block;
-  }
-  .mobile-side-panel .side-menu ul {
-    display: flex;
-    margin: 0;
-    padding: 0;
-    flex-direction: column;
-    gap: clamp(0.35rem, 1.5vh, 0.75rem);
-    list-style: none;
-  }
-  .mobile-side-panel .side-menu li {
-    margin: 0;
-  }
-  .mobile-side-panel .side-menu a {
-    display: flex;
-    min-height: 2.75rem;
-    justify-content: flex-start;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.55rem 0.75rem;
-    border-radius: 0.5rem;
-    color: white;
-    font-size: 1rem;
-    text-decoration: none;
-    transition:
-      background-color 0.2s ease,
-      color 0.2s ease;
-  }
-  .mobile-side-panel .side-menu a:hover,
-  .mobile-side-panel .side-menu a:focus-visible {
-    background: rgba(255, 255, 255, 0.12);
-    color: var(--secondary-color);
-    outline: none;
-  }
-  .mobile-side-panel .join-btn {
-    margin-top: auto;
-  }
-  .mobile-side-panel .join {
-    min-height: 2.9rem;
-    border-radius: 0.5rem;
-    font-weight: 700;
-  }
-  .mobile-side-panel .join-btn,
-  .mobile-side-panel .join {
-    width: 100%;
-    right: auto;
-  }
   .community-layout {
     flex-direction: column;
   }
@@ -2545,6 +2516,7 @@ textarea,
   position: sticky;
   top: 5.5rem;
   min-width: 0;
+  width: 100%;
   display: grid;
   gap: 1.25rem;
 }
@@ -3218,6 +3190,7 @@ textarea,
   position: sticky;
   top: var(--admin-header-h);
   display: flex;
+  width: 100%;
   min-height: calc(100vh - var(--admin-header-h));
   padding: 1.75rem 1.25rem 1.5rem;
   border-right: 1px solid #e4e9f0;
