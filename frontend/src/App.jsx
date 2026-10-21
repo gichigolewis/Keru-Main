@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import logoImage from "../assets/images/sda logo.png";
 
 const imagePath = logoImage;
@@ -1747,6 +1747,7 @@ function AdminDashboard({ auth, username, onLogout }) {
   const [users, setUsers] = useState([]);
   const [message, setMessage] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const tabListRef = useRef(null);
   const headers = { "Content-Type": "application/json", Authorization: auth };
 
   const load = async () => {
@@ -1773,6 +1774,18 @@ function AdminDashboard({ auth, username, onLogout }) {
   useEffect(() => {
     load().catch(() => setMessage("Could not load dashboard data."));
   }, []);
+
+  // Keep the active tab visible in the horizontally scrolling mobile tab bar.
+  useEffect(() => {
+    const list = tabListRef.current;
+    if (!list) return;
+    const active = list.querySelector(".admin-tab.is-active");
+    if (!active) return;
+    if (list.scrollWidth <= list.clientWidth) return;
+    const target =
+      active.offsetLeft - (list.clientWidth - active.offsetWidth) / 2;
+    list.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+  }, [tab]);
 
   const submit = async (event, endpoint, method = "POST") => {
     event.preventDefault();
@@ -1849,7 +1862,7 @@ function AdminDashboard({ auth, username, onLogout }) {
           <span className="admin-sidebar-label">Workspace</span>
           <h1>Dashboard</h1>
           <p className="admin-sidebar-copy">Manage your church website content.</p>
-          <nav className="admin-tab-list" aria-label="Dashboard sections">
+          <nav className="admin-tab-list" aria-label="Dashboard sections" ref={tabListRef}>
             {[
               ["announcements", "Announcements", announcements.length],
               ["posts", "Community Posts", posts.length],
@@ -1927,7 +1940,7 @@ function AdminDashboard({ auth, username, onLogout }) {
                   {announcements.length ? announcements.map((item) => (
                     <article key={item.id}>
                       <div className="admin-item-icon"><i className="bx bx-megaphone" /></div>
-                      <div className="admin-item-copy"><strong>{item.title}</strong><FormattedContent text={item.content} /></div>
+                      <div className="admin-item-copy"><strong>{item.title}</strong><FormattedContent className="admin-item-preview" text={item.content} /></div>
                       <button
                         className="icon-button"
                         type="button"
@@ -1967,7 +1980,7 @@ function AdminDashboard({ auth, username, onLogout }) {
                           </span>
                         </div>
                         <strong>{item.title}</strong>
-                        <FormattedContent text={item.content} />
+                        <FormattedContent className="admin-item-preview" text={item.content} />
                         <div className="admin-item-stats">
                           <span>
                             <i className="bx bx-heart" /> {item.likes}{" "}
