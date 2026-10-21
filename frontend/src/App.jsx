@@ -246,6 +246,22 @@ function wrapText(ctx, text, maxWidth, maxLines) {
   return lines;
 }
 
+// Keeps the author's own line breaks (and blank lines between paragraphs)
+// while still wrapping any single line that is too wide for the image.
+function wrapParagraphs(ctx, text, maxWidth) {
+  const lines = [];
+  const paragraphs = String(text ?? "").split("\n");
+  paragraphs.forEach((paragraph, index) => {
+    const trimmed = paragraph.trim();
+    if (!trimmed) {
+      if (index < paragraphs.length - 1) lines.push("");
+      return;
+    }
+    lines.push(...wrapText(ctx, trimmed, maxWidth, Infinity));
+  });
+  return lines;
+}
+
 async function renderPostImage(post) {
   const width = 1200;
   const minHeight = 630;
@@ -286,7 +302,7 @@ async function renderPostImage(post) {
     ctx.font = `700 ${titleSize}px 'Playfair Display', Georgia, serif`;
     titleLines = wrapText(ctx, post.title || "Community Story", contentWidth, Infinity);
     ctx.font = `400 ${bodySize}px 'Inter', system-ui, sans-serif`;
-    bodyLines = wrapText(ctx, post.content || "", contentWidth, Infinity);
+    bodyLines = wrapParagraphs(ctx, post.content || "", contentWidth);
 
     const contentEnd =
       top +
