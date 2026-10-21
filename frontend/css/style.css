@@ -3401,7 +3401,7 @@ textarea,
   height: 34px;
   flex: 0 0 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1e3a8a, #247b70);
+  background: var(--primary-color);
   color: #fff;
   font-size: 0.85rem;
   font-weight: 700;
