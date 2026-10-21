@@ -67,6 +67,48 @@ function Link({ href, children, ...props }) {
   );
 }
 
+// Continues an ordered or bulleted list when Enter is pressed in a textarea.
+// "1." becomes "2.", "2)" becomes "3)", and "-"/"•" repeat with the same indent.
+function continueListOnEnter(event) {
+  if (event.key !== "Enter" || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
+    return;
+  }
+  const field = event.currentTarget;
+  const { selectionStart, selectionEnd, value } = field;
+  if (selectionStart !== selectionEnd) return;
+
+  const before = value.slice(0, selectionStart);
+  const after = value.slice(selectionStart);
+  const currentLine = before.slice(before.lastIndexOf("\n") + 1);
+
+  // The marker must start the line and be followed by a space or end of line.
+  const ordered = currentLine.match(/^(\s*)(\d+)([.)])(?=\s|$)/);
+  const bullet = currentLine.match(/^(\s*)([-*+])(?=\s|$)/);
+  if (!ordered && !bullet) return;
+
+  const matched = ordered || bullet;
+  const indent = matched[1];
+  const marker = ordered
+    ? `${Number(ordered[2]) + 1}${ordered[3]}`
+    : bullet[2];
+  const separator = /^\s*/.exec(currentLine.slice(matched[0].length))[0];
+
+  event.preventDefault();
+  const insertion = `\n${indent}${marker}${separator}`;
+  const nextValue = before + insertion + after;
+
+  const setter = Object.getOwnPropertyDescriptor(
+    window.HTMLTextAreaElement.prototype,
+    "value",
+  )?.set;
+  if (setter) setter.call(field, nextValue);
+  else field.value = nextValue;
+
+  const caret = selectionStart + insertion.length;
+  field.setSelectionRange(caret, caret);
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 function useRoute() {
   const [path, setPath] = useState(window.location.pathname);
   useEffect(() => {
@@ -246,20 +288,48 @@ function wrapText(ctx, text, maxWidth, maxLines) {
   return lines;
 }
 
-// Keeps the author's own line breaks (and blank lines between paragraphs)
-// while still wrapping any single line that is too wide for the image.
-function wrapParagraphs(ctx, text, maxWidth) {
-  const lines = [];
+// Splits post content into blocks so lists stay in point form: bullets and
+// numbers get their own marker with a hanging indent, everything else is a
+// paragraph. Author line breaks and blank lines are preserved.
+function parseContentBlocks(ctx, text, maxWidth) {
+  const blocks = [];
   const paragraphs = String(text ?? "").split("\n");
   paragraphs.forEach((paragraph, index) => {
     const trimmed = paragraph.trim();
     if (!trimmed) {
-      if (index < paragraphs.length - 1) lines.push("");
+      if (index < paragraphs.length - 1) blocks.push({ kind: "blank", lines: [""] });
       return;
     }
-    lines.push(...wrapText(ctx, trimmed, maxWidth, Infinity));
+
+    const ordered = paragraph.match(/^(\s*)(\d+)([.)])(\s+)(.*)$/);
+    const bullet = paragraph.match(/^(\s*)([-*+•])(\s+)(.*)$/);
+
+    if (ordered || bullet) {
+      const indent = ordered ? ordered[1] : bullet[1];
+      const marker = ordered ? `${ordered[2]}${ordered[3]}` : "•";
+      const content = ordered ? ordered[5] : bullet[4];
+      const markerWidth = ctx.measureText(`${marker}  `).width;
+      const indentWidth = ctx.measureText(indent).width;
+      const textWidth = Math.max(80, maxWidth - indentWidth - markerWidth);
+      blocks.push({
+        kind: "list",
+        indentWidth,
+        marker,
+        markerWidth,
+        lines: wrapText(ctx, content, textWidth, Infinity),
+      });
+      return;
+    }
+
+    blocks.push({
+      kind: "text",
+      indentWidth: 0,
+      marker: "",
+      markerWidth: 0,
+      lines: wrapText(ctx, trimmed, maxWidth, Infinity),
+    });
   });
-  return lines;
+  return blocks;
 }
 
 async function renderPostImage(post) {
@@ -290,7 +360,8 @@ async function renderPostImage(post) {
   let titleLineH = 55;
   let bodyLineH = 36;
   let titleLines = [];
-  let bodyLines = [];
+  let bodyBlocks = [];
+  let bodyHeight = 0;
   let height = minHeight;
 
   for (const scale of [1, 0.92, 0.84, 0.76, 0.68, 0.6]) {
@@ -302,7 +373,21 @@ async function renderPostImage(post) {
     ctx.font = `700 ${titleSize}px 'Playfair Display', Georgia, serif`;
     titleLines = wrapText(ctx, post.title || "Community Story", contentWidth, Infinity);
     ctx.font = `400 ${bodySize}px 'Inter', system-ui, sans-serif`;
-    bodyLines = wrapParagraphs(ctx, post.content || "", contentWidth);
+    bodyBlocks = parseContentBlocks(ctx, post.content || "", contentWidth);
+
+    // A little breathing room after a list so it reads as its own block.
+    bodyBlocks.forEach((block, index) => {
+      const next = bodyBlocks[index + 1];
+      block.gapAfter =
+        block.kind === "list" && next && next.kind !== "blank"
+          ? Math.round(bodyLineH * 0.4)
+          : 0;
+    });
+
+    bodyHeight = bodyBlocks.reduce(
+      (sum, block) => sum + block.lines.length * bodyLineH + (block.gapAfter || 0),
+      0,
+    );
 
     const contentEnd =
       top +
@@ -312,7 +397,7 @@ async function renderPostImage(post) {
       titleGap +
       1 +
       dividerGap +
-      bodyLines.length * bodyLineH;
+      bodyHeight;
 
     height = Math.max(minHeight, contentEnd + bodyToFooterGap + footerBlock);
     if (height <= maxHeight) break;
@@ -380,12 +465,31 @@ async function renderPostImage(post) {
   ctx.fillRect(padding, y, contentWidth, 1);
   y += dividerGap;
 
-  // The complete post
-  ctx.fillStyle = "#475569";
+  // The complete post — lists stay in point form
   ctx.font = `400 ${bodySize}px 'Inter', system-ui, sans-serif`;
-  bodyLines.forEach((line) => {
-    ctx.fillText(line, padding, y + bodyLineH / 2);
-    y += bodyLineH;
+  bodyBlocks.forEach((block) => {
+    if (block.kind === "blank") {
+      y += bodyLineH;
+      return;
+    }
+    if (block.kind === "list") {
+      const markerX = padding + block.indentWidth;
+      const textX = markerX + block.markerWidth;
+      ctx.fillStyle = "#2563eb";
+      ctx.fillText(block.marker, markerX, y + bodyLineH / 2);
+      ctx.fillStyle = "#475569";
+      block.lines.forEach((line) => {
+        ctx.fillText(line, textX, y + bodyLineH / 2);
+        y += bodyLineH;
+      });
+    } else {
+      ctx.fillStyle = "#475569";
+      block.lines.forEach((line) => {
+        ctx.fillText(line, padding, y + bodyLineH / 2);
+        y += bodyLineH;
+      });
+    }
+    y += block.gapAfter || 0;
   });
 
   // Footer
@@ -1697,6 +1801,7 @@ function Community() {
                     rows="5"
                     placeholder="Start writing..."
                     maxLength="700"
+                    onKeyDown={continueListOnEnter}
                     required
                   />
                   <button className="btn" type="submit" disabled={posting}>
@@ -1980,7 +2085,7 @@ function AdminDashboard({ auth, username, onLogout }) {
                 <form className="admin-form" onSubmit={(event) => submit(event, "/api/announcements")}>
                   <label className="admin-field"><span>Title</span><input name="title" placeholder="e.g. Sabbath service schedule" required /></label>
                   <label className="admin-field"><span>Display date <small>Optional</small></span><input name="date" type="date" /></label>
-                  <label className="admin-field admin-field-wide"><span>Details</span><textarea name="content" rows="4" placeholder="Write the announcement for your community…" required /></label>
+                    <label className="admin-field admin-field-wide"><span>Details</span><textarea name="content" rows="4" placeholder="Write the announcement for your community…" onKeyDown={continueListOnEnter} required /></label>
                   <button className="btn" type="submit"><i className="bx bx-send" /> Publish announcement</button>
                 </form>
               </div>
