@@ -1800,8 +1800,12 @@ function Community() {
                     name="content"
                     rows="5"
                     placeholder="Start writing..."
-                    maxLength="700"
                     onKeyDown={continueListOnEnter}
+                    onInput={(event) => {
+                      const field = event.currentTarget;
+                      field.style.height = 'auto';
+                      field.style.height = `${field.scrollHeight}px`;
+                    }}
                     required
                   />
                   <button className="btn" type="submit" disabled={posting}>
