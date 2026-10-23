@@ -318,6 +318,83 @@ function formatSermon(sermon) {
   return { id: sermon.id, title: sermon.title, youtubeId: sermon.youtube_id, date: sermon.date };
 }
 
+function buildProgramPdf(title, body) {
+  const pageW = 595.28;
+  const pageH = 841.89;
+  const margin = 56;
+  const fontSize = 11;
+  const lineHeight = 16;
+  const titleSize = 20;
+  const escape = (s) => String(s).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+
+  const textLines = [];
+  const titleChars = Math.floor((pageW - margin * 2) / (titleSize * 0.56));
+  let titleStr = title || 'Church Program';
+  while (titleStr.length > 0) {
+    textLines.push({ t: titleStr.slice(0, titleChars), s: titleSize });
+    titleStr = titleStr.slice(titleChars);
+  }
+  textLines.push({ t: '', s: fontSize });
+
+  const bodyChars = Math.floor((pageW - margin * 2) / (fontSize * 0.56));
+  for (const raw of String(body || '').split('\n')) {
+    if (!raw.trim()) { textLines.push({ t: '', s: fontSize }); continue; }
+    let str = raw;
+    while (str.length > 0) {
+      textLines.push({ t: str.slice(0, bodyChars), s: fontSize });
+      str = str.slice(bodyChars);
+    }
+  }
+
+  const linesPerPage = Math.floor((pageH - margin * 2 - 40) / lineHeight);
+  const pages = [];
+  for (let i = 0; i < textLines.length; i += linesPerPage) {
+    pages.push(textLines.slice(i, i + linesPerPage));
+  }
+  if (!pages.length) pages.push([]);
+
+  const contentStreams = pages.map((page) => {
+    let y = pageH - margin - 30;
+    let s = 'BT\n';
+    for (const line of page) {
+      if (!line.t) { y -= lineHeight; continue; }
+      s += `/F1 ${line.s} Tf\n`;
+      s += `1 0 0 1 ${margin} ${y.toFixed(2)} Tm\n`;
+      s += `(${escape(line.t)}) Tj\n`;
+      y -= lineHeight;
+    }
+    s += 'ET';
+    return s;
+  });
+
+  const objs = [];
+  objs.push(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj`);
+  objs.push(`2 0 obj\n<< /Type /Pages /Kids [${pages.map((_, i) => `${3 + i} 0 R`).join(' ')}] /Count ${pages.length} >>\nendobj`);
+  pages.forEach((_, i) => {
+    objs.push(`${3 + i} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Contents ${3 + pages.length + i} 0 R /Resources << /Font << /F1 ${3 + 3 * pages.length} 0 R >> >> >>\nendobj`);
+  });
+  contentStreams.forEach((stream, i) => {
+    const data = Buffer.from(stream, 'latin1');
+    objs.push(`${3 + pages.length + i} 0 obj\n<< /Length ${data.length} >>\nstream\n${stream}\nendstream\nendobj`);
+  });
+  objs.push(`${3 + 3 * pages.length} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj`);
+
+  let pdf = '%PDF-1.4\n';
+  const offsets = [];
+  for (const o of objs) {
+    offsets.push(Buffer.byteLength(pdf, 'latin1'));
+    pdf += o + '\n';
+  }
+  const xrefOffset = Buffer.byteLength(pdf, 'latin1');
+  pdf += `xref\n0 ${objs.length + 1}\n`;
+  pdf += '0000000000 65535 f \n';
+  for (const off of offsets) {
+    pdf += `${String(off).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return Buffer.from(pdf, 'latin1');
+}
+
 const checkAuth = asyncRoute(async (req, res, next) => {
   const auth = req.headers.authorization || '';
   if (!auth.startsWith('Basic ')) {
@@ -499,6 +576,39 @@ app.delete('/api/feedback/:id', checkAuth, asyncRoute(async (req, res) => {
   const rows = await query`DELETE FROM feedback_submissions WHERE id = ${req.params.id} RETURNING id`;
   if (!rows.length) return res.status(404).json({ error: 'not found' });
   res.status(204).end();
+}));
+
+app.get('/api/program', asyncRoute(async (_req, res) => {
+  const query = getSql();
+  const rows = await query`SELECT title, body, updated_at FROM program_content WHERE id = 1`;
+  const row = rows[0];
+  if (!row) return res.json({ title: 'Church Program', body: '' });
+  res.json({ title: row.title, body: row.body, updatedAt: row.updated_at });
+}));
+
+app.put('/api/program', checkAuth, asyncRoute(async (req, res) => {
+  const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+  const body = typeof req.body?.body === 'string' ? req.body.body : '';
+  if (!title) return res.status(400).json({ error: 'Title is required.' });
+  const query = getSql();
+  const rows = await query`UPDATE program_content SET title = ${title}, body = ${body}, updated_at = NOW()
+    WHERE id = 1 RETURNING title, body, updated_at`;
+  if (!rows.length) {
+    await query`INSERT INTO program_content (title, body) VALUES (${title}, ${body})`;
+    return res.json({ title, body });
+  }
+  res.json({ title: rows[0].title, body: rows[0].body, updatedAt: rows[0].updated_at });
+}));
+
+app.get('/api/program/pdf', asyncRoute(async (_req, res) => {
+  const query = getSql();
+  const rows = await query`SELECT title, body FROM program_content WHERE id = 1`;
+  const row = rows[0] || { title: 'Church Program', body: '' };
+  const pdf = buildProgramPdf(row.title || 'Church Program', row.body || '');
+  res.set('Content-Type', 'application/pdf');
+  res.set('Content-Disposition', 'attachment; filename="church-program.pdf"');
+  res.set('Content-Length', String(pdf.length));
+  res.send(pdf);
 }));
 
 app.use((error, _req, res, _next) => {

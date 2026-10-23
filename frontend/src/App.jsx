@@ -1268,10 +1268,29 @@ const responsivePages = {
 function ResponsivePage({ page }) {
   const content = responsivePages[page];
   const isFormPage = page === "prayer" || page === "feedback";
+  const isProgramPage = page === "program";
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [visibility, setVisibility] = useState("anonymous");
+  const [program, setProgram] = useState(null);
+  const [programLoading, setProgramLoading] = useState(isProgramPage);
   const endpoint = page === "prayer" ? "/api/prayer-requests" : "/api/feedback";
+
+  useEffect(() => {
+    if (!isProgramPage) return;
+    let active = true;
+    (async () => {
+      try {
+        const response = await fetch("/api/program", { cache: "no-store" });
+        if (response.ok && active) setProgram(await response.json());
+      } catch {
+        // keep default state
+      } finally {
+        if (active) setProgramLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [isProgramPage]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -1311,7 +1330,25 @@ function ResponsivePage({ page }) {
         <span className="eyebrow">{content.eyebrow}</span>
         <h1>{content.title}</h1>
         <p>{content.body}</p>
-        {isFormPage ? (
+        {isProgramPage ? (
+          programLoading ? (
+            <p className="admin-empty-state">Loading program…</p>
+          ) : (
+            <>
+              <article className="program-preview">
+                <h2>{program?.title || "Church Program"}</h2>
+                <div className="program-body">
+                  {(program?.body || "").split("\n").map((line, index) => (
+                    <p key={index} className="program-line">{line || "\u00A0"}</p>
+                  ))}
+                </div>
+              </article>
+              <a className="btn" href="/api/program/pdf" target="_blank" rel="noopener noreferrer">
+                Download program as PDF <i className="bx bx-file-pdf" />
+              </a>
+            </>
+          )
+        ) : isFormPage ? (
           <form className="responsive-form" onSubmit={submit}>
             <label>
               Your name
@@ -1957,13 +1994,15 @@ function AdminDashboard({ auth, username, onLogout }) {
   const [users, setUsers] = useState([]);
   const [prayerRequests, setPrayerRequests] = useState([]);
   const [feedback, setFeedback] = useState([]);
+  const [program, setProgram] = useState({ title: "Church Program", body: "" });
+  const [programSaving, setProgramSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const tabListRef = useRef(null);
   const headers = { "Content-Type": "application/json", Authorization: auth };
 
   const load = async () => {
-    const [announcementResponse, sermonResponse, adminResponse, postsResponse, usersResponse, prayerResponse, feedbackResponse] =
+    const [announcementResponse, sermonResponse, adminResponse, postsResponse, usersResponse, prayerResponse, feedbackResponse, programResponse] =
       await Promise.all([
         fetch("/api/announcements", { cache: "no-store" }),
         fetch("/api/sermons", { cache: "no-store" }),
@@ -1972,6 +2011,7 @@ function AdminDashboard({ auth, username, onLogout }) {
         fetch("/api/admin/users", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
         fetch("/api/prayer-requests", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
         fetch("/api/feedback", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
+        fetch("/api/program", { cache: "no-store" }).catch(() => ({ ok: false })),
       ]);
     if (adminResponse.status === 401) {
       setMessage("Admin session expired or invalid credentials. Please sign out and sign in again.");
@@ -1985,6 +2025,10 @@ function AdminDashboard({ auth, username, onLogout }) {
     setUsers(usersResponse.ok ? await usersResponse.json() : []);
     setPrayerRequests(prayerResponse.ok ? await prayerResponse.json() : []);
     setFeedback(feedbackResponse.ok ? await feedbackResponse.json() : []);
+    if (programResponse.ok) {
+      const data = await programResponse.json();
+      setProgram({ title: data.title || "Church Program", body: data.body || "" });
+    }
   };
 
   useEffect(() => {
@@ -2019,6 +2063,36 @@ function AdminDashboard({ auth, username, onLogout }) {
     form.reset();
     setMessage("Saved successfully.");
     await load();
+  };
+
+  const saveProgram = async (event) => {
+    event.preventDefault();
+    setProgramSaving(true);
+    setMessage("");
+    const data = new FormData(event.currentTarget);
+    const payload = {
+      title: data.get("title"),
+      body: data.get("body"),
+    };
+    try {
+      const response = await fetch("/api/program", {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        setMessage(result.error || "Could not save the program.");
+        return;
+      }
+      const result = await response.json();
+      setProgram({ title: result.title, body: result.body });
+      setMessage("Program saved. You can now download it as a PDF.");
+    } catch {
+      setMessage("Could not connect. Please try again.");
+    } finally {
+      setProgramSaving(false);
+    }
   };
 
   const remove = async (endpoint, label = "item") => {
@@ -2087,6 +2161,7 @@ function AdminDashboard({ auth, username, onLogout }) {
               ["announcements", "Announcements", announcements.length],
               ["prayer", "Prayer Requests", prayerRequests.length],
               ["feedback", "Feedback", feedback.length],
+              ["program", "Program", 1],
               ["posts", "Community Posts", posts.length],
               ["sermons", "Sermons", sermons.length],
               ["users", "Logged in Users", users.length],
@@ -2107,13 +2182,15 @@ function AdminDashboard({ auth, username, onLogout }) {
                         ? "bx-pray"
                         : value === "feedback"
                           ? "bx-message-dots"
-                          : value === "posts"
-                            ? "bx-conversation"
-                            : value === "sermons"
-                              ? "bx-video"
-                              : value === "users"
-                                ? "bx-user-check"
-                                : "bx-user-plus"
+                          : value === "program"
+                            ? "bx-calendar"
+                            : value === "posts"
+                              ? "bx-conversation"
+                              : value === "sermons"
+                                ? "bx-video"
+                                : value === "users"
+                                  ? "bx-user-check"
+                                  : "bx-user-plus"
                   }`}
                 />
                 <span className="admin-tab-text">{label}</span>
@@ -2136,24 +2213,28 @@ function AdminDashboard({ auth, username, onLogout }) {
                   ? "Prayer Requests"
                   : tab === "feedback"
                     ? "Feedback"
-                    : tab === "posts"
-                      ? "Community Posts"
-                      : tab === "sermons"
-                        ? "Sermons"
-                        : tab === "users"
-                          ? "Logged in Users"
-                          : "Administrators"}
+                    : tab === "program"
+                      ? "Church Program"
+                      : tab === "posts"
+                        ? "Community Posts"
+                        : tab === "sermons"
+                          ? "Sermons"
+                          : tab === "users"
+                            ? "Logged in Users"
+                            : "Administrators"}
             </h2>
             <p>
               {tab === "prayer"
                 ? "Prayer needs shared with the church family. Respond with care."
                 : tab === "feedback"
                   ? "Suggestions and comments submitted by the community."
-                  : tab === "posts"
-                    ? "Review and moderate user-submitted stories and reflections."
-                    : tab === "users"
-                      ? "View and manage active member sessions across your church website."
-                      : "Keep your community informed with timely, well-organized updates."}
+                  : tab === "program"
+                    ? "Edit the weekly program shown to the congregation and download it as a PDF."
+                    : tab === "posts"
+                      ? "Review and moderate user-submitted stories and reflections."
+                      : tab === "users"
+                        ? "View and manage active member sessions across your church website."
+                        : "Keep your community informed with timely, well-organized updates."}
             </p>
           </div>
           {message && <p className="form-message admin-notice" role="status">{message}</p>}
@@ -2271,6 +2352,26 @@ function AdminDashboard({ auth, username, onLogout }) {
                     <i className="bx bx-message-dots" /> No feedback yet.
                   </p>
                 )}
+              </div>
+            </div>
+          )}
+          {tab === "program" && (
+            <div className="admin-panel">
+              <div className="admin-panel-heading"><span className="admin-panel-icon"><i className="bx bx-edit-alt" /></span><div><h3>Edit church program</h3><p>Update the program shown to the congregation. Use line breaks to separate sections.</p></div></div>
+              <form className="admin-form" onSubmit={saveProgram}>
+                <label className="admin-field"><span>Program title</span><input name="title" value={program.title} onChange={(event) => setProgram((prev) => ({ ...prev, title: event.target.value }))} placeholder="e.g. Sabbath School &amp; Worship" required /></label>
+                <label className="admin-field admin-field-wide"><span>Program body</span><textarea name="body" rows="12" value={program.body} onChange={(event) => setProgram((prev) => ({ ...prev, body: event.target.value }))} placeholder="Write the weekly program here…" onKeyDown={continueListOnEnter} /></label>
+                <button className="btn" type="submit" disabled={programSaving}>
+                  {programSaving ? "Saving…" : "Save program"} <i className="bx bx-save" />
+                </button>
+              </form>
+              <div className="admin-program-actions">
+                <a className="btn" href="/api/program/pdf" target="_blank" rel="noopener noreferrer">
+                  Download program as PDF <i className="bx bx-file-pdf" />
+                </a>
+                <a className="admin-program-link" href="/program.html" target="_blank" rel="noopener noreferrer">
+                  View public program page <i className="bx bx-external-link" />
+                </a>
               </div>
             </div>
           )}

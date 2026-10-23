@@ -97,6 +97,15 @@ async function ensureDatabase() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`;
       await query`CREATE INDEX IF NOT EXISTS feedback_submissions_created_at_idx ON feedback_submissions(created_at DESC)`;
+      await query`CREATE TABLE IF NOT EXISTS program_content (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        title TEXT NOT NULL DEFAULT 'Church Program',
+        body TEXT NOT NULL DEFAULT '',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CHECK (id = 1)
+      )`;
+      // Seed a default row so GET /api/program always returns something.
+      await query`INSERT INTO program_content (title, body) SELECT 'Church Program', '' WHERE NOT EXISTS (SELECT 1 FROM program_content WHERE id = 1)`;
     })().catch((error) => {
       schemaPromise = undefined;
       throw error;

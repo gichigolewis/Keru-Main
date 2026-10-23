@@ -1820,6 +1820,35 @@ footer .copy {
   color: var(--text-dark);
   background: #fff;
 }
+.program-preview {
+  max-width: 560px;
+  margin: 2rem auto;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  background: #ffffff;
+  border: 1px solid #e4e9f0;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+.program-preview h2 {
+  margin: 0 0 1.25rem;
+  color: var(--primary-color);
+  font-family: "Playfair Display", serif;
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  line-height: 1.15;
+}
+.program-body {
+  color: var(--text-dark);
+  font-size: 0.98rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.program-body .program-line {
+  margin: 0;
+}
+.program-body .program-line + .program-line {
+  margin-top: 0.5rem;
+}
 
 .ann-sect {
   height: auto;
@@ -3762,6 +3791,27 @@ textarea,
 .admin-empty-state i {
   color: #b6c2d4;
   font-size: 1.5rem;
+}
+.admin-program-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.admin-program-actions .btn {
+  width: auto;
+}
+.admin-program-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--primary-color);
+  font-size: 0.88rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+.admin-program-link:hover {
+  color: var(--secondary-color);
 }
 
 /* Login panel ---------------------------------------------- */
