@@ -201,7 +201,7 @@ app.post('/api/community/posts', requireMember, asyncRoute(async (req, res) => {
   const content = typeof req.body?.content === 'string' ? req.body.content.trim() : '';
   const category = req.body?.category;
   if (!title || title.length > 80) return res.status(400).json({ error: 'Title is required and must be 80 characters or fewer.' });
-  if (!content || content.length > 700) return res.status(400).json({ error: 'Story text is required and must be 700 characters or fewer.' });
+  if (!content) return res.status(400).json({ error: 'Story text is required.' });
   if (!['Faith', 'Life', 'Service'].includes(category)) return res.status(400).json({ error: 'Choose a valid story category.' });
   const query = getSql();
   const rows = await query`INSERT INTO community_posts (member_id, author, title, content, category)

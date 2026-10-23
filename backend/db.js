@@ -58,11 +58,13 @@ async function ensureDatabase() {
         member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
         author VARCHAR(80) NOT NULL,
         title VARCHAR(80) NOT NULL,
-        content VARCHAR(700) NOT NULL,
+        content TEXT NOT NULL,
         category TEXT NOT NULL CHECK (category IN ('Faith', 'Life', 'Service')),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`;
+      // Allow unlimited story text on tables created before this change.
+      await query`ALTER TABLE community_posts ALTER COLUMN content TYPE TEXT`;
       await query`CREATE INDEX IF NOT EXISTS community_posts_created_at_idx ON community_posts(created_at DESC)`;
       await query`CREATE TABLE IF NOT EXISTS community_likes (
         post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
