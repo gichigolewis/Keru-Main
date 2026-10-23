@@ -3146,15 +3146,6 @@ textarea,
   backdrop-filter: saturate(180%) blur(12px);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
 }
-.admin-header::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-}
 .admin-header .logo {
   display: inline-flex;
   align-items: center;
@@ -3256,13 +3247,6 @@ textarea,
   font-weight: 700 !important;
   letter-spacing: -0.035em;
   line-height: 1.15;
-}
-.admin-sidebar .sidebar-accent {
-  width: 48px;
-  height: 3px;
-  margin-top: 0.55rem;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
 }
 .admin-sidebar-copy {
   display: block !important;

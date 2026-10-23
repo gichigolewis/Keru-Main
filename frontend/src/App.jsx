@@ -2020,7 +2020,6 @@ function AdminDashboard({ auth, username, onLogout }) {
         <aside className="admin-sidebar">
           <span className="admin-sidebar-label">Workspace</span>
           <h1>Dashboard</h1>
-          <div className="sidebar-accent" />
           <p className="admin-sidebar-copy">Manage your church website content.</p>
           <nav className="admin-tab-list" aria-label="Dashboard sections" ref={tabListRef}>
             {[
