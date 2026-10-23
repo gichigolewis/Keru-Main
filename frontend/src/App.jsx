@@ -1836,12 +1836,53 @@ function Community() {
   );
 }
 
+function ConfirmDialog({ open, title, message, onConfirm, onCancel }) {
+  if (!open) return null;
+  return (
+    <div
+      className="admin-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      <div className="admin-modal">
+        <div className="admin-modal-header">
+          <h3>{title}</h3>
+          <button
+            className="admin-modal-close"
+            type="button"
+            onClick={onCancel}
+          >
+            <i className="bx bx-x" />
+          </button>
+        </div>
+        <p className="admin-modal-body">{message}</p>
+        <div className="admin-modal-actions">
+          <button className="btn" type="button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            className="btn admin-modal-confirm"
+            type="button"
+            onClick={onConfirm}
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminLogin({ onLogin }) {
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const submit = async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
     const header = `Basic ${window.btoa(unescape(encodeURIComponent(`${data.username}:${data.password}`)))}`;
+    setSubmitting(true);
+    setMessage("");
     try {
       const response = await fetch("/api/admin-login", {
         method: "POST",
@@ -1855,44 +1896,52 @@ function AdminLogin({ onLogin }) {
       onLogin(header, result.username);
     } catch (error) {
       setMessage(error.message);
+    } finally {
+      setSubmitting(false);
     }
   };
   return (
-    <main className="admin-page account-shell">
-      <Link className="account-brand" href="/">
-        <img src={imagePath} alt="" /> Kerugoya Main SDA
-      </Link>
-      <section className="admin-login-panel">
-        <span className="eyebrow">Staff access</span>
-        <h1>Welcome to the dashboard.</h1>
-        <p>
-          Manage church updates, sermons, and the people who help keep this
-          space alive.
-        </p>
-        <form className="account-form" onSubmit={submit}>
-          <label htmlFor="admin-username">Username</label>
-          <input
-            id="admin-username"
-            name="username"
-            required
-            autoComplete="username"
-          />
-          <label htmlFor="admin-password">Password</label>
-          <input
-            id="admin-password"
-            name="password"
-            type="password"
-            required
-            autoComplete="current-password"
-          />
-          <button className="btn form-submit" type="submit">
-            Sign in <i className="bx bx-arrow-up-right" />
-          </button>
-          <p className="form-message is-error" role="status">
-            {message}
+    <main className="admin-login-page">
+      <div className="admin-login-wrapper">
+        <Link className="admin-login-brand" href="/">
+          <img src={imagePath} alt="" /> Kerugoya Main SDA
+        </Link>
+        <section className="admin-login-panel">
+          <span className="eyebrow">Staff access</span>
+          <h1>Welcome to the dashboard.</h1>
+          <p>
+            Manage church updates, sermons, and the people who help keep this
+            space alive.
           </p>
-        </form>
-      </section>
+          <form className="account-form" onSubmit={submit}>
+            <label htmlFor="admin-username">Username</label>
+            <input
+              id="admin-username"
+              name="username"
+              required
+              autoComplete="username"
+            />
+            <label htmlFor="admin-password">Password</label>
+            <input
+              id="admin-password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+            />
+            <button
+              className="btn form-submit"
+              type="submit"
+              disabled={submitting}
+            >
+              {submitting ? "Signing in…" : "Sign in"} <i className="bx bx-arrow-up-right" />
+            </button>
+            <p className="form-message is-error" role="status">
+              {message}
+            </p>
+          </form>
+        </section>
+      </div>
     </main>
   );
 }
