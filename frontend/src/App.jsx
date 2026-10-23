@@ -1268,6 +1268,43 @@ const responsivePages = {
 function ResponsivePage({ page }) {
   const content = responsivePages[page];
   const isFormPage = page === "prayer" || page === "feedback";
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [visibility, setVisibility] = useState("anonymous");
+  const endpoint = page === "prayer" ? "/api/prayer-requests" : "/api/feedback";
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setMessage("");
+    const data = new FormData(event.currentTarget);
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.get("name"),
+          message: data.get("message"),
+          visibility,
+        }),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        setMessage(result.error || "We could not send your message. Please try again.");
+        return;
+      }
+      setMessage(
+        page === "prayer"
+          ? "Your prayer request has been sent to the church team."
+          : "Thank you for your feedback. It has been sent to the church team."
+      );
+      event.currentTarget.reset();
+    } catch {
+      setMessage("We could not connect. Please try again shortly.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
   return (
     <PublicShell>
       <main className="responsive-page">
@@ -1275,16 +1312,30 @@ function ResponsivePage({ page }) {
         <h1>{content.title}</h1>
         <p>{content.body}</p>
         {isFormPage ? (
-          <form className="responsive-form" onSubmit={(event) => event.preventDefault()}>
+          <form className="responsive-form" onSubmit={submit}>
             <label>
               Your name
-              <input name="name" required />
+              <input name="name" type="text" placeholder="Optional — leave blank to stay anonymous" />
             </label>
             <label>
               Your message
               <textarea name="message" rows="5" required />
             </label>
-            <button className="btn" type="submit">Send message <i className="bx bx-send" /></button>
+            <label className="responsive-visibility">
+              Share this
+              <select
+                name="visibility"
+                value={visibility}
+                onChange={(event) => setVisibility(event.target.value)}
+              >
+                <option value="anonymous">Anonymously</option>
+                <option value="public">Publicly</option>
+              </select>
+            </label>
+            <button className="btn" type="submit" disabled={submitting}>
+              {submitting ? "Sending…" : "Send message"} <i className="bx bx-send" />
+            </button>
+            {message && <p className="form-message">{message}</p>}
           </form>
         ) : (
           <a className="btn" href="tel:+25496563833">Call the church <i className="bx bx-phone" /></a>
@@ -1904,19 +1955,23 @@ function AdminDashboard({ auth, username, onLogout }) {
   const [sermons, setSermons] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [users, setUsers] = useState([]);
+  const [prayerRequests, setPrayerRequests] = useState([]);
+  const [feedback, setFeedback] = useState([]);
   const [message, setMessage] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const tabListRef = useRef(null);
   const headers = { "Content-Type": "application/json", Authorization: auth };
 
   const load = async () => {
-    const [announcementResponse, sermonResponse, adminResponse, postsResponse, usersResponse] =
+    const [announcementResponse, sermonResponse, adminResponse, postsResponse, usersResponse, prayerResponse, feedbackResponse] =
       await Promise.all([
         fetch("/api/announcements", { cache: "no-store" }),
         fetch("/api/sermons", { cache: "no-store" }),
         fetch("/api/admins", { headers: { Authorization: auth }, cache: "no-store" }),
         fetch("/api/community/posts", { cache: "no-store" }),
         fetch("/api/admin/users", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
+        fetch("/api/prayer-requests", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
+        fetch("/api/feedback", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
       ]);
     if (adminResponse.status === 401) {
       setMessage("Admin session expired or invalid credentials. Please sign out and sign in again.");
@@ -1928,6 +1983,8 @@ function AdminDashboard({ auth, username, onLogout }) {
     setAdmins(adminResponse.ok ? await adminResponse.json() : []);
     setPosts(postsResponse.ok ? await postsResponse.json() : []);
     setUsers(usersResponse.ok ? await usersResponse.json() : []);
+    setPrayerRequests(prayerResponse.ok ? await prayerResponse.json() : []);
+    setFeedback(feedbackResponse.ok ? await feedbackResponse.json() : []);
   };
 
   useEffect(() => {
@@ -1992,6 +2049,10 @@ function AdminDashboard({ auth, username, onLogout }) {
         setUsers((prev) => prev.filter((u) => u.sessionId !== id));
       } else if (endpoint.includes("/admins/")) {
         setAdmins((prev) => prev.filter((a) => a.id !== id));
+      } else if (endpoint.includes("/prayer-requests/")) {
+        setPrayerRequests((prev) => prev.filter((p) => p.id !== id));
+      } else if (endpoint.includes("/feedback/")) {
+        setFeedback((prev) => prev.filter((f) => f.id !== id));
       }
       setMessage(`Deleted ${label} successfully.`);
       await load();
@@ -2024,6 +2085,8 @@ function AdminDashboard({ auth, username, onLogout }) {
           <nav className="admin-tab-list" aria-label="Dashboard sections" ref={tabListRef}>
             {[
               ["announcements", "Announcements", announcements.length],
+              ["prayer", "Prayer Requests", prayerRequests.length],
+              ["feedback", "Feedback", feedback.length],
               ["posts", "Community Posts", posts.length],
               ["sermons", "Sermons", sermons.length],
               ["users", "Logged in Users", users.length],
@@ -2040,13 +2103,17 @@ function AdminDashboard({ auth, username, onLogout }) {
                   className={`bx ${
                     value === "announcements"
                       ? "bx-megaphone"
-                      : value === "posts"
-                        ? "bx-conversation"
-                        : value === "sermons"
-                          ? "bx-video"
-                          : value === "users"
-                            ? "bx-user-check"
-                            : "bx-user-plus"
+                      : value === "prayer"
+                        ? "bx-pray"
+                        : value === "feedback"
+                          ? "bx-message-dots"
+                          : value === "posts"
+                            ? "bx-conversation"
+                            : value === "sermons"
+                              ? "bx-video"
+                              : value === "users"
+                                ? "bx-user-check"
+                                : "bx-user-plus"
                   }`}
                 />
                 <span className="admin-tab-text">{label}</span>
@@ -2065,20 +2132,28 @@ function AdminDashboard({ auth, username, onLogout }) {
             <h2>
               {tab === "announcements"
                 ? "Announcements"
-                : tab === "posts"
-                  ? "Community Posts"
-                  : tab === "sermons"
-                    ? "Sermons"
-                    : tab === "users"
-                      ? "Logged in Users"
-                      : "Administrators"}
+                : tab === "prayer"
+                  ? "Prayer Requests"
+                  : tab === "feedback"
+                    ? "Feedback"
+                    : tab === "posts"
+                      ? "Community Posts"
+                      : tab === "sermons"
+                        ? "Sermons"
+                        : tab === "users"
+                          ? "Logged in Users"
+                          : "Administrators"}
             </h2>
             <p>
-              {tab === "posts"
-                ? "Review and moderate user-submitted stories and reflections."
-                : tab === "users"
-                  ? "View and manage active member sessions across your church website."
-                  : "Keep your community informed with timely, well-organized updates."}
+              {tab === "prayer"
+                ? "Prayer needs shared with the church family. Respond with care."
+                : tab === "feedback"
+                  ? "Suggestions and comments submitted by the community."
+                  : tab === "posts"
+                    ? "Review and moderate user-submitted stories and reflections."
+                    : tab === "users"
+                      ? "View and manage active member sessions across your church website."
+                      : "Keep your community informed with timely, well-organized updates."}
             </p>
           </div>
           {message && <p className="form-message admin-notice" role="status">{message}</p>}
@@ -2114,6 +2189,90 @@ function AdminDashboard({ auth, username, onLogout }) {
                 </div>
               </div>
             </>
+          )}
+          {tab === "prayer" && (
+            <div className="admin-list-section is-first">
+              <div className="admin-list-heading">
+                <div>
+                  <h3>Prayer requests</h3>
+                  <p>Needs shared by the community</p>
+                </div>
+                <span className="admin-count">{prayerRequests.length}</span>
+              </div>
+              <div className="admin-list">
+                {prayerRequests.length ? (
+                  prayerRequests.map((item) => (
+                    <article key={item.id}>
+                      <div className="admin-item-icon"><i className="bx bx-pray" /></div>
+                      <div className="admin-item-copy">
+                        <div className="admin-item-meta">
+                          <span className={item.visibility === "public" ? "post-category" : ""}>
+                            {item.visibility === "public" ? "Public" : "Anonymous"}
+                          </span>
+                          {item.name ? <span className="admin-item-byline">by <strong>{item.name}</strong></span> : <span className="admin-item-byline">Anonymous contributor</span>}
+                        </div>
+                        <FormattedContent text={item.message} />
+                      </div>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        aria-label={`Delete prayer request: ${item.message.slice(0, 40)}`}
+                        disabled={deletingId === `/api/prayer-requests/${item.id}`}
+                        onClick={() => remove(`/api/prayer-requests/${item.id}`, "prayer request")}
+                      >
+                        <i className={`bx ${deletingId === `/api/prayer-requests/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
+                      </button>
+                    </article>
+                  ))
+                ) : (
+                  <p className="admin-empty-state">
+                    <i className="bx bx-pray" /> No prayer requests yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          {tab === "feedback" && (
+            <div className="admin-list-section is-first">
+              <div className="admin-list-heading">
+                <div>
+                  <h3>Feedback submissions</h3>
+                  <p>Suggestions and comments from the community</p>
+                </div>
+                <span className="admin-count">{feedback.length}</span>
+              </div>
+              <div className="admin-list">
+                {feedback.length ? (
+                  feedback.map((item) => (
+                    <article key={item.id}>
+                      <div className="admin-item-icon"><i className="bx bx-message-dots" /></div>
+                      <div className="admin-item-copy">
+                        <div className="admin-item-meta">
+                          <span className={item.visibility === "public" ? "post-category" : ""}>
+                            {item.visibility === "public" ? "Public" : "Anonymous"}
+                          </span>
+                          {item.name ? <span className="admin-item-byline">by <strong>{item.name}</strong></span> : <span className="admin-item-byline">Anonymous contributor</span>}
+                        </div>
+                        <FormattedContent text={item.message} />
+                      </div>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        aria-label={`Delete feedback: ${item.message.slice(0, 40)}`}
+                        disabled={deletingId === `/api/feedback/${item.id}`}
+                        onClick={() => remove(`/api/feedback/${item.id}`, "feedback")}
+                      >
+                        <i className={`bx ${deletingId === `/api/feedback/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
+                      </button>
+                    </article>
+                  ))
+                ) : (
+                  <p className="admin-empty-state">
+                    <i className="bx bx-message-dots" /> No feedback yet.
+                  </p>
+                )}
+              </div>
+            </div>
           )}
           {tab === "posts" && (
             <div className="admin-list-section is-first">

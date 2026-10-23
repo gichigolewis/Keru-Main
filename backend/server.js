@@ -444,6 +444,63 @@ app.delete('/api/sermons/:id', checkAuth, asyncRoute(async (req, res) => {
   res.status(204).end();
 }));
 
+function parseSubmission(req, res, type) {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+  const visibility = req.body?.visibility === 'public' ? 'public' : 'anonymous';
+  if (!message) return res.status(400).json({ error: 'Message is required.' });
+  if (name && name.length > 80) return res.status(400).json({ error: 'Name must be 80 characters or fewer.' });
+  return { name, message, visibility };
+}
+
+app.post('/api/prayer-requests', asyncRoute(async (req, res) => {
+  const parsed = parseSubmission(req, res, 'prayer');
+  if (res.headersSent) return;
+  const query = getSql();
+  const rows = await query`INSERT INTO prayer_requests (name, message, visibility)
+    VALUES (${parsed.name}, ${parsed.message}, ${parsed.visibility})
+    RETURNING id, name, message, visibility, created_at`;
+  res.status(201).json(rows[0]);
+}));
+
+app.get('/api/prayer-requests', checkAuth, asyncRoute(async (_req, res) => {
+  const query = getSql();
+  const rows = await query`SELECT id, name, message, visibility, created_at FROM prayer_requests ORDER BY created_at DESC`;
+  res.json(rows);
+}));
+
+app.post('/api/feedback', asyncRoute(async (req, res) => {
+  const parsed = parseSubmission(req, res, 'feedback');
+  if (res.headersSent) return;
+  const query = getSql();
+  const rows = await query`INSERT INTO feedback_submissions (name, message, visibility)
+    VALUES (${parsed.name}, ${parsed.message}, ${parsed.visibility})
+    RETURNING id, name, message, visibility, created_at`;
+  res.status(201).json(rows[0]);
+}));
+
+app.get('/api/feedback', checkAuth, asyncRoute(async (_req, res) => {
+  const query = getSql();
+  const rows = await query`SELECT id, name, message, visibility, created_at FROM feedback_submissions ORDER BY created_at DESC`;
+  res.json(rows);
+}));
+
+app.delete('/api/prayer-requests/:id', checkAuth, asyncRoute(async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: 'not found' });
+  const query = getSql();
+  const rows = await query`DELETE FROM prayer_requests WHERE id = ${req.params.id} RETURNING id`;
+  if (!rows.length) return res.status(404).json({ error: 'not found' });
+  res.status(204).end();
+}));
+
+app.delete('/api/feedback/:id', checkAuth, asyncRoute(async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: 'not found' });
+  const query = getSql();
+  const rows = await query`DELETE FROM feedback_submissions WHERE id = ${req.params.id} RETURNING id`;
+  if (!rows.length) return res.status(404).json({ error: 'not found' });
+  res.status(204).end();
+}));
+
 app.use((error, _req, res, _next) => {
   console.error('API request failed:', error.message);
   if (res.headersSent) return;

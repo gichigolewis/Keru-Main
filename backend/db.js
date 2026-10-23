@@ -81,6 +81,22 @@ async function ensureDatabase() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`;
       await query`CREATE INDEX IF NOT EXISTS community_comments_post_created_idx ON community_comments(post_id, created_at)`;
+      await query`CREATE TABLE IF NOT EXISTS prayer_requests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL DEFAULT '',
+        message TEXT NOT NULL,
+        visibility TEXT NOT NULL DEFAULT 'anonymous' CHECK (visibility IN ('anonymous', 'public')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`;
+      await query`CREATE INDEX IF NOT EXISTS prayer_requests_created_at_idx ON prayer_requests(created_at DESC)`;
+      await query`CREATE TABLE IF NOT EXISTS feedback_submissions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL DEFAULT '',
+        message TEXT NOT NULL,
+        visibility TEXT NOT NULL DEFAULT 'anonymous' CHECK (visibility IN ('anonymous', 'public')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`;
+      await query`CREATE INDEX IF NOT EXISTS feedback_submissions_created_at_idx ON feedback_submissions(created_at DESC)`;
     })().catch((error) => {
       schemaPromise = undefined;
       throw error;
