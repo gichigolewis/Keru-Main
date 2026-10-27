@@ -3988,17 +3988,42 @@ textarea,
   .admin-page .admin-tab-badge {
     margin-left: 0.1rem;
   }
-  .admin-page .admin-tab.is-active {
+.admin-page .admin-tab.is-active {
     background: var(--primary-color) !important;
     border-color: var(--primary-color) !important;
     color: #ffffff !important;
   }
-  
-/* Additional small-screen fixes (<=600px) */
+  .admin-page .admin-tab.is-active i {
+    color: #ffffff !important;
+  }
+  .admin-sidebar-back-link {
+    display: none;
+  }
+  .admin-content {
+    padding: 1.25rem 1rem 2.5rem;
+  }
+  .admin-form {
+    grid-template-columns: 1fr;
+  }
+  .admin-field-wide {
+    grid-column: auto;
+  }
+  .admin-form .btn {
+    width: 100%;
+  }
+  .admin-list article {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .admin-list .icon-button {
+    margin-left: auto;
+  }
+}
+
 @media (max-width: 600px) {
   /* Reduce padding on content area */
   .admin-content {
-    padding: 1rem 0.75rem 2rem;
+    padding: 1.25rem 1rem 2.5rem;
   }
   /* Smaller heading fonts */
   .admin-page-intro h2 {
@@ -4040,18 +4065,19 @@ textarea,
     grid-template-columns: 1fr;
   }
   .admin-field-wide {
-    grid-column: 1;
+    grid-column: auto;
   }
   /* Reduce button size */
   .admin-form .btn {
+    width: 100%;
     padding: 0.6rem 1rem;
     font-size: 0.78rem;
   }
   /* List items padding */
   .admin-list article {
     padding: 0.7rem 0.9rem;
-    flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
+    flex-wrap: wrap;
   }
   .admin-item-copy {
     flex: none;
@@ -4059,32 +4085,12 @@ textarea,
   .admin-item-stats {
     margin-top: 0.5rem;
   }
-}
-
-    color: #ffffff !important;
-  }
   .admin-page .admin-tab.is-active .admin-tab-badge {
     background: rgba(255, 255, 255, 0.22);
     color: #ffffff;
   }
   .admin-sidebar-back-link {
     display: none;
-  }
-  .admin-content {
-    padding: 1.25rem 1rem 2.5rem;
-  }
-  .admin-form {
-    grid-template-columns: 1fr;
-  }
-  .admin-field-wide {
-    grid-column: auto;
-  }
-  .admin-form .btn {
-    width: 100%;
-  }
-  .admin-list article {
-    align-items: flex-start;
-    flex-wrap: wrap;
   }
   .admin-list .icon-button {
     margin-left: auto;
