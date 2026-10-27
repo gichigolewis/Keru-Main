@@ -4012,8 +4012,10 @@ textarea,
   .admin-sidebar-back-link {
     display: none;
   }
+  /* Content must start below the sticky tab bar, otherwise the top of each
+     tab's content is clipped behind the bar. */
   .admin-content {
-    padding: 1.25rem 1rem 2.5rem;
+    padding: calc(var(--admin-header-h) + 1.25rem) 1rem 2.5rem;
   }
   .admin-form {
     grid-template-columns: 1fr;
