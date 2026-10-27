@@ -1987,6 +1987,7 @@ function AdminLogin({ onLogin }) {
 
 function AdminDashboard({ auth, username, onLogout }) {
   const [tab, setTab] = useState("announcements");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [posts, setPosts] = useState([]);
   const [sermons, setSermons] = useState([]);
@@ -1994,6 +1995,7 @@ function AdminDashboard({ auth, username, onLogout }) {
   const [users, setUsers] = useState([]);
   const [prayerRequests, setPrayerRequests] = useState([]);
   const [feedback, setFeedback] = useState([]);
+  const [visits, setVisits] = useState([]);
   const [program, setProgram] = useState({ title: "Church Program", body: "" });
   const [programSaving, setProgramSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -2034,6 +2036,20 @@ function AdminDashboard({ auth, username, onLogout }) {
   useEffect(() => {
     load().catch(() => setMessage("Could not load dashboard data."));
   }, []);
+
+  // Track admin dashboard visits (frontend-only analytics) and persist them.
+  useEffect(() => {
+    const recorded = JSON.parse(localStorage.getItem("admin_visits") || "[]");
+    setVisits(recorded);
+    const visit = {
+      page: "Admin Dashboard",
+      visitor: username || "Admin",
+      at: new Date().toISOString(),
+    };
+    const updated = [...recorded, visit];
+    localStorage.setItem("admin_visits", JSON.stringify(updated));
+    setVisits(updated);
+  }, [username]);
 
   // Keep the active tab visible in the horizontally scrolling mobile tab bar.
   useEffect(() => {
@@ -2137,6 +2153,24 @@ function AdminDashboard({ auth, username, onLogout }) {
     }
   };
 
+  const topPage = () => {
+    const counts = visits.reduce((acc, v) => {
+      acc[v.page] = (acc[v.page] || 0) + 1;
+      return acc;
+    }, {});
+    const entry = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    return entry ? { label: entry[0], count: entry[1] } : { label: null, count: 0 };
+  };
+
+  const topVisitor = () => {
+    const counts = visits.reduce((acc, v) => {
+      acc[v.visitor] = (acc[v.visitor] || 0) + 1;
+      return acc;
+    }, {});
+    const entry = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    return entry ? { label: entry[0], count: entry[1] } : { label: null, count: 0 };
+  };
+
   return (
     <main className="admin-page">
       <header className="admin-header">
@@ -2145,13 +2179,21 @@ function AdminDashboard({ auth, username, onLogout }) {
           <span>Kerugoya Main SDA</span>
         </Link>
         <div>
+          <button
+            className="sidebar-toggle"
+            type="button"
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setSidebarCollapsed((prev) => !prev)}
+          >
+            <i className={`bx bx-${sidebarCollapsed ? "chevron-right" : "chevron-left"}`} />
+          </button>
           <span className="admin-welcome"><i className="bx bx-user-circle" /> Hi, {username}</span>
           <button className="text-button" type="button" onClick={onLogout}>
             <i className="bx bx-log-out" /> Sign out
           </button>
         </div>
       </header>
-      <div className="admin-layout">
+      <div className={`admin-layout ${sidebarCollapsed ? "is-collapsed" : ""}`}>
         <aside className="admin-sidebar">
           <span className="admin-sidebar-label">Workspace</span>
           <h1>Dashboard</h1>
@@ -2166,6 +2208,7 @@ function AdminDashboard({ auth, username, onLogout }) {
               ["sermons", "Sermons", sermons.length],
               ["users", "Logged in Users", users.length],
               ["admins", "Admins", admins.length],
+              ["analytics", "Analytics", 0],
             ].map(([value, label, count]) => (
               <button
                 className={tab === value ? "admin-tab is-active" : "admin-tab"}
@@ -2190,7 +2233,9 @@ function AdminDashboard({ auth, username, onLogout }) {
                                 ? "bx-video"
                                 : value === "users"
                                   ? "bx-user-check"
-                                  : "bx-user-plus"
+                                  : value === "analytics"
+                                    ? "bx-bar-chart-alt-2"
+                                    : "bx-user-plus"
                   }`}
                 />
                 <span className="admin-tab-text">{label}</span>
@@ -2219,9 +2264,11 @@ function AdminDashboard({ auth, username, onLogout }) {
                         ? "Community Posts"
                         : tab === "sermons"
                           ? "Sermons"
-                          : tab === "users"
-                            ? "Logged in Users"
-                            : "Administrators"}
+                            : tab === "users"
+                              ? "Logged in Users"
+                              : tab === "analytics"
+                                ? "Analytics"
+                                : "Administrators"}
             </h2>
             <p>
               {tab === "prayer"
@@ -2234,7 +2281,9 @@ function AdminDashboard({ auth, username, onLogout }) {
                       ? "Review and moderate user-submitted stories and reflections."
                       : tab === "users"
                         ? "View and manage active member sessions across your church website."
-                        : "Keep your community informed with timely, well-organized updates."}
+                        : tab === "analytics"
+                          ? "See which pages are visited most and who is visiting them."
+                          : "Keep your community informed with timely, well-organized updates."}
             </p>
           </div>
           {message && <p className="form-message admin-notice" role="status">{message}</p>}
@@ -2551,6 +2600,69 @@ function AdminDashboard({ auth, username, onLogout }) {
                 </div>
               </div>
             </>
+          )}
+          {tab === "analytics" && (
+            <div className="admin-list-section is-first">
+              <div className="admin-list-heading">
+                <div>
+                  <h3>Site analytics</h3>
+                  <p>Frequently visited pages and who is visiting them.</p>
+                </div>
+                <span className="admin-count">{visits.length}</span>
+              </div>
+              <div className="admin-analytics">
+                <div className="admin-analytics-card">
+                  <span className="admin-analytics-label">Total admin visits</span>
+                  <span className="admin-analytics-value">{visits.length}</span>
+                </div>
+                <div className="admin-analytics-card">
+                  <span className="admin-analytics-label">Unique visitors</span>
+                  <span className="admin-analytics-value">
+                    {new Set(visits.map((v) => v.visitor)).size}
+                  </span>
+                </div>
+                <div className="admin-analytics-card">
+                  <span className="admin-analytics-label">Most visited page</span>
+                  <span className="admin-analytics-value">
+                    {topPage().label || "—"}
+                  </span>
+                </div>
+                <div className="admin-analytics-card">
+                  <span className="admin-analytics-label">Top visitor</span>
+                  <span className="admin-analytics-value">
+                    {topVisitor().label || "—"}
+                  </span>
+                </div>
+              </div>
+              <div className="admin-list">
+                {visits.length ? (
+                  visits
+                    .slice()
+                    .reverse()
+                    .map((visit, index) => (
+                      <article key={`visit-${index}`}>
+                        <div className="admin-item-icon"><i className="bx bx-history" /></div>
+                        <div className="admin-item-copy">
+                          <div className="admin-item-meta">
+                            <span className="post-category">{visit.page}</span>
+                            <span className="admin-item-byline">
+                              by <strong>{visit.visitor}</strong>
+                            </span>
+                          </div>
+                          <p className="admin-item-byline">
+                            <i className="bx bx-time" />{" "}
+                            {new Date(visit.at).toLocaleString()}
+                          </p>
+                        </div>
+                      </article>
+                    ))
+                ) : (
+                  <p className="admin-empty-state">
+                    <i className="bx bx-bar-chart-alt-2" /> No visits recorded yet.
+                  </p>
+                )}
+              </div>
+            </div>
           )}
         </section>
       </div>

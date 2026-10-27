@@ -4213,3 +4213,142 @@ textarea,
   }
 }
 
+
+/* ==========================================================================
+   Admin Dashboard - Collapsible Sidebar & Analytics
+   ========================================================================== */
+
+/* Sidebar toggle button in header */
+.sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-right: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--admin-ink);
+  cursor: pointer;
+  font-size: 1.15rem;
+  transition: all 0.2s ease;
+}
+.sidebar-toggle:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: #f1f5f9;
+}
+
+/* Desktop: collapsed sidebar */
+.admin-layout.is-collapsed .admin-sidebar {
+  width: 72px;
+  min-width: 72px;
+  padding: 1.25rem 0.5rem 1.5rem;
+  overflow-x: visible;
+}
+.admin-layout.is-collapsed .admin-sidebar-label,
+.admin-layout.is-collapsed .admin-sidebar h1,
+.admin-layout.is-collapsed .admin-sidebar-copy,
+.admin-layout.is-collapsed .admin-tab-text,
+.admin-layout.is-collapsed .admin-sidebar-back-link span,
+.admin-layout.is-collapsed .admin-welcome span,
+.admin-layout.is-collapsed .admin-sidebar-foot span {
+  display: none;
+}
+.admin-layout.is-collapsed .admin-tab {
+  justify-content: center;
+  padding: 0.65rem 0.5rem;
+  text-align: center;
+}
+.admin-layout.is-collapsed .admin-tab i {
+  font-size: 1.35rem;
+  margin-right: 0;
+}
+.admin-layout.is-collapsed .admin-tab-badge {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  font-size: 0.62rem;
+}
+.admin-layout.is-collapsed .admin-sidebar-back-link,
+.admin-layout.is-collapsed .admin-sidebar-foot {
+  justify-content: center;
+  text-align: center;
+  padding: 0 0.4rem;
+}
+.admin-layout.is-collapsed .admin-sidebar-foot i {
+  margin-right: 0;
+}
+
+/* Desktop: content expands when sidebar collapsed */
+.admin-layout.is-collapsed .admin-content {
+  grid-column: 2;
+}
+
+/* Mobile: sidebar as overlay */
+@media (max-width: 888px) {
+  .admin-layout.is-collapsed .admin-sidebar {
+    display: none;
+  }
+  .admin-layout:not(.is-collapsed) .admin-sidebar {
+    display: flex;
+    position: fixed;
+    top: var(--admin-header-h, 68px);
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    z-index: 60;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-shadow: 6px 0 20px rgba(0, 0, 0, 0.08);
+    transform: translateX(0);
+    transition: transform 0.28s ease;
+  }
+  .admin-layout.is-collapsed .admin-sidebar {
+    transform: translateX(-100%);
+    display: flex;
+  }
+  .admin-layout:not(.is-collapsed) .admin-content {
+    padding-left: 0;
+  }
+}
+
+/* Hide welcome text on collapsed desktop */
+.admin-layout.is-collapsed .admin-welcome {
+  gap: 0.4rem;
+}
+.admin-layout.is-collapsed .admin-welcome i {
+  font-size: 1.2rem;
+}
+
+/* Analytics dashboard */
+.admin-analytics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+.admin-analytics-card {
+  background: #ffffff;
+  border: 1px solid #e8edf4;
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.admin-analytics-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+.admin-analytics-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--admin-ink);
+  line-height: 1.2;
+}
