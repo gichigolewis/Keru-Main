@@ -2178,7 +2178,38 @@ footer .copy {
 }
 
 
-/* Admin responsive adjustments */
+@media (max-width: 888px) {
+  .admin-layout {
+    flex-direction: column;
+  }
+
+  .admin-sidebar {
+    display: none;
+  }
+
+  .admin-content {
+    margin-left: 0;
+    padding: 1rem;
+    width: 100%;
+  }
+
+  .admin-header {
+    padding: 0.5rem 1rem;
+  }
+
+  .admin-tab-list {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+  }
+
+  .admin-tab {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+}
 @media (max-width: 888px) {
   .admin-header {
     display: flex;
