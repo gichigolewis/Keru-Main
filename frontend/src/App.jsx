@@ -1925,69 +1925,141 @@ function Community() {
 }
 
 function AdminLogin({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
   const submit = async (event) => {
     event.preventDefault();
-    const data = Object.fromEntries(new FormData(event.currentTarget));
-    const header = `Basic ${window.btoa(unescape(encodeURIComponent(`${data.username}:${data.password}`)))}`;
+    setLoading(true);
+    setMessage("");
+    const header = `Basic ${window.btoa(unescape(encodeURIComponent(`${username}:${password}`)))}`;
     try {
       const response = await fetch("/api/admin-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ username, password }),
       });
-      if (!response.ok) throw new Error("Invalid admin credentials");
+      if (!response.ok) throw new Error("Invalid admin credentials. Please verify your username and password.");
       const result = await response.json();
       sessionStorage.setItem("adminAuth", header);
       sessionStorage.setItem("adminUser", result.username);
       onLogin(header, result.username);
     } catch (error) {
-      setMessage(error.message);
+      setMessage(error.message || "Could not sign in. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
+
   return (
-    <main className="admin-page account-shell">
-      <Link className="account-brand" href="/">
-        <img src={imagePath} alt="" /> Kerugoya Main SDA
-      </Link>
-      <section className="admin-login-panel">
-        <span className="eyebrow">Staff access</span>
-        <h1>Welcome to the dashboard.</h1>
-        <p>
-          Manage church updates, sermons, and the people who help keep this
-          space alive.
-        </p>
-        <form className="account-form" onSubmit={submit}>
-          <label htmlFor="admin-username">Username</label>
-          <input
-            id="admin-username"
-            name="username"
-            required
-            autoComplete="username"
-          />
-          <label htmlFor="admin-password">Password</label>
-          <input
-            id="admin-password"
-            name="password"
-            type="password"
-            required
-            autoComplete="current-password"
-          />
-          <button className="btn form-submit" type="submit">
-            Sign in <i className="bx bx-arrow-up-right" />
+    <div className="admin-login-wrapper">
+      <div className="admin-login-card">
+        <div className="admin-login-header">
+          <Link href="/">
+            <img src={imagePath} alt="Kerugoya Main SDA" className="admin-login-logo" />
+          </Link>
+          <span className="admin-brand-subtitle">Church Management</span>
+          <h1>Admin Portal</h1>
+          <p>Sign in to manage announcements, sermons, program, and church members.</p>
+        </div>
+
+        {message && (
+          <div className="admin-alert is-error" role="alert">
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+              <i className="bx bx-error-circle" style={{ fontSize: "1.2rem" }} />
+              {message}
+            </span>
+            <button
+              type="button"
+              className="admin-alert-dismiss"
+              onClick={() => setMessage("")}
+              aria-label="Dismiss alert"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        <form onSubmit={submit} className="admin-field" style={{ gap: "1.1rem" }}>
+          <div className="admin-field">
+            <label htmlFor="admin-username">Username</label>
+            <div className="admin-login-input-wrap">
+              <i className="bx bx-user" />
+              <input
+                id="admin-username"
+                name="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter username"
+                required
+                autoComplete="username"
+              />
+            </div>
+          </div>
+
+          <div className="admin-field">
+            <label htmlFor="admin-password">Password</label>
+            <div className="admin-login-input-wrap">
+              <i className="bx bx-lock-alt" />
+              <input
+                id="admin-password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                required
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="admin-login-toggle-pw"
+                onClick={() => setShowPassword((p) => !p)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                <i className={`bx ${showPassword ? "bx-hide" : "bx-show"}`} />
+              </button>
+            </div>
+          </div>
+
+          <button
+            className="admin-btn-primary"
+            type="submit"
+            disabled={loading}
+            style={{ width: "100%", marginTop: "0.5rem" }}
+          >
+            {loading ? (
+              <>
+                <i className="bx bx-loader-alt bx-spin" /> Signing in...
+              </>
+            ) : (
+              <>
+                Sign in to Dashboard <i className="bx bx-right-arrow-alt" />
+              </>
+            )}
           </button>
-          <p className="form-message is-error" role="status">
-            {message}
-          </p>
         </form>
-      </section>
-    </main>
+
+        <div className="admin-login-footer">
+          <Link href="/">
+            <i className="bx bx-arrow-back" /> Back to Church Website
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
 
 function AdminDashboard({ auth, username, onLogout }) {
   const [tab, setTab] = useState("announcements");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [prayerFilter, setPrayerFilter] = useState("all");
+
   const [announcements, setAnnouncements] = useState([]);
   const [posts, setPosts] = useState([]);
   const [sermons, setSermons] = useState([]);
@@ -1997,15 +2069,39 @@ function AdminDashboard({ auth, username, onLogout }) {
   const [feedback, setFeedback] = useState([]);
   const [visits, setVisits] = useState([]);
   const [program, setProgram] = useState({ title: "Church Program", body: "" });
+
   const [programSaving, setProgramSaving] = useState(false);
-  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [message, setMessage] = useState(null);
+
   const tabListRef = useRef(null);
   const headers = { "Content-Type": "application/json", Authorization: auth };
 
+  const TABS = [
+    { id: "announcements", label: "Announcements", icon: "bx-megaphone", count: announcements.length },
+    { id: "prayer", label: "Prayer Requests", icon: "bx-pray", count: prayerRequests.length },
+    { id: "feedback", label: "Feedback", icon: "bx-message-dots", count: feedback.length },
+    { id: "program", label: "Church Program", icon: "bx-calendar", count: 0 },
+    { id: "posts", label: "Community Stories", icon: "bx-conversation", count: posts.length },
+    { id: "sermons", label: "Sermons", icon: "bx-video", count: sermons.length },
+    { id: "users", label: "Active Members", icon: "bx-user-check", count: users.length },
+    { id: "admins", label: "Administrators", icon: "bx-user-plus", count: admins.length },
+    { id: "analytics", label: "Analytics", icon: "bx-bar-chart-alt-2", count: 0 },
+  ];
+
   const load = async () => {
-    const [announcementResponse, sermonResponse, adminResponse, postsResponse, usersResponse, prayerResponse, feedbackResponse, programResponse] =
-      await Promise.all([
+    try {
+      const [
+        announcementRes,
+        sermonRes,
+        adminRes,
+        postsRes,
+        usersRes,
+        prayerRes,
+        feedbackRes,
+        programRes,
+      ] = await Promise.all([
         fetch("/api/announcements", { cache: "no-store" }),
         fetch("/api/sermons", { cache: "no-store" }),
         fetch("/api/admins", { headers: { Authorization: auth }, cache: "no-store" }),
@@ -2015,29 +2111,32 @@ function AdminDashboard({ auth, username, onLogout }) {
         fetch("/api/feedback", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
         fetch("/api/program", { cache: "no-store" }).catch(() => ({ ok: false })),
       ]);
-    if (adminResponse.status === 401) {
-      setMessage("Admin session expired or invalid credentials. Please sign out and sign in again.");
-    }
-    setAnnouncements(
-      announcementResponse.ok ? await announcementResponse.json() : [],
-    );
-    setSermons(sermonResponse.ok ? await sermonResponse.json() : []);
-    setAdmins(adminResponse.ok ? await adminResponse.json() : []);
-    setPosts(postsResponse.ok ? await postsResponse.json() : []);
-    setUsers(usersResponse.ok ? await usersResponse.json() : []);
-    setPrayerRequests(prayerResponse.ok ? await prayerResponse.json() : []);
-    setFeedback(feedbackResponse.ok ? await feedbackResponse.json() : []);
-    if (programResponse.ok) {
-      const data = await programResponse.json();
-      setProgram({ title: data.title || "Church Program", body: data.body || "" });
+
+      if (adminRes.status === 401) {
+        setMessage({ type: "error", text: "Admin session expired. Please sign out and sign in again." });
+      }
+
+      setAnnouncements(announcementRes.ok ? await announcementRes.json() : []);
+      setSermons(sermonRes.ok ? await sermonRes.json() : []);
+      setAdmins(adminRes.ok ? await adminRes.json() : []);
+      setPosts(postsRes.ok ? await postsRes.json() : []);
+      setUsers(usersRes.ok ? await usersRes.json() : []);
+      setPrayerRequests(prayerRes.ok ? await prayerRes.json() : []);
+      setFeedback(feedbackRes.ok ? await feedbackRes.json() : []);
+      if (programRes.ok) {
+        const data = await programRes.json();
+        setProgram({ title: data.title || "Church Program", body: data.body || "" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Could not load dashboard data. Please check connection." });
     }
   };
 
   useEffect(() => {
-    load().catch(() => setMessage("Could not load dashboard data."));
+    load();
   }, []);
 
-  // Track admin dashboard visits (frontend-only analytics) and persist them.
+  // Track admin visits
   useEffect(() => {
     const recorded = JSON.parse(localStorage.getItem("admin_visits") || "[]");
     setVisits(recorded);
@@ -2051,40 +2150,51 @@ function AdminDashboard({ auth, username, onLogout }) {
     setVisits(updated);
   }, [username]);
 
-  // Keep the active tab visible in the horizontally scrolling mobile tab bar.
+  // Center active tab on mobile horizontally scrolling bar
   useEffect(() => {
-    const list = tabListRef.current;
-    if (!list) return;
-    const active = list.querySelector(".admin-tab.is-active");
-    if (!active) return;
-    if (list.scrollWidth <= list.clientWidth) return;
-    const target =
-      active.offsetLeft - (list.clientWidth - active.offsetWidth) / 2;
-    list.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+    const container = tabListRef.current;
+    if (!container) return;
+    const active = container.querySelector(".is-active");
+    if (active) {
+      active.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
+  }, [tab]);
+
+  // Reset search when tab changes
+  useEffect(() => {
+    setSearchQuery("");
   }, [tab]);
 
   const submit = async (event, endpoint, method = "POST") => {
     event.preventDefault();
+    setSubmitting(true);
+    setMessage(null);
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form));
-    const response = await fetch(endpoint, {
-      method,
-      headers,
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-      setMessage((await response.json()).error || "Request failed.");
-      return;
+    try {
+      const response = await fetch(endpoint, {
+        method,
+        headers,
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Request failed.");
+      }
+      form.reset();
+      setMessage({ type: "success", text: "Saved successfully!" });
+      await load();
+    } catch (error) {
+      setMessage({ type: "error", text: error.message || "Failed to save entry." });
+    } finally {
+      setSubmitting(false);
     }
-    form.reset();
-    setMessage("Saved successfully.");
-    await load();
   };
 
   const saveProgram = async (event) => {
     event.preventDefault();
     setProgramSaving(true);
-    setMessage("");
+    setMessage(null);
     const data = new FormData(event.currentTarget);
     const payload = {
       title: data.get("title"),
@@ -2098,14 +2208,13 @@ function AdminDashboard({ auth, username, onLogout }) {
       });
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
-        setMessage(result.error || "Could not save the program.");
-        return;
+        throw new Error(result.error || "Could not save church program.");
       }
       const result = await response.json();
       setProgram({ title: result.title, body: result.body });
-      setMessage("Program saved. You can now download it as a PDF.");
-    } catch {
-      setMessage("Could not connect. Please try again.");
+      setMessage({ type: "success", text: "Program saved! PDF download is now updated." });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message || "Could not save program." });
     } finally {
       setProgramSaving(false);
     }
@@ -2114,52 +2223,53 @@ function AdminDashboard({ auth, username, onLogout }) {
   const remove = async (endpoint, label = "item") => {
     if (!window.confirm(`Are you sure you want to delete this ${label}?`)) return;
     setDeletingId(endpoint);
-    setMessage("");
+    setMessage(null);
     try {
       const response = await fetch(endpoint, {
         method: "DELETE",
         headers: { Authorization: auth },
       });
       if (response.status === 401) {
-        throw new Error("Admin session expired or invalid credentials. Please sign out and sign in again.");
+        throw new Error("Admin session expired. Please sign out and sign in again.");
       }
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || `Failed to delete ${label} (HTTP ${response.status})`);
+        throw new Error(data.error || `Failed to delete ${label}`);
       }
-      // Optimistically remove from state immediately so UI updates instantly
+      // Optimistic state updates
       const id = endpoint.split("/").pop();
       if (endpoint.includes("/announcements/")) {
-        setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+        setAnnouncements((prev) => prev.filter((a) => String(a.id) !== id));
       } else if (endpoint.includes("/community/posts/")) {
-        setPosts((prev) => prev.filter((p) => p.id !== id));
+        setPosts((prev) => prev.filter((p) => String(p.id) !== id));
       } else if (endpoint.includes("/sermons/")) {
-        setSermons((prev) => prev.filter((s) => s.id !== id));
+        setSermons((prev) => prev.filter((s) => String(s.id) !== id));
       } else if (endpoint.includes("/admin/users/")) {
-        setUsers((prev) => prev.filter((u) => u.sessionId !== id));
+        setUsers((prev) => prev.filter((u) => String(u.sessionId) !== id));
       } else if (endpoint.includes("/admins/")) {
-        setAdmins((prev) => prev.filter((a) => a.id !== id));
+        setAdmins((prev) => prev.filter((a) => String(a.id) !== id));
       } else if (endpoint.includes("/prayer-requests/")) {
-        setPrayerRequests((prev) => prev.filter((p) => p.id !== id));
+        setPrayerRequests((prev) => prev.filter((p) => String(p.id) !== id));
       } else if (endpoint.includes("/feedback/")) {
-        setFeedback((prev) => prev.filter((f) => f.id !== id));
+        setFeedback((prev) => prev.filter((f) => String(f.id) !== id));
       }
-      setMessage(`Deleted ${label} successfully.`);
+      setMessage({ type: "success", text: `Deleted ${label} successfully.` });
       await load();
     } catch (error) {
-      setMessage(error.message || `Could not delete ${label}.`);
+      setMessage({ type: "error", text: error.message || `Could not delete ${label}.` });
     } finally {
       setDeletingId(null);
     }
   };
 
+  // Analytics Helpers
   const topPage = () => {
     const counts = visits.reduce((acc, v) => {
       acc[v.page] = (acc[v.page] || 0) + 1;
       return acc;
     }, {});
     const entry = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    return entry ? { label: entry[0], count: entry[1] } : { label: null, count: 0 };
+    return entry ? { label: entry[0], count: entry[1] } : { label: "Dashboard", count: 0 };
   };
 
   const topVisitor = () => {
@@ -2168,391 +2278,908 @@ function AdminDashboard({ auth, username, onLogout }) {
       return acc;
     }, {});
     const entry = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    return entry ? { label: entry[0], count: entry[1] } : { label: null, count: 0 };
+    return entry ? { label: entry[0], count: entry[1] } : { label: username || "Admin", count: 0 };
   };
+
+  // Filtered Data Lists
+  const q = searchQuery.toLowerCase().trim();
+
+  const filteredAnnouncements = announcements.filter((a) =>
+    !q ? true : (a.title && a.title.toLowerCase().includes(q)) || (a.content && a.content.toLowerCase().includes(q))
+  );
+
+  const filteredPrayerRequests = prayerRequests.filter((p) => {
+    if (prayerFilter === "public" && p.visibility !== "public") return false;
+    if (prayerFilter === "anonymous" && p.visibility === "public") return false;
+    if (!q) return true;
+    return (p.name && p.name.toLowerCase().includes(q)) || (p.message && p.message.toLowerCase().includes(q));
+  });
+
+  const filteredFeedback = feedback.filter((f) =>
+    !q ? true : (f.name && f.name.toLowerCase().includes(q)) || (f.message && f.message.toLowerCase().includes(q))
+  );
+
+  const filteredPosts = posts.filter((p) =>
+    !q
+      ? true
+      : (p.title && p.title.toLowerCase().includes(q)) ||
+        (p.author && p.author.toLowerCase().includes(q)) ||
+        (p.category && p.category.toLowerCase().includes(q)) ||
+        (p.content && p.content.toLowerCase().includes(q))
+  );
+
+  const filteredSermons = sermons.filter((s) =>
+    !q ? true : (s.title && s.title.toLowerCase().includes(q)) || (s.youtubeId && s.youtubeId.toLowerCase().includes(q))
+  );
+
+  const filteredUsers = users.filter((u) =>
+    !q ? true : (u.name && u.name.toLowerCase().includes(q)) || (u.email && u.email.toLowerCase().includes(q))
+  );
+
+  const filteredAdmins = admins.filter((a) =>
+    !q ? true : a.username && a.username.toLowerCase().includes(q)
+  );
+
+  const filteredVisits = visits.filter((v) =>
+    !q ? true : (v.page && v.page.toLowerCase().includes(q)) || (v.visitor && v.visitor.toLowerCase().includes(q))
+  );
 
   return (
     <main className="admin-page">
+      {/* Top Header */}
       <header className="admin-header">
-        <Link className="logo" href="/">
-          <img src={imagePath} alt="" />
-          <span>Kerugoya Main SDA</span>
-        </Link>
-        <div>
+        <div className="admin-header-left">
+          {/* Mobile hamburger menu button */}
           <button
-            className="sidebar-toggle"
             type="button"
+            className="admin-menu-toggle"
+            aria-label={mobileNavOpen ? "Close navigation drawer" : "Open navigation drawer"}
+            onClick={() => setMobileNavOpen((prev) => !prev)}
+          >
+            <i className={`bx ${mobileNavOpen ? "bx-x" : "bx-menu"}`} />
+          </button>
+
+          {/* Desktop collapse sidebar toggle button */}
+          <button
+            type="button"
+            className="admin-sidebar-toggle-desktop"
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             onClick={() => setSidebarCollapsed((prev) => !prev)}
           >
             <i className={`bx bx-${sidebarCollapsed ? "chevron-right" : "chevron-left"}`} />
           </button>
-          <span className="admin-welcome"><i className="bx bx-user-circle" /> Hi, {username}</span>
-          <button className="text-button" type="button" onClick={onLogout}>
-            <i className="bx bx-log-out" /> Sign out
+
+          {/* Brand Mark & Title */}
+          <Link href="/" className="admin-brand">
+            <img src={imagePath} alt="SDA Logo" className="admin-brand-logo" />
+            <div className="admin-brand-text">
+              <span className="admin-brand-name">Kerugoya Main SDA</span>
+              <span className="admin-brand-subtitle">Admin Workspace</span>
+            </div>
+          </Link>
+        </div>
+
+        <div className="admin-header-right">
+          <div className="admin-user-pill">
+            <div className="admin-avatar">
+              {username.trim().charAt(0).toUpperCase()}
+            </div>
+            <div className="admin-user-meta admin-user-details">
+              <span className="admin-user-name">{username}</span>
+              <span className="admin-user-status">
+                <span className="admin-status-dot" /> Online
+              </span>
+            </div>
+          </div>
+
+          <Link href="/" className="admin-header-btn" title="View Public Church Website">
+            <i className="bx bx-globe" />
+            <span>View Site</span>
+          </Link>
+
+          <button
+            type="button"
+            className="admin-header-btn is-logout"
+            onClick={onLogout}
+            title="Sign out of Admin Dashboard"
+          >
+            <i className="bx bx-log-out" />
+            <span>Sign out</span>
           </button>
         </div>
       </header>
+
+      {/* Mobile Drawer Backdrop */}
+      <div
+        className={`admin-drawer-backdrop ${mobileNavOpen ? "is-visible" : ""}`}
+        onClick={() => setMobileNavOpen(false)}
+        aria-hidden="true"
+      />
+
       <div className={`admin-layout ${sidebarCollapsed ? "is-collapsed" : ""}`}>
-        <aside className="admin-sidebar">
-          <span className="admin-sidebar-label">Workspace</span>
-          <h1>Dashboard</h1>
-          <p className="admin-sidebar-copy">Manage your church website content.</p>
-          <nav className="admin-tab-list" aria-label="Dashboard sections" ref={tabListRef}>
-            {[
-              ["announcements", "Announcements", announcements.length],
-              ["prayer", "Prayer Requests", prayerRequests.length],
-              ["feedback", "Feedback", feedback.length],
-              ["program", "Program", 1],
-              ["posts", "Community Posts", posts.length],
-              ["sermons", "Sermons", sermons.length],
-              ["users", "Logged in Users", users.length],
-              ["admins", "Admins", admins.length],
-              ["analytics", "Analytics", 0],
-            ].map(([value, label, count]) => (
+        {/* Navigation Sidebar (Fixed on desktop, Slide-in Drawer on mobile) */}
+        <aside className={`admin-sidebar ${mobileNavOpen ? "is-open" : ""}`}>
+          {/* Mobile Drawer Header */}
+          <div className="admin-drawer-header">
+            <div className="admin-brand-text">
+              <span className="admin-brand-name">Kerugoya Main SDA</span>
+              <span className="admin-brand-subtitle">Management Console</span>
+            </div>
+            <button
+              type="button"
+              className="admin-drawer-close"
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Close menu"
+            >
+              <i className="bx bx-x" />
+            </button>
+          </div>
+
+          <span className="admin-sidebar-section-title">Workspace Navigation</span>
+
+          <nav className="admin-nav-list" aria-label="Dashboard sections">
+            {TABS.map((t) => (
               <button
-                className={tab === value ? "admin-tab is-active" : "admin-tab"}
+                key={t.id}
                 type="button"
-                key={value}
-                aria-current={tab === value ? "page" : undefined}
-                onClick={() => setTab(value)}
+                className={`admin-nav-item ${tab === t.id ? "is-active" : ""}`}
+                onClick={() => {
+                  setTab(t.id);
+                  setMobileNavOpen(false);
+                }}
               >
-                <i
-                  className={`bx ${
-                    value === "announcements"
-                      ? "bx-megaphone"
-                      : value === "prayer"
-                        ? "bx-pray"
-                        : value === "feedback"
-                          ? "bx-message-dots"
-                          : value === "program"
-                            ? "bx-calendar"
-                            : value === "posts"
-                              ? "bx-conversation"
-                              : value === "sermons"
-                                ? "bx-video"
-                                : value === "users"
-                                  ? "bx-user-check"
-                                  : value === "analytics"
-                                    ? "bx-bar-chart-alt-2"
-                                    : "bx-user-plus"
-                  }`}
-                />
-                <span className="admin-tab-text">{label}</span>
-                {count > 0 && <span className="admin-tab-badge">{count}</span>}
+                <i className={`bx ${t.icon}`} />
+                <span className="admin-nav-text">{t.label}</span>
+                {t.count > 0 && <span className="admin-nav-badge">{t.count}</span>}
               </button>
             ))}
           </nav>
-          <div className="admin-sidebar-divider" aria-hidden="true" />
-          <div className="admin-sidebar-profile">
-            <div className="admin-profile-row">
-              <div className="admin-profile-avatar">
+
+          <div className="admin-sidebar-footer">
+            <div className="admin-sidebar-profile-card">
+              <div className="admin-avatar">
                 {username.trim().charAt(0).toUpperCase()}
               </div>
-              <div className="admin-profile-copy">
-                <span className="admin-profile-name">{username}</span>
-                <span className="admin-profile-role">Church Administrator</span>
+              <div className="admin-user-meta">
+                <span className="admin-user-name">{username}</span>
+                <span className="admin-user-status" style={{ color: "var(--admin-text-muted)" }}>
+                  Administrator
+                </span>
+              </div>
+            </div>
+
+            <Link
+              href="/"
+              className="admin-sidebar-footer-link"
+              onClick={() => setMobileNavOpen(false)}
+            >
+              <i className="bx bx-arrow-back" />
+              <span>Back to Website</span>
+            </Link>
+          </div>
+        </aside>
+
+        {/* Main Content Area */}
+        <section className="admin-content">
+          {/* Mobile Quick-Pill Tab Bar */}
+          <div className="admin-mobile-tabs-container">
+            <div className="admin-mobile-tabs-list" ref={tabListRef}>
+              {TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`admin-mobile-tab-btn ${tab === t.id ? "is-active" : ""}`}
+                  onClick={() => setTab(t.id)}
+                >
+                  <i className={`bx ${t.icon}`} />
+                  <span>{t.label}</span>
+                  {t.count > 0 && <span className="pill-badge">{t.count}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Executive Metrics Overview Strip */}
+          <div className="admin-metrics-grid">
+            <div
+              className={`admin-metric-card ${tab === "announcements" ? "is-active" : ""}`}
+              onClick={() => setTab("announcements")}
+            >
+              <div className="admin-metric-icon announcements">
+                <i className="bx bx-megaphone" />
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value">{announcements.length}</span>
+                <span className="admin-metric-label">Announcements</span>
+              </div>
+            </div>
+
+            <div
+              className={`admin-metric-card ${tab === "prayer" ? "is-active" : ""}`}
+              onClick={() => setTab("prayer")}
+            >
+              <div className="admin-metric-icon prayer">
+                <i className="bx bx-pray" />
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value">{prayerRequests.length}</span>
+                <span className="admin-metric-label">Prayer Needs</span>
+              </div>
+            </div>
+
+            <div
+              className={`admin-metric-card ${tab === "feedback" ? "is-active" : ""}`}
+              onClick={() => setTab("feedback")}
+            >
+              <div className="admin-metric-icon feedback">
+                <i className="bx bx-message-dots" />
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value">{feedback.length}</span>
+                <span className="admin-metric-label">Feedback</span>
+              </div>
+            </div>
+
+            <div
+              className={`admin-metric-card ${tab === "posts" ? "is-active" : ""}`}
+              onClick={() => setTab("posts")}
+            >
+              <div className="admin-metric-icon posts">
+                <i className="bx bx-conversation" />
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value">{posts.length}</span>
+                <span className="admin-metric-label">Stories</span>
+              </div>
+            </div>
+
+            <div
+              className={`admin-metric-card ${tab === "sermons" ? "is-active" : ""}`}
+              onClick={() => setTab("sermons")}
+            >
+              <div className="admin-metric-icon sermons">
+                <i className="bx bx-video" />
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value">{sermons.length}</span>
+                <span className="admin-metric-label">Sermons</span>
+              </div>
+            </div>
+
+            <div
+              className={`admin-metric-card ${tab === "users" ? "is-active" : ""}`}
+              onClick={() => setTab("users")}
+            >
+              <div className="admin-metric-icon users">
+                <i className="bx bx-user-check" />
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value">{users.length}</span>
+                <span className="admin-metric-label">Active Members</span>
               </div>
             </div>
           </div>
-          <Link className="admin-sidebar-back-link" href="/" title="Return to church homepage">
-            <i className="bx bx-arrow-back" /> Back to Website
-          </Link>
-          <div className="admin-sidebar-foot"><i className="bx bx-shield-quarter" /> Secure admin area</div>
-        </aside>
-        <section className="admin-content">
-          <div className="admin-page-intro">
-            <span className="admin-overline">CONTENT MANAGEMENT</span>
-            <h2>
-              {tab === "announcements"
-                ? "Announcements"
-                : tab === "prayer"
-                  ? "Prayer Requests"
-                  : tab === "feedback"
-                    ? "Feedback"
-                    : tab === "program"
-                      ? "Church Program"
-                      : tab === "posts"
-                        ? "Community Posts"
-                        : tab === "sermons"
-                          ? "Sermons"
-                            : tab === "users"
-                              ? "Logged in Users"
-                              : tab === "analytics"
-                                ? "Analytics"
-                                : "Administrators"}
-            </h2>
-            <p>
-              {tab === "prayer"
-                ? "Prayer needs shared with the church family. Respond with care."
-                : tab === "feedback"
-                  ? "Suggestions and comments submitted by the community."
-                  : tab === "program"
-                    ? "Edit the weekly program shown to the congregation and download it as a PDF."
-                    : tab === "posts"
-                      ? "Review and moderate user-submitted stories and reflections."
-                      : tab === "users"
-                        ? "View and manage active member sessions across your church website."
-                        : tab === "analytics"
-                          ? "See which pages are visited most and who is visiting them."
-                          : "Keep your community informed with timely, well-organized updates."}
-            </p>
+
+          {/* Section View Header with Search Filter */}
+          <div className="admin-view-header">
+            <div className="admin-view-title-group">
+              <h2>
+                {tab === "announcements" && "Church Announcements"}
+                {tab === "prayer" && "Prayer Requests"}
+                {tab === "feedback" && "Community Feedback"}
+                {tab === "program" && "Church Weekly Program"}
+                {tab === "posts" && "Community Stories & Reflections"}
+                {tab === "sermons" && "Sermon Recordings"}
+                {tab === "users" && "Logged In Members"}
+                {tab === "admins" && "Staff Administrators"}
+                {tab === "analytics" && "Portal Analytics & Visits"}
+              </h2>
+              <p>
+                {tab === "announcements" && "Publish timely updates, service schedules, and church events."}
+                {tab === "prayer" && "View and moderate prayer requests submitted by church members."}
+                {tab === "feedback" && "Suggestions and thoughts shared by church visitors and congregants."}
+                {tab === "program" && "Manage the weekly church bulletin and generate printable PDFs."}
+                {tab === "posts" && "Review user-submitted faith journeys, testimonies, and reflections."}
+                {tab === "sermons" && "Manage video recordings and YouTube sermons for online members."}
+                {tab === "users" && "View all member sessions currently active on the church platform."}
+                {tab === "admins" && "Add and manage trusted church staff with dashboard access."}
+                {tab === "analytics" && "Monitor platform activity, top visited pages, and active users."}
+              </p>
+            </div>
+
+            {/* Instant Search Filter */}
+            {tab !== "program" && (
+              <div className="admin-search-box">
+                <i className="bx bx-search" />
+                <input
+                  type="text"
+                  placeholder={`Search ${tab}...`}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="clear-btn"
+                    onClick={() => setSearchQuery("")}
+                    aria-label="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-          {message && <p className="form-message admin-notice" role="status">{message}</p>}
+
+          {/* Alert Message Banner */}
+          {message && (
+            <div className={`admin-alert is-${message.type || "info"}`} role="alert">
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+                <i
+                  className={`bx ${
+                    message.type === "success"
+                      ? "bx-check-circle"
+                      : message.type === "error"
+                      ? "bx-error-circle"
+                      : "bx-info-circle"
+                  }`}
+                  style={{ fontSize: "1.25rem" }}
+                />
+                {message.text}
+              </span>
+              <button
+                type="button"
+                className="admin-alert-dismiss"
+                onClick={() => setMessage(null)}
+                aria-label="Dismiss alert"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {/* TAB 1: ANNOUNCEMENTS */}
           {tab === "announcements" && (
             <>
               <div className="admin-panel">
-                <div className="admin-panel-heading"><span className="admin-panel-icon"><i className="bx bx-edit-alt" /></span><div><h3>New announcement</h3><p>Share an important update with your congregation.</p></div></div>
-                <form className="admin-form" onSubmit={(event) => submit(event, "/api/announcements")}>
-                  <label className="admin-field"><span>Title</span><input name="title" placeholder="e.g. Sabbath service schedule" required /></label>
-                  <label className="admin-field"><span>Display date <small>Optional</small></span><input name="date" type="date" /></label>
-                    <label className="admin-field admin-field-wide"><span>Details</span><textarea name="content" rows="4" placeholder="Write the announcement for your community…" onKeyDown={continueListOnEnter} required /></label>
-                  <button className="btn" type="submit"><i className="bx bx-send" /> Publish announcement</button>
+                <div className="admin-panel-heading">
+                  <div className="admin-panel-icon">
+                    <i className="bx bx-edit-alt" />
+                  </div>
+                  <div className="admin-panel-title">
+                    <h3>Create New Announcement</h3>
+                    <p>Post an update to the church homepage and announcements page.</p>
+                  </div>
+                </div>
+                <form className="admin-form" onSubmit={(e) => submit(e, "/api/announcements")}>
+                  <div className="admin-field">
+                    <label>
+                      <span>Title</span>
+                    </label>
+                    <input
+                      name="title"
+                      placeholder="e.g. Sabbath Worship Schedule"
+                      required
+                    />
+                  </div>
+                  <div className="admin-field">
+                    <label>
+                      <span>Display Date</span>
+                      <small>Optional</small>
+                    </label>
+                    <input name="date" type="date" />
+                  </div>
+                  <div className="admin-field admin-field-wide">
+                    <label>
+                      <span>Details &amp; Notes</span>
+                      <small>Press Enter to continue lists (1. or -)</small>
+                    </label>
+                    <textarea
+                      name="content"
+                      rows="4"
+                      placeholder="Write your announcement details here…"
+                      onKeyDown={continueListOnEnter}
+                      required
+                    />
+                  </div>
+                  <div className="admin-form-actions">
+                    <button className="admin-btn-primary" type="submit" disabled={submitting}>
+                      {submitting ? (
+                        <>
+                          <i className="bx bx-loader-alt bx-spin" /> Publishing...
+                        </>
+                      ) : (
+                        <>
+                          <i className="bx bx-send" /> Publish Announcement
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </form>
               </div>
+
               <div className="admin-list-section">
-                <div className="admin-list-heading"><div><h3>Published announcements</h3><p>Updates currently available on your site</p></div><span className="admin-count">{announcements.length}</span></div>
+                <div className="admin-list-header">
+                  <div>
+                    <h3>Published Announcements</h3>
+                    <p>Updates currently visible to the public</p>
+                  </div>
+                  <span className="admin-list-count">{filteredAnnouncements.length}</span>
+                </div>
                 <div className="admin-list">
-                  {announcements.length ? announcements.map((item) => (
-                    <article key={item.id}>
-                      <div className="admin-item-icon"><i className="bx bx-megaphone" /></div>
-                      <div className="admin-item-copy"><strong>{item.title}</strong><FormattedContent className="admin-item-preview" text={item.content} /></div>
-                      <button
-                        className="icon-button"
-                        type="button"
-                        aria-label={`Delete announcement: ${item.title}`}
-                        disabled={deletingId === `/api/announcements/${item.id}`}
-                        onClick={() => remove(`/api/announcements/${item.id}`, "announcement")}
-                      >
-                        <i className={`bx ${deletingId === `/api/announcements/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
-                      </button>
-                    </article>
-                  )) : <p className="admin-empty-state"><i className="bx bx-inbox" /> No announcements yet. Your published updates will appear here.</p>}
+                  {filteredAnnouncements.length ? (
+                    filteredAnnouncements.map((item) => (
+                      <article key={item.id} className="admin-list-item">
+                        <div className="admin-item-icon">
+                          <i className="bx bx-megaphone" />
+                        </div>
+                        <div className="admin-item-main">
+                          {item.date && (
+                            <div className="admin-item-meta">
+                              <span className="admin-tag is-blue">
+                                <i className="bx bx-calendar" /> {item.date}
+                              </span>
+                            </div>
+                          )}
+                          <div className="admin-item-title">{item.title}</div>
+                          <FormattedContent className="admin-item-content" text={item.content} />
+                        </div>
+                        <button
+                          className="admin-item-action-btn"
+                          type="button"
+                          aria-label={`Delete announcement: ${item.title}`}
+                          disabled={deletingId === `/api/announcements/${item.id}`}
+                          onClick={() => remove(`/api/announcements/${item.id}`, "announcement")}
+                        >
+                          <i
+                            className={`bx ${
+                              deletingId === `/api/announcements/${item.id}`
+                                ? "bx-loader-alt bx-spin"
+                                : "bx-trash"
+                            }`}
+                          />
+                        </button>
+                      </article>
+                    ))
+                  ) : (
+                    <div className="admin-empty-state">
+                      <i className="bx bx-inbox" />
+                      <h4>No announcements found</h4>
+                      <p>
+                        {searchQuery
+                          ? "No announcements matched your search query."
+                          : "Published announcements will appear here."}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
           )}
+
+          {/* TAB 2: PRAYER REQUESTS */}
           {tab === "prayer" && (
-            <div className="admin-list-section is-first">
-              <div className="admin-list-heading">
+            <div className="admin-list-section">
+              <div className="admin-list-header">
                 <div>
-                  <h3>Prayer requests</h3>
-                  <p>Needs shared by the community</p>
+                  <h3>Prayer Requests</h3>
+                  <p>Intercessory prayers submitted by our community</p>
                 </div>
-                <span className="admin-count">{prayerRequests.length}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <button
+                    type="button"
+                    className={`admin-mobile-tab-btn ${prayerFilter === "all" ? "is-active" : ""}`}
+                    onClick={() => setPrayerFilter("all")}
+                    style={{ minHeight: "32px", padding: "0.25rem 0.65rem", fontSize: "0.75rem" }}
+                  >
+                    All ({prayerRequests.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`admin-mobile-tab-btn ${prayerFilter === "public" ? "is-active" : ""}`}
+                    onClick={() => setPrayerFilter("public")}
+                    style={{ minHeight: "32px", padding: "0.25rem 0.65rem", fontSize: "0.75rem" }}
+                  >
+                    Public ({prayerRequests.filter((p) => p.visibility === "public").length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`admin-mobile-tab-btn ${prayerFilter === "anonymous" ? "is-active" : ""}`}
+                    onClick={() => setPrayerFilter("anonymous")}
+                    style={{ minHeight: "32px", padding: "0.25rem 0.65rem", fontSize: "0.75rem" }}
+                  >
+                    Anonymous ({prayerRequests.filter((p) => p.visibility !== "public").length})
+                  </button>
+                </div>
               </div>
               <div className="admin-list">
-                {prayerRequests.length ? (
-                  prayerRequests.map((item) => (
-                    <article key={item.id}>
-                      <div className="admin-item-icon"><i className="bx bx-pray" /></div>
-                      <div className="admin-item-copy">
+                {filteredPrayerRequests.length ? (
+                  filteredPrayerRequests.map((item) => (
+                    <article key={item.id} className="admin-list-item">
+                      <div className="admin-item-icon" style={{ background: "#fef3c7", color: "#b45309" }}>
+                        <i className="bx bx-pray" />
+                      </div>
+                      <div className="admin-item-main">
                         <div className="admin-item-meta">
-                          <span className={item.visibility === "public" ? "post-category" : ""}>
-                            {item.visibility === "public" ? "Public" : "Anonymous"}
+                          <span className={`admin-tag ${item.visibility === "public" ? "is-green" : "is-amber"}`}>
+                            {item.visibility === "public" ? "Public Request" : "Anonymous"}
                           </span>
-                          {item.name ? <span className="admin-item-byline">by <strong>{item.name}</strong></span> : <span className="admin-item-byline">Anonymous contributor</span>}
+                          <span className="admin-item-byline">
+                            Submitted by <strong>{item.name || "Anonymous Member"}</strong>
+                          </span>
                         </div>
-                        <FormattedContent text={item.message} />
+                        <FormattedContent className="admin-item-content" text={item.message} />
                       </div>
                       <button
-                        className="icon-button"
+                        className="admin-item-action-btn"
                         type="button"
-                        aria-label={`Delete prayer request: ${item.message.slice(0, 40)}`}
+                        aria-label="Delete prayer request"
                         disabled={deletingId === `/api/prayer-requests/${item.id}`}
                         onClick={() => remove(`/api/prayer-requests/${item.id}`, "prayer request")}
                       >
-                        <i className={`bx ${deletingId === `/api/prayer-requests/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
+                        <i
+                          className={`bx ${
+                            deletingId === `/api/prayer-requests/${item.id}`
+                              ? "bx-loader-alt bx-spin"
+                              : "bx-trash"
+                          }`}
+                        />
                       </button>
                     </article>
                   ))
                 ) : (
-                  <p className="admin-empty-state">
-                    <i className="bx bx-pray" /> No prayer requests yet.
-                  </p>
+                  <div className="admin-empty-state">
+                    <i className="bx bx-pray" />
+                    <h4>No prayer requests</h4>
+                    <p>When church members submit prayer requests, they will appear here.</p>
+                  </div>
                 )}
               </div>
             </div>
           )}
+
+          {/* TAB 3: FEEDBACK */}
           {tab === "feedback" && (
-            <div className="admin-list-section is-first">
-              <div className="admin-list-heading">
+            <div className="admin-list-section">
+              <div className="admin-list-header">
                 <div>
-                  <h3>Feedback submissions</h3>
-                  <p>Suggestions and comments from the community</p>
+                  <h3>Congregant Feedback</h3>
+                  <p>Inquiries, suggestions, and messages received from the feedback form</p>
                 </div>
-                <span className="admin-count">{feedback.length}</span>
+                <span className="admin-list-count">{filteredFeedback.length}</span>
               </div>
               <div className="admin-list">
-                {feedback.length ? (
-                  feedback.map((item) => (
-                    <article key={item.id}>
-                      <div className="admin-item-icon"><i className="bx bx-message-dots" /></div>
-                      <div className="admin-item-copy">
+                {filteredFeedback.length ? (
+                  filteredFeedback.map((item) => (
+                    <article key={item.id} className="admin-list-item">
+                      <div className="admin-item-icon" style={{ background: "#e0e7ff", color: "#4338ca" }}>
+                        <i className="bx bx-message-dots" />
+                      </div>
+                      <div className="admin-item-main">
                         <div className="admin-item-meta">
-                          <span className={item.visibility === "public" ? "post-category" : ""}>
-                            {item.visibility === "public" ? "Public" : "Anonymous"}
+                          <span className="admin-tag is-blue">Feedback</span>
+                          <span className="admin-item-byline">
+                            From <strong>{item.name || "Anonymous Visitor"}</strong>
                           </span>
-                          {item.name ? <span className="admin-item-byline">by <strong>{item.name}</strong></span> : <span className="admin-item-byline">Anonymous contributor</span>}
                         </div>
-                        <FormattedContent text={item.message} />
+                        <FormattedContent className="admin-item-content" text={item.message} />
                       </div>
                       <button
-                        className="icon-button"
+                        className="admin-item-action-btn"
                         type="button"
-                        aria-label={`Delete feedback: ${item.message.slice(0, 40)}`}
+                        aria-label="Delete feedback submission"
                         disabled={deletingId === `/api/feedback/${item.id}`}
                         onClick={() => remove(`/api/feedback/${item.id}`, "feedback")}
                       >
-                        <i className={`bx ${deletingId === `/api/feedback/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
+                        <i
+                          className={`bx ${
+                            deletingId === `/api/feedback/${item.id}`
+                              ? "bx-loader-alt bx-spin"
+                              : "bx-trash"
+                          }`}
+                        />
                       </button>
                     </article>
                   ))
                 ) : (
-                  <p className="admin-empty-state">
-                    <i className="bx bx-message-dots" /> No feedback yet.
-                  </p>
+                  <div className="admin-empty-state">
+                    <i className="bx bx-message-dots" />
+                    <h4>No feedback submissions</h4>
+                    <p>Community feedback and inquiries will appear here.</p>
+                  </div>
                 )}
               </div>
             </div>
           )}
+
+          {/* TAB 4: CHURCH PROGRAM */}
           {tab === "program" && (
             <div className="admin-panel">
-              <div className="admin-panel-heading"><span className="admin-panel-icon"><i className="bx bx-edit-alt" /></span><div><h3>Edit church program</h3><p>Update the program shown to the congregation. Use line breaks to separate sections.</p></div></div>
-              <form className="admin-form" onSubmit={saveProgram}>
-                <label className="admin-field"><span>Program title</span><input name="title" value={program.title} onChange={(event) => setProgram((prev) => ({ ...prev, title: event.target.value }))} placeholder="e.g. Sabbath School &amp; Worship" required /></label>
-                <label className="admin-field admin-field-wide"><span>Program body</span><textarea name="body" rows="12" value={program.body} onChange={(event) => setProgram((prev) => ({ ...prev, body: event.target.value }))} placeholder="Write the weekly program here…" onKeyDown={continueListOnEnter} /></label>
-                <button className="btn" type="submit" disabled={programSaving}>
-                  {programSaving ? "Saving…" : "Save program"} <i className="bx bx-save" />
-                </button>
-              </form>
-              <div className="admin-program-actions">
-                <a className="btn" href="/api/program/pdf" target="_blank" rel="noopener noreferrer">
-                  Download program as PDF <i className="bx bx-file-pdf" />
-                </a>
-                <a className="admin-program-link" href="/program.html" target="_blank" rel="noopener noreferrer">
-                  View public program page <i className="bx bx-external-link" />
-                </a>
+              <div className="admin-panel-heading">
+                <div className="admin-panel-icon" style={{ background: "#ede9fe", color: "#6d28d9" }}>
+                  <i className="bx bx-calendar-event" />
+                </div>
+                <div className="admin-panel-title">
+                  <h3>Edit Weekly Church Program</h3>
+                  <p>Update the Sabbath order of service displayed online and printed for attendees.</p>
+                </div>
               </div>
+              <form className="admin-form" onSubmit={saveProgram}>
+                <div className="admin-field admin-field-wide">
+                  <label>
+                    <span>Program Title</span>
+                  </label>
+                  <input
+                    name="title"
+                    value={program.title}
+                    onChange={(e) => setProgram((p) => ({ ...p, title: e.target.value }))}
+                    placeholder="e.g. Sabbath School &amp; Divine Service"
+                    required
+                  />
+                </div>
+                <div className="admin-field admin-field-wide">
+                  <label>
+                    <span>Order of Service Body</span>
+                    <small>Separate sections with line breaks</small>
+                  </label>
+                  <textarea
+                    name="body"
+                    rows="14"
+                    value={program.body}
+                    onChange={(e) => setProgram((p) => ({ ...p, body: e.target.value }))}
+                    placeholder="Enter Sabbath School, Divine Worship, AY Program details..."
+                    onKeyDown={continueListOnEnter}
+                  />
+                </div>
+                <div className="admin-form-actions" style={{ flexWrap: "wrap" }}>
+                  <button className="admin-btn-primary" type="submit" disabled={programSaving}>
+                    {programSaving ? (
+                      <>
+                        <i className="bx bx-loader-alt bx-spin" /> Saving Program...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bx bx-save" /> Save Church Program
+                      </>
+                    )}
+                  </button>
+                  <a
+                    className="admin-btn-secondary"
+                    href="/api/program/pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <i className="bx bx-file-pdf" style={{ color: "#ef4444" }} /> Download PDF Bulletin
+                  </a>
+                  <a
+                    className="admin-btn-secondary"
+                    href="/program.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <i className="bx bx-external-link" /> View Public Program Page
+                  </a>
+                </div>
+              </form>
             </div>
           )}
+
+          {/* TAB 5: COMMUNITY STORIES */}
           {tab === "posts" && (
-            <div className="admin-list-section is-first">
-              <div className="admin-list-heading">
+            <div className="admin-list-section">
+              <div className="admin-list-header">
                 <div>
-                  <h3>Published community stories</h3>
-                  <p>Articles and reflections submitted by members</p>
+                  <h3>Community Stories &amp; Reflections</h3>
+                  <p>Faith reflections, testimonies, and articles written by members</p>
                 </div>
-                <span className="admin-count">{posts.length}</span>
+                <span className="admin-list-count">{filteredPosts.length}</span>
               </div>
               <div className="admin-list">
-                {posts.length ? (
-                  posts.map((item) => (
-                    <article key={item.id}>
-                      <div className="admin-item-icon">
+                {filteredPosts.length ? (
+                  filteredPosts.map((item) => (
+                    <article key={item.id} className="admin-list-item">
+                      <div className="admin-item-icon" style={{ background: "#dcfce7", color: "#15803d" }}>
                         <i className="bx bx-conversation" />
                       </div>
-                      <div className="admin-item-copy">
+                      <div className="admin-item-main">
                         <div className="admin-item-meta">
-                          <span className="post-category">{item.category}</span>
+                          <span className="admin-tag is-green">{item.category || "General"}</span>
                           <span className="admin-item-byline">
-                            by <strong>{item.author}</strong> • {item.date}
+                            By <strong>{item.author}</strong> • {item.date}
                           </span>
                         </div>
-                        <strong>{item.title}</strong>
-                        <FormattedContent className="admin-item-preview" text={item.content} />
+                        <div className="admin-item-title">{item.title}</div>
+                        <FormattedContent className="admin-item-content" text={item.content} />
                         <div className="admin-item-stats">
                           <span>
-                            <i className="bx bx-heart" /> {item.likes}{" "}
+                            <i className="bx bx-heart" style={{ color: "#ef4444" }} /> {item.likes || 0}{" "}
                             {item.likes === 1 ? "like" : "likes"}
                           </span>
                           <span>
-                            <i className="bx bx-message-rounded" />{" "}
+                            <i className="bx bx-message-rounded" style={{ color: "#3b82f6" }} />{" "}
                             {item.comments?.length || 0} comments
                           </span>
                         </div>
                       </div>
                       <button
-                        className="icon-button"
+                        className="admin-item-action-btn"
                         type="button"
                         aria-label={`Delete story: ${item.title}`}
                         disabled={deletingId === `/api/community/posts/${item.id}`}
-                        onClick={() => remove(`/api/community/posts/${item.id}`, "story")}
+                        onClick={() => remove(`/api/community/posts/${item.id}`, "community post")}
                       >
-                        <i className={`bx ${deletingId === `/api/community/posts/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
+                        <i
+                          className={`bx ${
+                            deletingId === `/api/community/posts/${item.id}`
+                              ? "bx-loader-alt bx-spin"
+                              : "bx-trash"
+                          }`}
+                        />
                       </button>
                     </article>
                   ))
                 ) : (
-                  <p className="admin-empty-state">
-                    <i className="bx bx-inbox" /> No community stories submitted yet.
-                  </p>
+                  <div className="admin-empty-state">
+                    <i className="bx bx-conversation" />
+                    <h4>No community stories</h4>
+                    <p>Members can submit stories from the community page.</p>
+                  </div>
                 )}
               </div>
             </div>
           )}
+
+          {/* TAB 6: SERMONS */}
           {tab === "sermons" && (
             <>
               <div className="admin-panel">
-                <div className="admin-panel-heading"><span className="admin-panel-icon"><i className="bx bx-video-plus" /></span><div><h3>Add a sermon</h3><p>Publish a recording so members can watch it anytime.</p></div></div>
-                <form className="admin-form" onSubmit={(event) => submit(event, "/api/sermons")}>
-                  <label className="admin-field"><span>Sermon title</span><input name="title" placeholder="Enter the sermon title" required /></label>
-                  <label className="admin-field"><span>YouTube video ID</span><input name="youtubeId" placeholder="e.g. dQw4w9WgXcQ" required /><small>Use the ID from the end of the YouTube video URL.</small></label>
-                  <label className="admin-field"><span>Service date <small>Optional</small></span><input name="date" type="date" /></label>
-                  <button className="btn" type="submit"><i className="bx bx-upload" /> Publish sermon</button>
+                <div className="admin-panel-heading">
+                  <div className="admin-panel-icon" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+                    <i className="bx bx-video-plus" />
+                  </div>
+                  <div className="admin-panel-title">
+                    <h3>Add New Sermon Recording</h3>
+                    <p>Publish a YouTube sermon for congregation members to watch.</p>
+                  </div>
+                </div>
+                <form className="admin-form" onSubmit={(e) => submit(e, "/api/sermons")}>
+                  <div className="admin-field">
+                    <label>
+                      <span>Sermon Title</span>
+                    </label>
+                    <input name="title" placeholder="e.g. Walking in Faith and Truth" required />
+                  </div>
+                  <div className="admin-field">
+                    <label>
+                      <span>YouTube Video ID</span>
+                      <small>e.g. dQw4w9WgXcQ</small>
+                    </label>
+                    <input name="youtubeId" placeholder="Video ID from YouTube URL" required />
+                  </div>
+                  <div className="admin-field">
+                    <label>
+                      <span>Service Date</span>
+                      <small>Optional</small>
+                    </label>
+                    <input name="date" type="date" />
+                  </div>
+                  <div className="admin-form-actions">
+                    <button className="admin-btn-primary" type="submit" disabled={submitting}>
+                      {submitting ? (
+                        <>
+                          <i className="bx bx-loader-alt bx-spin" /> Publishing...
+                        </>
+                      ) : (
+                        <>
+                          <i className="bx bx-upload" /> Publish Sermon
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </form>
               </div>
+
               <div className="admin-list-section">
-                <div className="admin-list-heading"><div><h3>Published sermons</h3><p>Recordings available to your community</p></div><span className="admin-count">{sermons.length}</span></div>
+                <div className="admin-list-header">
+                  <div>
+                    <h3>Published Sermons</h3>
+                    <p>Recordings available in the church media library</p>
+                  </div>
+                  <span className="admin-list-count">{filteredSermons.length}</span>
+                </div>
                 <div className="admin-list">
-                  {sermons.length ? sermons.map((item) => (
-                    <article key={item.id}>
-                      <div className="admin-item-icon"><i className="bx bx-play-circle" /></div>
-                      <div className="admin-item-copy"><strong>{item.title}</strong><p>YouTube ID: {item.youtubeId}</p></div>
-                      <button
-                        className="icon-button"
-                        type="button"
-                        aria-label={`Delete sermon: ${item.title}`}
-                        disabled={deletingId === `/api/sermons/${item.id}`}
-                        onClick={() => remove(`/api/sermons/${item.id}`, "sermon")}
-                      >
-                        <i className={`bx ${deletingId === `/api/sermons/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
-                      </button>
-                    </article>
-                  )) : <p className="admin-empty-state"><i className="bx bx-inbox" /> No sermons yet. Published recordings will appear here.</p>}
+                  {filteredSermons.length ? (
+                    filteredSermons.map((item) => (
+                      <article key={item.id} className="admin-list-item">
+                        <div className="admin-item-icon" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+                          <i className="bx bx-play-circle" />
+                        </div>
+                        <div className="admin-item-main">
+                          <div className="admin-item-title">{item.title}</div>
+                          <div className="admin-item-meta" style={{ marginTop: "0.25rem" }}>
+                            <span className="admin-tag is-blue">YouTube ID: {item.youtubeId}</span>
+                            {item.date && (
+                              <span className="admin-item-byline">Date: {item.date}</span>
+                            )}
+                          </div>
+                          <div style={{ marginTop: "0.4rem" }}>
+                            <a
+                              href={`https://www.youtube.com/watch?v=${item.youtubeId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: "var(--admin-accent)",
+                                fontSize: "0.82rem",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.3rem",
+                                textDecoration: "none",
+                              }}
+                            >
+                              <i className="bx bx-link-external" /> Watch on YouTube
+                            </a>
+                          </div>
+                        </div>
+                        <button
+                          className="admin-item-action-btn"
+                          type="button"
+                          aria-label={`Delete sermon: ${item.title}`}
+                          disabled={deletingId === `/api/sermons/${item.id}`}
+                          onClick={() => remove(`/api/sermons/${item.id}`, "sermon")}
+                        >
+                          <i
+                            className={`bx ${
+                              deletingId === `/api/sermons/${item.id}`
+                                ? "bx-loader-alt bx-spin"
+                                : "bx-trash"
+                            }`}
+                          />
+                        </button>
+                      </article>
+                    ))
+                  ) : (
+                    <div className="admin-empty-state">
+                      <i className="bx bx-video" />
+                      <h4>No sermons uploaded</h4>
+                      <p>Add YouTube sermon recordings above to build your church library.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
           )}
+
+          {/* TAB 7: ACTIVE MEMBERS */}
           {tab === "users" && (
-            <div className="admin-list-section is-first">
-              <div className="admin-list-heading">
+            <div className="admin-list-section">
+              <div className="admin-list-header">
                 <div>
-                  <h3>Logged in members</h3>
-                  <p>Members who currently have an active signed-in session</p>
+                  <h3>Logged In Members</h3>
+                  <p>Church members currently holding active signed-in sessions</p>
                 </div>
-                <span className="admin-count">{users.length}</span>
+                <span className="admin-list-count">{filteredUsers.length}</span>
               </div>
               <div className="admin-list">
-                {users.length ? (
-                  users.map((session) => (
-                    <article key={session.sessionId}>
+                {filteredUsers.length ? (
+                  filteredUsers.map((session) => (
+                    <article key={session.sessionId} className="admin-list-item">
                       <div className="admin-item-icon is-success">
                         <i className="bx bx-user-check" />
                       </div>
-                      <div className="admin-item-copy">
+                      <div className="admin-item-main">
                         <div className="admin-item-meta">
-                          <strong>{session.name}</strong>
+                          <strong style={{ fontSize: "0.95rem" }}>{session.name}</strong>
                           <span className="online-badge">
-                            <span className="online-dot" /> Online
+                            <span className="online-dot" /> Online Now
                           </span>
                         </div>
-                        <p className="admin-item-byline">
+                        <p className="admin-item-byline" style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
                           <i className="bx bx-envelope" /> {session.email}
                         </p>
                         <div className="admin-item-stats">
                           <span>
-                            <i className="bx bx-time-five" /> Signed in:{" "}
+                            <i className="bx bx-time" /> Signed in:{" "}
                             {new Date(session.loggedInAt).toLocaleString()}
                           </span>
                           <span>
@@ -2562,325 +3189,210 @@ function AdminDashboard({ auth, username, onLogout }) {
                         </div>
                       </div>
                       <button
-                        className="icon-button"
+                        className="admin-item-action-btn"
                         type="button"
-                        aria-label={`Log out session for ${session.name}`}
-                        title="Disconnect this active session"
+                        aria-label={`Disconnect session for ${session.name}`}
+                        title="Disconnect session"
                         disabled={deletingId === `/api/admin/users/${session.sessionId}`}
                         onClick={() => remove(`/api/admin/users/${session.sessionId}`, "user session")}
                       >
-                        <i className={`bx ${deletingId === `/api/admin/users/${session.sessionId}` ? "bx-loader-alt bx-spin" : "bx-log-out-circle"}`} />
+                        <i
+                          className={`bx ${
+                            deletingId === `/api/admin/users/${session.sessionId}`
+                              ? "bx-loader-alt bx-spin"
+                              : "bx-log-out-circle"
+                          }`}
+                        />
                       </button>
                     </article>
                   ))
                 ) : (
-                  <p className="admin-empty-state">
-                    <i className="bx bx-user-x" /> No users are currently logged in.
-                  </p>
+                  <div className="admin-empty-state">
+                    <i className="bx bx-user-x" />
+                    <h4>No active member sessions</h4>
+                    <p>Signed in members will appear here with live session information.</p>
+                  </div>
                 )}
               </div>
             </div>
           )}
+
+          {/* TAB 8: ADMINISTRATORS */}
           {tab === "admins" && (
             <>
               <div className="admin-panel">
-                <div className="admin-panel-heading"><span className="admin-panel-icon"><i className="bx bx-user-plus" /></span><div><h3>Add an administrator</h3><p>Give a trusted team member access to manage this site.</p></div></div>
-                <form className="admin-form" onSubmit={(event) => submit(event, "/api/admins")}>
-                  <label className="admin-field"><span>Username</span><input name="username" placeholder="Choose a username" autoComplete="off" required /></label>
-                  <label className="admin-field"><span>Temporary password</span><input name="password" type="password" placeholder="Create a temporary password" autoComplete="new-password" required /></label>
-                  <button className="btn" type="submit"><i className="bx bx-user-plus" /> Add administrator</button>
+                <div className="admin-panel-heading">
+                  <div className="admin-panel-icon">
+                    <i className="bx bx-user-plus" />
+                  </div>
+                  <div className="admin-panel-title">
+                    <h3>Add New Administrator</h3>
+                    <p>Grant staff access to trusted leaders and department heads.</p>
+                  </div>
+                </div>
+                <form className="admin-form" onSubmit={(e) => submit(e, "/api/admins")}>
+                  <div className="admin-field">
+                    <label>
+                      <span>Admin Username</span>
+                    </label>
+                    <input
+                      name="username"
+                      placeholder="e.g. pastor_john"
+                      autoComplete="off"
+                      required
+                    />
+                  </div>
+                  <div className="admin-field">
+                    <label>
+                      <span>Temporary Password</span>
+                    </label>
+                    <input
+                      name="password"
+                      type="password"
+                      placeholder="Create secure temporary password"
+                      autoComplete="new-password"
+                      required
+                    />
+                  </div>
+                  <div className="admin-form-actions">
+                    <button className="admin-btn-primary" type="submit" disabled={submitting}>
+                      {submitting ? (
+                        <>
+                          <i className="bx bx-loader-alt bx-spin" /> Adding...
+                        </>
+                      ) : (
+                        <>
+                          <i className="bx bx-user-plus" /> Add Administrator
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </form>
               </div>
+
               <div className="admin-list-section">
-                <div className="admin-list-heading"><div><h3>Current administrators</h3><p>People with access to this dashboard</p></div><span className="admin-count">{admins.length}</span></div>
+                <div className="admin-list-header">
+                  <div>
+                    <h3>Current Administrators</h3>
+                    <p>Team members authorized to manage the church portal</p>
+                  </div>
+                  <span className="admin-list-count">{filteredAdmins.length}</span>
+                </div>
                 <div className="admin-list">
-                  {admins.length ? admins.map((item) => (
-                    <article key={item.id}>
-                      <div className="admin-item-icon"><i className="bx bx-user" /></div>
-                      <div className="admin-item-copy"><strong>{item.username}</strong><p>Dashboard administrator</p></div>
-                      <button
-                        className="icon-button"
-                        type="button"
-                        aria-label={`Remove admin: ${item.username}`}
-                        disabled={deletingId === `/api/admins/${item.id}`}
-                        onClick={() => remove(`/api/admins/${item.id}`, "administrator")}
-                      >
-                        <i className={`bx ${deletingId === `/api/admins/${item.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
-                      </button>
-                    </article>
-                  )) : <p className="admin-empty-state"><i className="bx bx-inbox" /> No additional administrators have been added.</p>}
+                  {filteredAdmins.length ? (
+                    filteredAdmins.map((item) => (
+                      <article key={item.id} className="admin-list-item">
+                        <div className="admin-item-icon">
+                          <i className="bx bx-shield-quarter" />
+                        </div>
+                        <div className="admin-item-main">
+                          <div className="admin-item-title">{item.username}</div>
+                          <div className="admin-item-meta">
+                            <span className="admin-tag is-blue">Church Administrator</span>
+                          </div>
+                        </div>
+                        <button
+                          className="admin-item-action-btn"
+                          type="button"
+                          aria-label={`Remove admin: ${item.username}`}
+                          disabled={deletingId === `/api/admins/${item.id}`}
+                          onClick={() => remove(`/api/admins/${item.id}`, "administrator")}
+                        >
+                          <i
+                            className={`bx ${
+                              deletingId === `/api/admins/${item.id}`
+                                ? "bx-loader-alt bx-spin"
+                                : "bx-trash"
+                            }`}
+                          />
+                        </button>
+                      </article>
+                    ))
+                  ) : (
+                    <div className="admin-empty-state">
+                      <i className="bx bx-user-plus" />
+                      <h4>No additional administrators</h4>
+                      <p>Add department heads or church clerks to assist with website updates.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
           )}
+
+          {/* TAB 9: ANALYTICS */}
           {tab === "analytics" && (
-            <div className="admin-list-section is-first">
-              <div className="admin-list-heading">
+            <div className="admin-list-section">
+              <div className="admin-list-header">
                 <div>
-                  <h3>Site analytics</h3>
-                  <p>Frequently visited pages and who is visiting them.</p>
+                  <h3>Portal Traffic &amp; Analytics</h3>
+                  <p>Overview of dashboard usage and frequent visitors</p>
                 </div>
-                <span className="admin-count">{visits.length}</span>
+                <span className="admin-list-count">{filteredVisits.length} visits</span>
               </div>
-              <div className="admin-analytics">
-                <div className="admin-analytics-card">
-                  <span className="admin-analytics-label">Total admin visits</span>
-                  <span className="admin-analytics-value">{visits.length}</span>
-                </div>
-                <div className="admin-analytics-card">
-                  <span className="admin-analytics-label">Unique visitors</span>
-                  <span className="admin-analytics-value">
-                    {new Set(visits.map((v) => v.visitor)).size}
-                  </span>
-                </div>
-                <div className="admin-analytics-card">
-                  <span className="admin-analytics-label">Most visited page</span>
-                  <span className="admin-analytics-value">
-                    {topPage().label || "—"}
-                  </span>
-                </div>
-                <div className="admin-analytics-card">
-                  <span className="admin-analytics-label">Top visitor</span>
-                  <span className="admin-analytics-value">
-                    {topVisitor().label || "—"}
-                  </span>
+
+              <div style={{ padding: "1.25rem 1.25rem 0" }}>
+                <div className="admin-analytics-deck">
+                  <div className="admin-analytics-card">
+                    <span className="admin-analytics-label">Total Visits</span>
+                    <span className="admin-analytics-value">{visits.length}</span>
+                  </div>
+                  <div className="admin-analytics-card">
+                    <span className="admin-analytics-label">Unique Visitors</span>
+                    <span className="admin-analytics-value">
+                      {new Set(visits.map((v) => v.visitor)).size}
+                    </span>
+                  </div>
+                  <div className="admin-analytics-card">
+                    <span className="admin-analytics-label">Most Visited Area</span>
+                    <span className="admin-analytics-value" style={{ fontSize: "1.25rem" }}>
+                      {topPage().label || "—"}
+                    </span>
+                  </div>
+                  <div className="admin-analytics-card">
+                    <span className="admin-analytics-label">Top Administrator</span>
+                    <span className="admin-analytics-value" style={{ fontSize: "1.25rem" }}>
+                      {topVisitor().label || "—"}
+                    </span>
+                  </div>
                 </div>
               </div>
+
               <div className="admin-list">
-                {visits.length ? (
-                  visits
+                {filteredVisits.length ? (
+                  filteredVisits
                     .slice()
                     .reverse()
                     .map((visit, index) => (
-                      <article key={`visit-${index}`}>
-                        <div className="admin-item-icon"><i className="bx bx-history" /></div>
-                        <div className="admin-item-copy">
+                      <article key={`visit-${index}`} className="admin-list-item">
+                        <div className="admin-item-icon" style={{ background: "#f3e8ff", color: "#7e22ce" }}>
+                          <i className="bx bx-history" />
+                        </div>
+                        <div className="admin-item-main">
                           <div className="admin-item-meta">
-                            <span className="post-category">{visit.page}</span>
+                            <span className="admin-tag is-purple">{visit.page}</span>
                             <span className="admin-item-byline">
-                              by <strong>{visit.visitor}</strong>
+                              By <strong>{visit.visitor}</strong>
                             </span>
                           </div>
-                          <p className="admin-item-byline">
-                            <i className="bx bx-time" />{" "}
-                            {new Date(visit.at).toLocaleString()}
+                          <p className="admin-item-byline" style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                            <i className="bx bx-time" /> {new Date(visit.at).toLocaleString()}
                           </p>
                         </div>
                       </article>
                     ))
                 ) : (
-                  <p className="admin-empty-state">
-                    <i className="bx bx-bar-chart-alt-2" /> No visits recorded yet.
-                  </p>
+                  <div className="admin-empty-state">
+                    <i className="bx bx-bar-chart-alt-2" />
+                    <h4>No activity recorded yet</h4>
+                    <p>Dashboard interaction logs will appear here.</p>
+                  </div>
                 )}
               </div>
             </div>
           )}
         </section>
       </div>
-    </main>
-  );
-}
-
-function AdminDashboardPro() {
-  const [auth, setAuth] = useState(
-    () => sessionStorage.getItem("adminAuth") || "",
-  );
-  const [username, setUsername] = useState(
-    () => sessionStorage.getItem("adminUser") || "",
-  );
-  if (!auth) return null;
-  const [open, setOpen] = useState(false);
-  const [announcements, setAnnouncements] = useState([]);
-  const [posts, setPosts] = useState([]);
-  const [sermons, setSermons] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [visits, setVisits] = useState(
-    () => JSON.parse(localStorage.getItem("admin_visits") || "[]"),
-  );
-  const headers = { "Content-Type": "application/json", Authorization: auth };
-
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/announcements", { cache: "no-store" }),
-      fetch("/api/community/posts", { cache: "no-store" }),
-      fetch("/api/sermons", { cache: "no-store" }),
-      fetch("/api/admin/users", { headers, cache: "no-store" }).catch(() => ({ ok: false })),
-    ]).then(([a, p, s, u]) => {
-      a.json().then((d) => setAnnouncements(Array.isArray(d) ? d : [])).catch(() => {});
-      p.json().then((d) => setPosts(Array.isArray(d) ? d : [])).catch(() => {});
-      s.json().then((d) => setSermons(Array.isArray(d) ? d : [])).catch(() => {});
-      u.ok && u.json().then((d) => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
-    }).catch(() => {});
-  }, []);
-
-  const nav = [
-    { key: "dashboard", label: "Dashboard", icon: "bx-grid-alt" },
-    { key: "announcements", label: "Announcements", icon: "bx-megaphone" },
-    { key: "sermons", label: "Sermons", icon: "bx-video" },
-    { key: "posts", label: "Community Posts", icon: "bx-conversation" },
-    { key: "users", label: "Members", icon: "bx-user-check" },
-    { key: "settings", label: "Settings", icon: "bx-cog" },
-  ];
-
-  return (
-    <main className="pro-dashboard">
-      <nav className="pro-sidebar">
-        <div className="pro-brand">
-          <div className="pro-brand-mark">SDA</div>
-          <div>
-            <div className="pro-brand-name">Kerugoya Main SDA</div>
-            <div className="pro-brand-role">Admin Dashboard</div>
-          </div>
-        </div>
-        <div className="pro-divider" />
-        <ul className="pro-nav">
-          {nav.map((item) => (
-            <li key={item.key}>
-              <button
-                className={`pro-nav-item ${item.key === "dashboard" ? "is-active" : ""}`}
-                type="button"
-                onClick={() => {}}
-              >
-                <i className={`bx ${item.icon}`} />
-                <span>{item.label}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="pro-divider" style={{ marginTop: "auto" }} />
-        <div className="pro-user">
-          <div className="pro-user-avatar">{username.trim().charAt(0).toUpperCase()}</div>
-          <div className="pro-user-info">
-            <div className="pro-user-name">{username}</div>
-            <div className="pro-user-role">Administrator</div>
-          </div>
-          <button className="pro-signout" type="button" onClick={() => {
-            sessionStorage.removeItem("adminAuth");
-            sessionStorage.removeItem("adminUser");
-            setAuth("");
-            setUsername("");
-          }}>
-            <i className="bx bx-log-out" /> Sign out
-          </button>
-        </div>
-      </nav>
-
-      <div className="pro-wrap">
-        <header className="pro-header">
-          <button className="pro-menu-toggle" type="button" onClick={() => setOpen((o) => !o)}>
-            <i className="bx bx-menu" />
-          </button>
-          <div className="pro-header-title">
-            <span className="pro-eyebrow">Overview</span>
-            <h1>Dashboard</h1>
-          </div>
-          <div className="pro-header-actions">
-            <div className="pro-search">
-              <i className="bx bx-search" />
-              <input type="text" placeholder="Search..." />
-            </div>
-            <div className="pro-notice">
-              <i className="bx bx-bell" />
-              <span className="pro-notice-badge">3</span>
-            </div>
-          </div>
-        </header>
-
-        <div className="pro-body">
-          <section className="pro-stats">
-            <div className="pro-stat-card">
-              <div className="pro-stat-icon announcements"><i className="bx bx-megaphone" /></div>
-              <div>
-                <div className="pro-stat-label">Announcements</div>
-                <div className="pro-stat-value">{announcements.length}</div>
-              </div>
-            </div>
-            <div className="pro-stat-card">
-              <div className="pro-stat-icon posts"><i className="bx bx-conversation" /></div>
-              <div>
-                <div className="pro-stat-label">Community Posts</div>
-                <div className="pro-stat-value">{posts.length}</div>
-              </div>
-            </div>
-            <div className="pro-stat-card">
-              <div className="pro-stat-icon sermons"><i className="bx bx-video" /></div>
-              <div>
-                <div className="pro-stat-label">Sermons</div>
-                <div className="pro-stat-value">{sermons.length}</div>
-              </div>
-            </div>
-            <div className="pro-stat-card">
-              <div className="pro-stat-icon members"><i className="bx bx-user-check" /></div>
-                <div>
-                  <div className="pro-stat-label">Active Members</div>
-                  <div className="pro-stat-value">{users.length}</div>
-                </div>
-            </div>
-          </section>
-
-          <section className="pro-columns">
-            <div className="pro-card">
-              <div className="pro-card-head">
-                <span className="pro-card-label">Quick Actions</span>
-              </div>
-              <div className="pro-actions">
-                <button className="pro-action"><i className="bx bx-plus-circle" /> New Announcement</button>
-                <button className="pro-action"><i className="bx bx-upload" /> Upload Sermon</button>
-                <button className="pro-action"><i className="bx bx-edit-alt" /> Edit Program</button>
-                <button className="pro-action"><i className="bx bx-user-plus" /> Add Administrator</button>
-                <button className="pro-action"><i className="bx bx-download" /> Download Program PDF</button>
-                <button className="pro-action"><i className="bx bx-bar-chart-alt-2" /> View Analytics</button>
-              </div>
-            </div>
-
-            <div className="pro-card pro-card-wide">
-              <div className="pro-card-head">
-                <span className="pro-card-label">Recent Activity</span>
-              </div>
-              <div className="pro-activity">
-                {visits.length ? visits.slice().reverse().map((v, i) => (
-                  <div key={`a-${i}`} className="pro-activity-item">
-                    <div className="pro-activity-dot" />
-                    <div className="pro-activity-copy">
-                      <div className="pro-activity-title">{v.page}</div>
-                      <div className="pro-activity-meta">
-                        <span>{v.visitor}</span>
-                        <span>•</span>
-                        <span>{new Date(v.at).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="pro-empty">No recent activity.</div>
-                )}
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      {open && (
-        <aside className={`pro-mobile-overlay open`}>
-          <div className="pro-mobile-panel">
-            <div className="pro-mobile-head">
-              <span className="pro-eyebrow">Navigation</span>
-              <button className="pro-close" type="button" onClick={() => setOpen(false)}>
-                <i className="bx bx-x" />
-              </button>
-            </div>
-            <ul>
-              {nav.map((item) => (
-                <li key={item.key}>
-                  <button className="pro-mobile-item" type="button" onClick={() => setOpen(false)}>
-                    <i className={`bx ${item.icon}`} /> {item.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </aside>
-      )}
     </main>
   );
 }
@@ -2943,7 +3455,6 @@ export default function App() {
   if (responsivePages[route.slice(1)]) {
     return <ResponsivePage page={route.slice(1)} />;
   }
-  if (route === "/admin") return <Admin />;
-  if (route === "/admin-pro") return <AdminDashboardPro />;
+  if (route === "/admin" || route === "/admin-pro") return <Admin />;
   return <Home />;
 }
