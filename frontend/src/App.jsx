@@ -2243,6 +2243,18 @@ function AdminDashboard({ auth, username, onLogout }) {
               </button>
             ))}
           </nav>
+          <div className="admin-sidebar-divider" aria-hidden="true" />
+          <div className="admin-sidebar-profile">
+            <div className="admin-profile-row">
+              <div className="admin-profile-avatar">
+                {username.trim().charAt(0).toUpperCase()}
+              </div>
+              <div className="admin-profile-copy">
+                <span className="admin-profile-name">{username}</span>
+                <span className="admin-profile-role">Church Administrator</span>
+              </div>
+            </div>
+          </div>
           <Link className="admin-sidebar-back-link" href="/" title="Return to church homepage">
             <i className="bx bx-arrow-back" /> Back to Website
           </Link>
