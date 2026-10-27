@@ -424,7 +424,8 @@ aside .side-menu a:hover {
 }
 .login-screen {
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .login-screen::before,
 .login-screen::after {
