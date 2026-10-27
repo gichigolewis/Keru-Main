@@ -2682,6 +2682,209 @@ function AdminDashboard({ auth, username, onLogout }) {
   );
 }
 
+function AdminDashboardPro() {
+  const [auth, setAuth] = useState(
+    () => sessionStorage.getItem("adminAuth") || "",
+  );
+  const [username, setUsername] = useState(
+    () => sessionStorage.getItem("adminUser") || "",
+  );
+  if (!auth) return null;
+  const [open, setOpen] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [sermons, setSermons] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [visits, setVisits] = useState(
+    () => JSON.parse(localStorage.getItem("admin_visits") || "[]"),
+  );
+  const headers = { "Content-Type": "application/json", Authorization: auth };
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/announcements", { cache: "no-store" }),
+      fetch("/api/community/posts", { cache: "no-store" }),
+      fetch("/api/sermons", { cache: "no-store" }),
+      fetch("/api/admin/users", { headers, cache: "no-store" }).catch(() => ({ ok: false })),
+    ]).then(([a, p, s, u]) => {
+      a.json().then((d) => setAnnouncements(Array.isArray(d) ? d : [])).catch(() => {});
+      p.json().then((d) => setPosts(Array.isArray(d) ? d : [])).catch(() => {});
+      s.json().then((d) => setSermons(Array.isArray(d) ? d : [])).catch(() => {});
+      u.ok && u.json().then((d) => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
+    }).catch(() => {});
+  }, []);
+
+  const nav = [
+    { key: "dashboard", label: "Dashboard", icon: "bx-grid-alt" },
+    { key: "announcements", label: "Announcements", icon: "bx-megaphone" },
+    { key: "sermons", label: "Sermons", icon: "bx-video" },
+    { key: "posts", label: "Community Posts", icon: "bx-conversation" },
+    { key: "users", label: "Members", icon: "bx-user-check" },
+    { key: "settings", label: "Settings", icon: "bx-cog" },
+  ];
+
+  return (
+    <main className="pro-dashboard">
+      <nav className="pro-sidebar">
+        <div className="pro-brand">
+          <div className="pro-brand-mark">SDA</div>
+          <div>
+            <div className="pro-brand-name">Kerugoya Main SDA</div>
+            <div className="pro-brand-role">Admin Dashboard</div>
+          </div>
+        </div>
+        <div className="pro-divider" />
+        <ul className="pro-nav">
+          {nav.map((item) => (
+            <li key={item.key}>
+              <button
+                className={`pro-nav-item ${item.key === "dashboard" ? "is-active" : ""}`}
+                type="button"
+                onClick={() => {}}
+              >
+                <i className={`bx ${item.icon}`} />
+                <span>{item.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="pro-divider" style={{ marginTop: "auto" }} />
+        <div className="pro-user">
+          <div className="pro-user-avatar">{username.trim().charAt(0).toUpperCase()}</div>
+          <div className="pro-user-info">
+            <div className="pro-user-name">{username}</div>
+            <div className="pro-user-role">Administrator</div>
+          </div>
+          <button className="pro-signout" type="button" onClick={() => {
+            sessionStorage.removeItem("adminAuth");
+            sessionStorage.removeItem("adminUser");
+            setAuth("");
+            setUsername("");
+          }}>
+            <i className="bx bx-log-out" /> Sign out
+          </button>
+        </div>
+      </nav>
+
+      <div className="pro-wrap">
+        <header className="pro-header">
+          <button className="pro-menu-toggle" type="button" onClick={() => setOpen((o) => !o)}>
+            <i className="bx bx-menu" />
+          </button>
+          <div className="pro-header-title">
+            <span className="pro-eyebrow">Overview</span>
+            <h1>Dashboard</h1>
+          </div>
+          <div className="pro-header-actions">
+            <div className="pro-search">
+              <i className="bx bx-search" />
+              <input type="text" placeholder="Search..." />
+            </div>
+            <div className="pro-notice">
+              <i className="bx bx-bell" />
+              <span className="pro-notice-badge">3</span>
+            </div>
+          </div>
+        </header>
+
+        <div className="pro-body">
+          <section className="pro-stats">
+            <div className="pro-stat-card">
+              <div className="pro-stat-icon announcements"><i className="bx bx-megaphone" /></div>
+              <div>
+                <div className="pro-stat-label">Announcements</div>
+                <div className="pro-stat-value">{announcements.length}</div>
+              </div>
+            </div>
+            <div className="pro-stat-card">
+              <div className="pro-stat-icon posts"><i className="bx bx-conversation" /></div>
+              <div>
+                <div className="pro-stat-label">Community Posts</div>
+                <div className="pro-stat-value">{posts.length}</div>
+              </div>
+            </div>
+            <div className="pro-stat-card">
+              <div className="pro-stat-icon sermons"><i className="bx bx-video" /></div>
+              <div>
+                <div className="pro-stat-label">Sermons</div>
+                <div className="pro-stat-value">{sermons.length}</div>
+              </div>
+            </div>
+            <div className="pro-stat-card">
+              <div className="pro-stat-icon members"><i className="bx bx-user-check" /></div>
+                <div>
+                  <div className="pro-stat-label">Active Members</div>
+                  <div className="pro-stat-value">{users.length}</div>
+                </div>
+            </div>
+          </section>
+
+          <section className="pro-columns">
+            <div className="pro-card">
+              <div className="pro-card-head">
+                <span className="pro-card-label">Quick Actions</span>
+              </div>
+              <div className="pro-actions">
+                <button className="pro-action"><i className="bx bx-plus-circle" /> New Announcement</button>
+                <button className="pro-action"><i className="bx bx-upload" /> Upload Sermon</button>
+                <button className="pro-action"><i className="bx bx-edit-alt" /> Edit Program</button>
+                <button className="pro-action"><i className="bx bx-user-plus" /> Add Administrator</button>
+                <button className="pro-action"><i className="bx bx-download" /> Download Program PDF</button>
+                <button className="pro-action"><i className="bx bx-bar-chart-alt-2" /> View Analytics</button>
+              </div>
+            </div>
+
+            <div className="pro-card pro-card-wide">
+              <div className="pro-card-head">
+                <span className="pro-card-label">Recent Activity</span>
+              </div>
+              <div className="pro-activity">
+                {visits.length ? visits.slice().reverse().map((v, i) => (
+                  <div key={`a-${i}`} className="pro-activity-item">
+                    <div className="pro-activity-dot" />
+                    <div className="pro-activity-copy">
+                      <div className="pro-activity-title">{v.page}</div>
+                      <div className="pro-activity-meta">
+                        <span>{v.visitor}</span>
+                        <span>•</span>
+                        <span>{new Date(v.at).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="pro-empty">No recent activity.</div>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {open && (
+        <aside className={`pro-mobile-overlay open`}>
+          <div className="pro-mobile-panel">
+            <div className="pro-mobile-head">
+              <span className="pro-eyebrow">Navigation</span>
+              <button className="pro-close" type="button" onClick={() => setOpen(false)}>
+                <i className="bx bx-x" />
+              </button>
+            </div>
+            <ul>
+              {nav.map((item) => (
+                <li key={item.key}>
+                  <button className="pro-mobile-item" type="button" onClick={() => setOpen(false)}>
+                    <i className={`bx ${item.icon}`} /> {item.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+      )}
+    </main>
+  );
+}
+
 function Admin() {
   const [auth, setAuth] = useState(
     () => sessionStorage.getItem("adminAuth") || "",
@@ -2741,5 +2944,6 @@ export default function App() {
     return <ResponsivePage page={route.slice(1)} />;
   }
   if (route === "/admin") return <Admin />;
+  if (route === "/admin-pro") return <AdminDashboardPro />;
   return <Home />;
 }
