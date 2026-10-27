@@ -3375,7 +3375,74 @@ textarea,
   font-weight: 700;
   box-shadow: none;
 }
-.admin-page .admin-tab.is-active i {
+
+/* Additional small-screen fixes (<=600px) */
+@media (max-width: 600px) {
+  /* Reduce padding on content area */
+  .admin-content {
+    padding: 1rem 0.75rem 2rem;
+  }
+  /* Smaller heading fonts */
+  .admin-page-intro h2 {
+    font-size: 1.4rem;
+  }
+  .admin-page-intro p {
+    font-size: 0.86rem;
+  }
+  /* Header tighter */
+  .admin-header {
+    padding: 0 0.75rem;
+  }
+  .admin-header .logo span {
+    display: none;
+  }
+  .admin-header .logo img {
+    width: 30px;
+    height: 30px;
+  }
+  .admin-welcome {
+    display: none;
+  }
+  /* Tab list scrollable and compact */
+  .admin-tab {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.78rem;
+    min-height: 36px;
+  }
+  .admin-tab i {
+    font-size: 1rem;
+  }
+  .admin-tab-badge {
+    min-width: 18px;
+    height: 18px;
+    font-size: 0.65rem;
+  }
+  /* Forms stack single column */
+  .admin-form {
+    grid-template-columns: 1fr;
+  }
+  .admin-field-wide {
+    grid-column: 1;
+  }
+  /* Reduce button size */
+  .admin-form .btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.78rem;
+  }
+  /* List items padding */
+  .admin-list article {
+    padding: 0.7rem 0.9rem;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-item-copy {
+    flex: none;
+  }
+  .admin-item-stats {
+    margin-top: 0.5rem;
+  }
+}
+
   color: var(--primary-color) !important;
 }
 .admin-page .admin-tab.is-active::before {
@@ -3965,7 +4032,74 @@ textarea,
     border-color: var(--primary-color) !important;
     color: #ffffff !important;
   }
-  .admin-page .admin-tab.is-active i {
+  
+/* Additional small-screen fixes (<=600px) */
+@media (max-width: 600px) {
+  /* Reduce padding on content area */
+  .admin-content {
+    padding: 1rem 0.75rem 2rem;
+  }
+  /* Smaller heading fonts */
+  .admin-page-intro h2 {
+    font-size: 1.4rem;
+  }
+  .admin-page-intro p {
+    font-size: 0.86rem;
+  }
+  /* Header tighter */
+  .admin-header {
+    padding: 0 0.75rem;
+  }
+  .admin-header .logo span {
+    display: none;
+  }
+  .admin-header .logo img {
+    width: 30px;
+    height: 30px;
+  }
+  .admin-welcome {
+    display: none;
+  }
+  /* Tab list scrollable and compact */
+  .admin-tab {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.78rem;
+    min-height: 36px;
+  }
+  .admin-tab i {
+    font-size: 1rem;
+  }
+  .admin-tab-badge {
+    min-width: 18px;
+    height: 18px;
+    font-size: 0.65rem;
+  }
+  /* Forms stack single column */
+  .admin-form {
+    grid-template-columns: 1fr;
+  }
+  .admin-field-wide {
+    grid-column: 1;
+  }
+  /* Reduce button size */
+  .admin-form .btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.78rem;
+  }
+  /* List items padding */
+  .admin-list article {
+    padding: 0.7rem 0.9rem;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-item-copy {
+    flex: none;
+  }
+  .admin-item-stats {
+    margin-top: 0.5rem;
+  }
+}
+
     color: #ffffff !important;
   }
   .admin-page .admin-tab.is-active .admin-tab-badge {
