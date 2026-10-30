@@ -332,6 +332,24 @@ function parseContentBlocks(ctx, text, maxWidth) {
   return blocks;
 }
 
+function stripMarkdownForCanvas(text) {
+  if (!text) return "";
+  return String(text)
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^>\s?/gm, "")
+    .replace(/\*\*\*([^*]+)\*\*\*/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/<u>([^<]+)<\/u>/gi, "$1")
+    .replace(/~~([^~]+)~~/g, "$1")
+    .replace(/==([^=]+)==/g, "$1")
+    .replace(/<mark>([^<]+)<\/mark>/gi, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/_([^\n_]+)_/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\((?:https?:\/\/|www\.)[^\s)]+\)/g, "$1");
+}
+
 async function renderPostImage(post) {
   const width = 1200;
   const minHeight = 630;
@@ -373,7 +391,7 @@ async function renderPostImage(post) {
     ctx.font = `700 ${titleSize}px 'Playfair Display', Georgia, serif`;
     titleLines = wrapText(ctx, post.title || "Community Story", contentWidth, Infinity);
     ctx.font = `400 ${bodySize}px 'Inter', system-ui, sans-serif`;
-    bodyBlocks = parseContentBlocks(ctx, post.content || "", contentWidth);
+    bodyBlocks = parseContentBlocks(ctx, stripMarkdownForCanvas(post.content || ""), contentWidth);
 
     // A little breathing room after a list so it reads as its own block.
     bodyBlocks.forEach((block, index) => {
@@ -1033,30 +1051,767 @@ function Account({ register = false }) {
   );
 }
 
-function FormattedContent({ text, className }) {
+function parseBlocks(text) {
+  if (!text) return [];
+  const lines = String(text).split(/\r?\n/);
+  const blocks = [];
+  let currentList = null;
+  let currentQuote = null;
+  let currentParagraph = [];
+
+  const flushParagraph = () => {
+    if (currentParagraph.length) {
+      blocks.push({ type: "p", text: currentParagraph.join("\n") });
+      currentParagraph = [];
+    }
+  };
+  const flushList = () => {
+    if (currentList) {
+      blocks.push(currentList);
+      currentList = null;
+    }
+  };
+  const flushQuote = () => {
+    if (currentQuote) {
+      blocks.push({ type: "quote", text: currentQuote.join("\n") });
+      currentQuote = null;
+    }
+  };
+  const flushAll = () => {
+    flushParagraph();
+    flushList();
+    flushQuote();
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushAll();
+      continue;
+    }
+    if (/^(\-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      flushAll();
+      blocks.push({ type: "hr" });
+      continue;
+    }
+    const headingMatch = line.match(/^(#{1,3})\s+(.*)$/);
+    if (headingMatch) {
+      flushAll();
+      blocks.push({ type: "h" + headingMatch[1].length, text: headingMatch[2] });
+      continue;
+    }
+    const quoteMatch = line.match(/^>\s?(.*)$/);
+    if (quoteMatch) {
+      flushParagraph();
+      flushList();
+      if (!currentQuote) currentQuote = [];
+      currentQuote.push(quoteMatch[1]);
+      continue;
+    } else {
+      flushQuote();
+    }
+    const bulletMatch = line.match(/^(\s*)([-*•])\s+(.*)$/);
+    if (bulletMatch) {
+      flushParagraph();
+      flushQuote();
+      if (!currentList || currentList.type !== "ul") {
+        flushList();
+        currentList = { type: "ul", items: [] };
+      }
+      currentList.items.push(bulletMatch[3]);
+      continue;
+    }
+    const numMatch = line.match(/^(\s*)(\d+)[.)]\s+(.*)$/);
+    if (numMatch) {
+      flushParagraph();
+      flushQuote();
+      if (!currentList || currentList.type !== "ol") {
+        flushList();
+        currentList = { type: "ol", items: [] };
+      }
+      currentList.items.push(numMatch[3]);
+      continue;
+    }
+    flushList();
+    flushQuote();
+    currentParagraph.push(line);
+  }
+  flushAll();
+  return blocks;
+}
+
+function renderInlineFormatted(text) {
   if (!text) return null;
-  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
-  const parts = String(text).split(urlRegex);
+  const regex = /\[([^\]]+)\]\(((?:https?:\/\/|www\.)[^\s)]+)\)|(https?:\/\/[^\s<]+|www\.[^\s<]+)|\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|__([^_]+)__|<u>([^<]+)<\/u>|~~([^~]+)~~|==([^=]+)==|<mark>([^<]+)<\/mark>|\*([^*\n]+)\*|_([^\n_]+)_|`([^`]+)`/g;
+
+  let lastIndex = 0;
+  const elements = [];
+  let match;
+  let key = 0;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      elements.push(text.slice(lastIndex, match.index));
+    }
+    const [
+      full,
+      linkText,
+      linkUrl,
+      rawUrl,
+      boldItalic,
+      boldStar,
+      boldUnder,
+      underline,
+      strike,
+      highlightEq,
+      highlightMark,
+      italicStar,
+      italicUnder,
+      code,
+    ] = match;
+
+    if (linkText && linkUrl) {
+      const href = linkUrl.startsWith("http://") || linkUrl.startsWith("https://") ? linkUrl : `https://${linkUrl}`;
+      elements.push(
+        <a key={key++} href={href} target="_blank" rel="noopener noreferrer" className="content-link">
+          {linkText}
+        </a>
+      );
+    } else if (rawUrl) {
+      const href = rawUrl.startsWith("http://") || rawUrl.startsWith("https://") ? rawUrl : `https://${rawUrl}`;
+      elements.push(
+        <a key={key++} href={href} target="_blank" rel="noopener noreferrer" className="content-link">
+          {rawUrl}
+        </a>
+      );
+    } else if (boldItalic) {
+      elements.push(
+        <strong key={key++}>
+          <em>{boldItalic}</em>
+        </strong>
+      );
+    } else if (boldStar || boldUnder) {
+      elements.push(
+        <strong key={key++} className="content-bold">
+          {boldStar || boldUnder}
+        </strong>
+      );
+    } else if (underline) {
+      elements.push(
+        <u key={key++} className="content-underline">
+          {underline}
+        </u>
+      );
+    } else if (strike) {
+      elements.push(
+        <del key={key++} className="content-del">
+          {strike}
+        </del>
+      );
+    } else if (highlightEq || highlightMark) {
+      elements.push(
+        <mark key={key++} className="content-mark">
+          {highlightEq || highlightMark}
+        </mark>
+      );
+    } else if (italicStar || italicUnder) {
+      elements.push(
+        <em key={key++} className="content-italic">
+          {italicStar || italicUnder}
+        </em>
+      );
+    } else if (code) {
+      elements.push(
+        <code key={key++} className="content-code">
+          {code}
+        </code>
+      );
+    }
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    elements.push(text.slice(lastIndex));
+  }
+  return elements;
+}
+
+function FormattedContent({ text, className = "" }) {
+  if (!text) return null;
+  const blocks = parseBlocks(text);
+
   return (
-    <p className={className} style={{ whiteSpace: "pre-wrap", overflowWrap: "break-word", wordBreak: "break-word" }}>
-      {parts.map((part, i) => {
-        if (part && part.match(urlRegex)) {
-          const href = part.startsWith("http://") || part.startsWith("https://") ? part : `https://${part}`;
+    <div className={`formatted-content-container ${className}`}>
+      {blocks.map((block, idx) => {
+        if (block.type === "hr") {
+          return <hr key={idx} className="content-divider" />;
+        }
+        if (block.type === "h1") {
           return (
-            <a
-              key={i}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="content-link"
-            >
-              {part}
-            </a>
+            <h3 key={idx} className="content-h1">
+              {renderInlineFormatted(block.text)}
+            </h3>
           );
         }
-        return part;
+        if (block.type === "h2") {
+          return (
+            <h4 key={idx} className="content-h2">
+              {renderInlineFormatted(block.text)}
+            </h4>
+          );
+        }
+        if (block.type === "h3") {
+          return (
+            <h5 key={idx} className="content-h3">
+              {renderInlineFormatted(block.text)}
+            </h5>
+          );
+        }
+        if (block.type === "quote") {
+          return (
+            <blockquote key={idx} className="content-quote">
+              <i className="bx bxs-quote-left content-quote-icon" aria-hidden="true" />
+              <div>
+                {block.text.split("\n").map((line, lIdx) => (
+                  <p key={lIdx} className="content-quote-line">
+                    {renderInlineFormatted(line)}
+                  </p>
+                ))}
+              </div>
+            </blockquote>
+          );
+        }
+        if (block.type === "ul") {
+          return (
+            <ul key={idx} className="content-bullet-list">
+              {block.items.map((item, itemIdx) => (
+                <li key={itemIdx}>{renderInlineFormatted(item)}</li>
+              ))}
+            </ul>
+          );
+        }
+        if (block.type === "ol") {
+          return (
+            <ol key={idx} className="content-numbered-list">
+              {block.items.map((item, itemIdx) => (
+                <li key={itemIdx}>{renderInlineFormatted(item)}</li>
+              ))}
+            </ol>
+          );
+        }
+        return (
+          <p key={idx} className="content-paragraph">
+            {block.text.split("\n").map((line, lIdx, arr) => (
+              <span key={lIdx}>
+                {renderInlineFormatted(line)}
+                {lIdx < arr.length - 1 && <br />}
+              </span>
+            ))}
+          </p>
+        );
       })}
-    </p>
+    </div>
+  );
+}
+
+function WordTextEditor({ name = "content", placeholder, required, defaultValue = "" }) {
+  const [content, setContent] = useState(defaultValue);
+  const [mode, setMode] = useState("write");
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const form = textarea.closest("form");
+    if (!form) return;
+    const onSubmit = () => {
+      setMode("write");
+    };
+    const onReset = () => {
+      setContent("");
+      setMode("write");
+    };
+    form.addEventListener("submit", onSubmit);
+    form.addEventListener("reset", onReset);
+    return () => {
+      form.removeEventListener("submit", onSubmit);
+      form.removeEventListener("reset", onReset);
+    };
+  }, []);
+
+  const updateContent = (newText, newStart, newEnd) => {
+    setContent(newText);
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
+      if (setter) {
+        setter.call(textarea, newText);
+      } else {
+        textarea.value = newText;
+      }
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+
+      if (newStart !== undefined && newEnd !== undefined) {
+        requestAnimationFrame(() => {
+          if (document.activeElement === textarea) {
+            textarea.setSelectionRange(newStart, newEnd);
+          }
+        });
+      }
+    }
+  };
+
+  const applyFormat = (action) => {
+    if (mode === "preview") setMode("write");
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.focus();
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const val = textarea.value;
+    const selected = val.substring(start, end);
+
+    let replacement = "";
+    let selStartOffset = 0;
+    let selLength = 0;
+
+    switch (action) {
+      case "bold":
+        if (selected.startsWith("**") && selected.endsWith("**") && selected.length >= 4) {
+          replacement = selected.slice(2, -2);
+        } else {
+          const t = selected || "bold text";
+          replacement = `**${t}**`;
+          selStartOffset = 2;
+          selLength = t.length;
+        }
+        break;
+
+      case "italic":
+        if (selected.startsWith("*") && selected.endsWith("*") && selected.length >= 2) {
+          replacement = selected.slice(1, -1);
+        } else {
+          const t = selected || "italic text";
+          replacement = `*${t}*`;
+          selStartOffset = 1;
+          selLength = t.length;
+        }
+        break;
+
+      case "underline":
+        if (selected.startsWith("<u>") && selected.endsWith("</u>") && selected.length >= 7) {
+          replacement = selected.slice(3, -4);
+        } else {
+          const t = selected || "underlined text";
+          replacement = `<u>${t}</u>`;
+          selStartOffset = 3;
+          selLength = t.length;
+        }
+        break;
+
+      case "strikethrough":
+        if (selected.startsWith("~~") && selected.endsWith("~~") && selected.length >= 4) {
+          replacement = selected.slice(2, -2);
+        } else {
+          const t = selected || "strikethrough text";
+          replacement = `~~${t}~~`;
+          selStartOffset = 2;
+          selLength = t.length;
+        }
+        break;
+
+      case "highlight":
+        if (selected.startsWith("==") && selected.endsWith("==") && selected.length >= 4) {
+          replacement = selected.slice(2, -2);
+        } else {
+          const t = selected || "highlighted text";
+          replacement = `==${t}==`;
+          selStartOffset = 2;
+          selLength = t.length;
+        }
+        break;
+
+      case "h1":
+      case "h2":
+      case "h3": {
+        const prefix = action === "h1" ? "# " : action === "h2" ? "## " : "### ";
+        const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+        const lineEndRel = val.slice(lineStart).indexOf("\n");
+        const lineEnd = lineEndRel === -1 ? val.length : lineStart + lineEndRel;
+        const currentLine = val.slice(lineStart, lineEnd);
+        const clean = currentLine.replace(/^#{1,6}\s*/, "");
+        const newLine = prefix + clean;
+        const nextVal = val.slice(0, lineStart) + newLine + val.slice(lineEnd);
+        updateContent(nextVal, lineStart + newLine.length, lineStart + newLine.length);
+        return;
+      }
+
+      case "bullet":
+      case "numbered":
+      case "quote": {
+        const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+        const lineEndRel = val.slice(end).indexOf("\n");
+        const lineEnd = lineEndRel === -1 ? val.length : end + lineEndRel;
+        const targetLines = val.slice(lineStart, lineEnd).split("\n");
+        const formatted = targetLines
+          .map((line, idx) => {
+            const clean = line.replace(/^(\s*)([-*•]|\d+[.)]|>)\s*/, "$1");
+            if (action === "bullet") return `• ${clean || "List item"}`;
+            if (action === "numbered") return `${idx + 1}. ${clean || "Step item"}`;
+            if (action === "quote") return `> ${clean || "Inspiring scripture or reflection quote"}`;
+            return clean;
+          })
+          .join("\n");
+        const nextVal = val.slice(0, lineStart) + formatted + val.slice(lineEnd);
+        updateContent(nextVal, lineStart, lineStart + formatted.length);
+        return;
+      }
+
+      case "link": {
+        const url = window.prompt("Enter web link URL (e.g. https://sda.org):", "https://");
+        if (!url) return;
+        const t = selected || "link title";
+        replacement = `[${t}](${url})`;
+        selStartOffset = 1;
+        selLength = t.length;
+        break;
+      }
+
+      case "divider": {
+        replacement = `\n\n---\n\n`;
+        selStartOffset = replacement.length;
+        selLength = 0;
+        break;
+      }
+
+      case "scripture": {
+        replacement = `\n> "Thy word is a lamp unto my feet, and a light unto my path."\n> — Psalm 119:105\n\n`;
+        selStartOffset = 3;
+        selLength = 65;
+        break;
+      }
+
+      case "clear": {
+        replacement = selected
+          .replace(/\*\*\*(.*?)\*\*\*/g, "$1")
+          .replace(/\*\*(.*?)\*/g, "$1")
+          .replace(/\*(.*?)\*/g, "$1")
+          .replace(/<u>(.*?)<\/u>/gi, "$1")
+          .replace(/~~(.*?)~~/g, "$1")
+          .replace(/==(.*?)==/g, "$1")
+          .replace(/^#{1,6}\s*/gm, "")
+          .replace(/^>\s?/gm, "")
+          .replace(/^[-*•]\s*/gm, "")
+          .replace(/^\d+[.)]\s*/gm, "")
+          .replace(/\[(.*?)\]\([^)]+\)/g, "$1");
+        selStartOffset = 0;
+        selLength = replacement.length;
+        break;
+      }
+
+      default:
+        return;
+    }
+
+    const nextVal = val.slice(0, start) + replacement + val.slice(end);
+    const newStart = start + selStartOffset;
+    const newEnd = selected ? start + replacement.length : newStart + selLength;
+    updateContent(nextVal, newStart, newEnd);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      continueListOnEnter(e);
+      return;
+    }
+    const isMod = e.ctrlKey || e.metaKey;
+    if (isMod) {
+      const key = e.key.toLowerCase();
+      if (key === "b") {
+        e.preventDefault();
+        applyFormat("bold");
+      } else if (key === "i") {
+        e.preventDefault();
+        applyFormat("italic");
+      } else if (key === "u") {
+        e.preventDefault();
+        applyFormat("underline");
+      } else if (key === "k") {
+        e.preventDefault();
+        applyFormat("link");
+      } else if (key === "x" && e.shiftKey) {
+        e.preventDefault();
+        applyFormat("strikethrough");
+      } else if (key === "h" && e.shiftKey) {
+        e.preventDefault();
+        applyFormat("highlight");
+      }
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const val = textarea.value;
+      if (e.shiftKey) {
+        const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+        if (val.startsWith("  ", lineStart)) {
+          const nextVal = val.slice(0, lineStart) + val.slice(lineStart + 2);
+          updateContent(nextVal, Math.max(lineStart, start - 2), Math.max(lineStart, end - 2));
+        }
+      } else {
+        const nextVal = val.slice(0, start) + "  " + val.slice(end);
+        updateContent(nextVal, start + 2, start + 2);
+      }
+    }
+  };
+
+  const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+  const chars = content.length;
+  const readMins = Math.max(1, Math.ceil(words / 180));
+
+  return (
+    <div className="word-editor-wrapper">
+      {/* MS Word Ribbon Header */}
+      <div className="word-editor-ribbon">
+        <div className="word-ribbon-title">
+          <i className="bx bxs-file-doc word-ribbon-icon" />
+          <span className="word-ribbon-brand">Word Styles</span>
+        </div>
+
+        <div className="word-mode-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "write"}
+            className={`word-mode-tab ${mode === "write" ? "is-active" : ""}`}
+            onClick={() => setMode("write")}
+          >
+            <i className="bx bx-edit-alt" /> Edit
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "preview"}
+            className={`word-mode-tab ${mode === "preview" ? "is-active" : ""}`}
+            onClick={() => setMode("preview")}
+          >
+            <i className="bx bx-show" /> Preview
+          </button>
+        </div>
+      </div>
+
+      {/* MS Word Formatting Toolbar */}
+      <div className="word-editor-toolbar" role="toolbar" aria-label="Word text formatting">
+        {/* Style / Headings Group */}
+        <div className="word-tool-group">
+          <button
+            type="button"
+            className="word-tool-btn font-style"
+            title="Heading 1 — Main Title (#)"
+            onClick={() => applyFormat("h1")}
+          >
+            <span className="word-btn-badge">H1</span>
+          </button>
+          <button
+            type="button"
+            className="word-tool-btn font-style"
+            title="Heading 2 — Section Subtitle (##)"
+            onClick={() => applyFormat("h2")}
+          >
+            <span className="word-btn-badge">H2</span>
+          </button>
+          <button
+            type="button"
+            className="word-tool-btn font-style"
+            title="Heading 3 — Subsection (###)"
+            onClick={() => applyFormat("h3")}
+          >
+            <span className="word-btn-badge">H3</span>
+          </button>
+        </div>
+
+        <span className="word-tool-separator" />
+
+        {/* Font Styling Group */}
+        <div className="word-tool-group">
+          <button
+            type="button"
+            className="word-tool-btn font-bold"
+            title="Bold (Ctrl+B)"
+            onClick={() => applyFormat("bold")}
+          >
+            <i className="bx bx-bold" />
+          </button>
+          <button
+            type="button"
+            className="word-tool-btn font-italic"
+            title="Italic (Ctrl+I)"
+            onClick={() => applyFormat("italic")}
+          >
+            <i className="bx bx-italic" />
+          </button>
+          <button
+            type="button"
+            className="word-tool-btn font-underline"
+            title="Underline (Ctrl+U)"
+            onClick={() => applyFormat("underline")}
+          >
+            <i className="bx bx-underline" />
+          </button>
+          <button
+            type="button"
+            className="word-tool-btn"
+            title="Strikethrough (Ctrl+Shift+X)"
+            onClick={() => applyFormat("strikethrough")}
+          >
+            <i className="bx bx-strikethrough" />
+          </button>
+          <button
+            type="button"
+            className="word-tool-btn tool-highlight"
+            title="Highlight text (Ctrl+Shift+H)"
+            onClick={() => applyFormat("highlight")}
+          >
+            <i className="bx bx-highlight" />
+          </button>
+        </div>
+
+        <span className="word-tool-separator" />
+
+        {/* Paragraph & List Group */}
+        <div className="word-tool-group">
+          <button
+            type="button"
+            className="word-tool-btn"
+            title="Bulleted List (•)"
+            onClick={() => applyFormat("bullet")}
+          >
+            <i className="bx bx-list-ul" />
+          </button>
+          <button
+            type="button"
+            className="word-tool-btn"
+            title="Numbered List (1.)"
+            onClick={() => applyFormat("numbered")}
+          >
+            <i className="bx bx-list-ol" />
+          </button>
+          <button
+            type="button"
+            className="word-tool-btn"
+            title="Scripture / Quote block (>)"
+            onClick={() => applyFormat("quote")}
+          >
+            <i className="bx bx-quote-left" />
+          </button>
+        </div>
+
+        <span className="word-tool-separator" />
+
+        {/* Insert & Actions Group */}
+        <div className="word-tool-group">
+          <button
+            type="button"
+            className="word-tool-btn"
+            title="Insert Web Link (Ctrl+K)"
+            onClick={() => applyFormat("link")}
+          >
+            <i className="bx bx-link" />
+          </button>
+          <button
+            type="button"
+            className="word-tool-btn"
+            title="Insert Horizontal Divider (---)"
+            onClick={() => applyFormat("divider")}
+          >
+            <i className="bx bx-minus" />
+          </button>
+          <button
+            type="button"
+            className="word-tool-btn"
+            title="Insert Scripture Quote Template"
+            onClick={() => applyFormat("scripture")}
+          >
+            <i className="bx bx-book-open" />
+          </button>
+          <button
+            type="button"
+            className="word-tool-btn"
+            title="Clear Formatting on selection"
+            onClick={() => applyFormat("clear")}
+          >
+            <i className="bx bx-eraser" />
+          </button>
+        </div>
+      </div>
+
+      {/* Editor Surface */}
+      <div className="word-editor-body">
+        {/* Write View */}
+        <div style={{ display: mode === "write" ? "block" : "none" }}>
+          <textarea
+            ref={textareaRef}
+            name={name}
+            className="word-editor-textarea"
+            placeholder={placeholder}
+            required={required}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onInput={(e) => {
+              const field = e.currentTarget;
+              field.style.height = "auto";
+              field.style.height = `${Math.max(160, field.scrollHeight)}px`;
+            }}
+          />
+        </div>
+
+        {/* Preview View (Word Document Paper View) */}
+        {mode === "preview" && (
+          <div className="word-editor-preview">
+            <div className="word-preview-header">
+              <span className="word-preview-badge">
+                <i className="bx bx-file" /> Document Preview
+              </span>
+              <span className="word-preview-hint">Rendered with Word styling</span>
+            </div>
+            <div className="word-preview-page">
+              {content.trim() ? (
+                <FormattedContent text={content} />
+              ) : (
+                <p className="word-preview-empty">Your formatted article preview will appear here...</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MS Word Bottom Status Bar */}
+      <div className="word-editor-statusbar">
+        <div className="word-status-metrics">
+          <span className="word-status-item">
+            <i className="bx bx-file" /> Page 1
+          </span>
+          <span className="word-status-divider">•</span>
+          <span className="word-status-item">
+            <strong>{words}</strong> {words === 1 ? "word" : "words"}
+          </span>
+          <span className="word-status-divider">•</span>
+          <span className="word-status-item">
+            <strong>{chars}</strong> characters
+          </span>
+          <span className="word-status-divider">•</span>
+          <span className="word-status-item">
+            ~{readMins} min read
+          </span>
+        </div>
+        <div className="word-status-shortcuts" title="Keyboard shortcuts: Ctrl+B (Bold), Ctrl+I (Italic), Ctrl+U (Underline)">
+          <i className="bx bx-command" />
+          <span className="word-shortcut-tip">Shortcuts: Ctrl+B, Ctrl+I, Ctrl+U</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1884,16 +2639,9 @@ function Community() {
                     <option>Life</option>
                     <option>Service</option>
                   </select>
-                  <textarea
+                  <WordTextEditor
                     name="content"
-                    rows="5"
-                    placeholder="Start writing..."
-                    onKeyDown={continueListOnEnter}
-                    onInput={(event) => {
-                      const field = event.currentTarget;
-                      field.style.height = 'auto';
-                      field.style.height = `${field.scrollHeight}px`;
-                    }}
+                    placeholder="Start writing your reflection, testimony, or story... Use the Word toolbar above or Ctrl+B / Ctrl+I to format."
                     required
                   />
                   <button className="btn" type="submit" disabled={posting}>

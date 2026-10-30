@@ -2568,7 +2568,7 @@ textarea,
 /* Layout ---------------------------------------------------- */
 .community-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
   align-items: start;
   gap: clamp(1.5rem, 3vw, 2.75rem);
   padding: clamp(1.75rem, 4vw, 2.75rem) 0 0;
@@ -2922,6 +2922,438 @@ textarea,
   color: var(--text-light);
   font-size: 0.9rem;
   line-height: 1.6;
+}
+
+/* ==========================================================================
+   MS Word Rich Text Formatting Editor & Formatted Content Styles
+   ========================================================================== */
+
+.word-editor-wrapper {
+  margin-top: 0.85rem;
+  margin-bottom: 0.65rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.word-editor-wrapper:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15), 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+/* Ribbon Header */
+.word-editor-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(180deg, #1e3a8a 0%, #172554 100%);
+  color: #ffffff;
+  border-bottom: 1px solid #1e293b;
+}
+
+.word-ribbon-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+}
+
+.word-ribbon-icon {
+  font-size: 1.15rem;
+  color: #93c5fd;
+}
+
+.word-ribbon-brand {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #bfdbfe;
+}
+
+.word-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(15, 23, 42, 0.4);
+  padding: 2px;
+  border-radius: 7px;
+}
+
+.word-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.word-mode-tab:hover {
+  color: #ffffff;
+}
+
+.word-mode-tab.is-active {
+  background: #ffffff;
+  color: #1e3a8a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Toolbar Ribbon */
+.word-editor-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.45rem 0.65rem;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.word-tool-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  background: #ffffff;
+  padding: 2px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.word-tool-separator {
+  width: 1px;
+  height: 20px;
+  background: #cbd5e1;
+  margin: 0 0.15rem;
+  flex-shrink: 0;
+}
+
+.word-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #334155;
+  font-family: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.word-tool-btn:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.word-tool-btn:active {
+  background: #dbeafe;
+  transform: translateY(1px);
+}
+
+.word-tool-btn .word-btn-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.word-tool-btn.font-bold {
+  font-weight: 800;
+}
+
+.word-tool-btn.font-italic {
+  font-style: italic;
+}
+
+.word-tool-btn.font-underline {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.word-tool-btn.tool-highlight {
+  color: #854d0e;
+}
+.word-tool-btn.tool-highlight:hover {
+  background: #fef08a;
+  color: #713f12;
+}
+
+/* Editor Body */
+.word-editor-body {
+  background: #ffffff;
+  min-height: 180px;
+}
+
+#post-form .word-editor-textarea {
+  width: 100%;
+  min-height: 180px;
+  margin-top: 0;
+  padding: 0.9rem 1rem;
+  border: none;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  outline: none;
+  resize: vertical;
+  box-shadow: none;
+}
+
+#post-form .word-editor-textarea::placeholder {
+  color: #94a3b8;
+  font-style: normal;
+}
+
+/* Document Preview Page (MS Word Printed Page Look) */
+.word-editor-preview {
+  background: #f8fafc;
+  padding: 0.75rem;
+}
+
+.word-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+  padding: 0 0.25rem;
+}
+
+.word-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #1e3a8a;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+
+.word-preview-hint {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+.word-preview-page {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.25rem 1.4rem;
+  min-height: 170px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.word-preview-empty {
+  color: #94a3b8;
+  font-size: 0.88rem;
+  font-style: italic;
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+/* Status Bar */
+.word-editor-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+.word-status-metrics {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.word-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.word-status-divider {
+  color: #cbd5e1;
+}
+
+.word-status-shortcuts {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+/* ==========================================================================
+   Formatted Content Typography (Post Feed, Admin, & Preview)
+   ========================================================================== */
+
+.formatted-content-container {
+  color: #334155;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.formatted-content-container .content-h1 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.38rem;
+  font-weight: 750;
+  color: #1e3a8a;
+  letter-spacing: -0.015em;
+  margin: 1.1rem 0 0.45rem;
+  line-height: 1.25;
+}
+.formatted-content-container .content-h1:first-child {
+  margin-top: 0;
+}
+
+.formatted-content-container .content-h2 {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0.95rem 0 0.35rem;
+  line-height: 1.3;
+}
+.formatted-content-container .content-h2:first-child {
+  margin-top: 0;
+}
+
+.formatted-content-container .content-h3 {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 1.02rem;
+  font-weight: 650;
+  color: #1e3a8a;
+  margin: 0.8rem 0 0.3rem;
+  line-height: 1.35;
+}
+.formatted-content-container .content-h3:first-child {
+  margin-top: 0;
+}
+
+.formatted-content-container .content-paragraph {
+  margin: 0 0 0.85rem;
+  line-height: 1.7;
+}
+.formatted-content-container .content-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+/* Blockquote & Scripture Citation */
+.formatted-content-container .content-quote {
+  position: relative;
+  margin: 0.9rem 0 1rem;
+  padding: 0.85rem 1.15rem 0.85rem 2.4rem;
+  border-left: 4px solid #2563eb;
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(30, 58, 138, 0.02));
+  color: #1e293b;
+  font-style: italic;
+}
+
+.formatted-content-container .content-quote-icon {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  color: #2563eb;
+  font-size: 1.2rem;
+  opacity: 0.7;
+}
+
+.formatted-content-container .content-quote-line {
+  margin: 0;
+  line-height: 1.6;
+}
+.formatted-content-container .content-quote-line + .content-quote-line {
+  margin-top: 0.35rem;
+}
+
+/* Bullet & Numbered Lists */
+.formatted-content-container .content-bullet-list,
+.formatted-content-container .content-numbered-list {
+  margin: 0.5rem 0 0.9rem 1.4rem;
+  padding: 0;
+  line-height: 1.65;
+}
+
+.formatted-content-container .content-bullet-list li,
+.formatted-content-container .content-numbered-list li {
+  margin-bottom: 0.35rem;
+  padding-left: 0.25rem;
+}
+
+.formatted-content-container .content-bullet-list {
+  list-style-type: disc;
+}
+
+.formatted-content-container .content-numbered-list {
+  list-style-type: decimal;
+}
+
+/* Underline, Mark, Del, Code */
+.formatted-content-container .content-underline {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: #2563eb;
+}
+
+.formatted-content-container .content-mark {
+  background: #fef08a;
+  color: #713f12;
+  padding: 0.12em 0.38em;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.formatted-content-container .content-del {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+.formatted-content-container .content-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.88em;
+  padding: 0.15em 0.4em;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  color: #0f172a;
+}
+
+.formatted-content-container .content-divider {
+  border: 0;
+  border-top: 1px dashed #cbd5e1;
+  margin: 1.25rem 0;
 }
 .community-aside-note {
   display: flex;
