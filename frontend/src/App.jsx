@@ -209,7 +209,6 @@ function loadImage(src) {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = reject;
-    image.crossOrigin = "anonymous";
     image.src = src;
   });
 }
@@ -2131,10 +2130,14 @@ function ResponsivePage({ page }) {
   const content = responsivePages[page];
   const isFormPage = page === "prayer" || page === "feedback";
   const isProgramPage = page === "program";
+  const isLeadersPage = page === "leaders";
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [visibility, setVisibility] = useState("anonymous");
   const [program, setProgram] = useState(null);
+  const [leaders, setLeaders] = useState([]);
+  const [leadersLoading, setLeadersLoading] = useState(isLeadersPage);
+  const [leadersError, setLeadersError] = useState("");
   const [programLoading, setProgramLoading] = useState(isProgramPage);
   const endpoint = page === "prayer" ? "/api/prayer-requests" : "/api/feedback";
 
@@ -2153,6 +2156,26 @@ function ResponsivePage({ page }) {
     })();
     return () => { active = false; };
   }, [isProgramPage]);
+
+  useEffect(() => {
+    if (!isLeadersPage) return;
+    let active = true;
+    setLeadersLoading(true);
+    setLeadersError("");
+    (async () => {
+      try {
+        const response = await fetch("/api/leaders", { cache: "no-store" });
+        if (!response.ok) throw new Error("We could not load the church leaders.");
+        const data = await response.json();
+        if (active) setLeaders(Array.isArray(data) ? data : []);
+      } catch (error) {
+        if (active) setLeadersError(error.message || "We could not load the church leaders.");
+      } finally {
+        if (active) setLeadersLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [isLeadersPage]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -2188,7 +2211,7 @@ function ResponsivePage({ page }) {
   };
   return (
     <PublicShell>
-      <main className="responsive-page">
+      <main className={`responsive-page ${isLeadersPage ? "leaders-page" : ""}`}>
         <span className="eyebrow">{content.eyebrow}</span>
         <h1>{content.title}</h1>
         <p>{content.body}</p>
@@ -2209,6 +2232,33 @@ function ResponsivePage({ page }) {
                 Download program as PDF <i className="bx bx-file-pdf" />
               </a>
             </>
+          )
+        ) : isLeadersPage ? (
+          leadersLoading ? (
+            <p className="admin-empty-state">Loading church leaders…</p>
+          ) : leadersError ? (
+            <p className="leader-load-error" role="alert">{leadersError}</p>
+          ) : leaders.length ? (
+            <div className="leader-grid">
+              {leaders.map((leader) => (
+                <article className="leader-card" key={leader.id}>
+                  {leader.imageUrl ? (
+                    <img className="leader-card-image" src={leader.imageUrl} alt={leader.name} loading="lazy" />
+                  ) : (
+                    <div className="leader-card-placeholder" aria-hidden="true">
+                      <i className="bx bx-user" />
+                    </div>
+                  )}
+                  <div className="leader-card-content">
+                    <h2>{leader.name}</h2>
+                    <p className="leader-card-role">{leader.role}</p>
+                    {leader.description && <p className="leader-card-description">{leader.description}</p>}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="admin-empty-state">Church leader profiles will be added soon.</p>
           )
         ) : isFormPage ? (
           <form className="responsive-form" onSubmit={submit}>
@@ -2274,95 +2324,13 @@ function BottomNav({ route, communityCount = 0 }) {
   );
 }
 
-const mediaTypes = new Set(["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"]);
-const coverTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-const singleUploadLimit = 100 * 1024 * 1024;
-const maxMultipartPartsPerRequest = 100;
-
-function formatFileSize(bytes) {
-  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
-}
-
-async function uploadStoryFile(file, kind, position, token, onProgress) {
-  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-  const createResponse = await fetch("/api/community/media/uploads", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ name: file.name, type: file.type, sizeBytes: file.size, kind, position }),
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    reader.readAsDataURL(file);
   });
-  const upload = await createResponse.json().catch(() => ({}));
-  if (!createResponse.ok) throw new Error(upload.error || `Could not prepare ${file.name} for upload.`);
-
-  try {
-    let parts = [];
-    if (file.size <= singleUploadLimit) {
-      const response = await fetch(upload.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!response.ok) throw new Error(`Could not upload ${file.name} to Cloudflare R2.`);
-      onProgress?.(1, 1);
-    } else {
-      const totalParts = Math.ceil(file.size / upload.chunkSize);
-      for (let firstPart = 1; firstPart <= totalParts; firstPart += maxMultipartPartsPerRequest) {
-        const partNumbers = Array.from(
-          { length: Math.min(maxMultipartPartsPerRequest, totalParts - firstPart + 1) },
-          (_unused, index) => firstPart + index,
-        );
-        const signedResponse = await fetch("/api/community/media/uploads/part-urls", {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ objectKey: upload.objectKey, uploadId: upload.uploadId, partNumbers }),
-        });
-        const signed = await signedResponse.json().catch(() => ({}));
-        if (!signedResponse.ok) throw new Error(signed.error || `Could not prepare ${file.name} for upload.`);
-        for (let offset = 0; offset < signed.urls.length; offset += 4) {
-          const batch = await Promise.allSettled(signed.urls.slice(offset, offset + 4).map(async ({ partNumber, url }) => {
-            const start = (partNumber - 1) * upload.chunkSize;
-            const end = Math.min(file.size, start + upload.chunkSize);
-            const response = await fetch(url, { method: "PUT", body: file.slice(start, end) });
-            if (!response.ok) throw new Error(`Could not upload part ${partNumber} of ${file.name}.`);
-            const etag = response.headers.get("ETag");
-            if (!etag) throw new Error("Cloudflare R2 CORS must expose the ETag response header for multipart uploads.");
-            onProgress?.(partNumber, totalParts);
-            return { partNumber, etag };
-          }));
-          const failed = batch.find((result) => result.status === "rejected");
-          if (failed) throw failed.reason;
-          parts.push(...batch.map((result) => result.value));
-        }
-      }
-      parts.sort((left, right) => left.partNumber - right.partNumber);
-    }
-
-    const completeResponse = await fetch("/api/community/media/uploads/complete", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        objectKey: upload.objectKey,
-        uploadId: upload.uploadId,
-        parts: upload.uploadId ? parts : undefined,
-      }),
-    });
-    const completed = await completeResponse.json().catch(() => ({}));
-    if (!completeResponse.ok) throw new Error(completed.error || `Could not finish uploading ${file.name}.`);
-    return upload.objectKey;
-  } catch (error) {
-    try {
-      const cleanup = await fetch("/api/community/media/uploads", {
-        method: "DELETE",
-        headers,
-        body: JSON.stringify({ objectKey: upload.objectKey }),
-      });
-      if (!cleanup.ok) throw new Error("The temporary upload could not be removed.");
-    } catch (cleanupError) {
-      throw new Error(`${error.message} ${cleanupError.message}`);
-    }
-    throw error;
-  }
 }
 
 function Community() {
@@ -2376,7 +2344,6 @@ function Community() {
   const [feedLoading, setFeedLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [sharingId, setSharingId] = useState(null);
-  const [sharingMedia, setSharingMedia] = useState(null);
   const [sharedId, setSharedId] = useState(null);
   const route = useRoute();
   const { announcements: announcementCount, community: communityCount } =
@@ -2390,6 +2357,29 @@ function Community() {
       if (!blob) throw new Error("The story image could not be created.");
       const filename = `kerugoya-community-story-${post.id}.png`;
       const files = [new File([blob], filename, { type: "image/png" })];
+      const attachedMedia = [
+        ...(post.coverPhoto
+          ? [{ url: post.coverPhoto, name: "story-cover" }]
+          : []),
+        ...(Array.isArray(post.media) ? post.media : []),
+      ];
+      for (const media of attachedMedia) {
+        const response = await fetch(media.url);
+        if (!response.ok) throw new Error(`Could not load ${media.name || "story media"} for sharing.`);
+        const mediaBlob = await response.blob();
+        let safeName = String(media.name || "story-media").replace(/[^\w.-]+/g, "-");
+        if (!/\.[a-z0-9]{2,5}$/i.test(safeName)) {
+          const extensionByType = {
+            "image/jpeg": ".jpg",
+            "image/png": ".png",
+            "image/webp": ".webp",
+            "video/mp4": ".mp4",
+            "video/webm": ".webm",
+          };
+          safeName += extensionByType[mediaBlob.type] || "";
+        }
+        files.push(new File([mediaBlob], safeName, { type: mediaBlob.type }));
+      }
       const title = post.title || "Community Story";
 
       if (navigator.share && navigator.canShare?.({ files })) {
@@ -2420,33 +2410,6 @@ function Community() {
       }
     } finally {
       setSharingId(null);
-    }
-  };
-
-  const shareMedia = async (post, media) => {
-    const shareKey = `${post.id}:${media.url}`;
-    setSharingMedia(shareKey);
-    setCommunityMessage("");
-    const url = new URL(media.url, window.location.origin).href;
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: media.name || post.title || "Community story media",
-          text: `Shared from ${post.title || "a community story"} at Kerugoya Main SDA Church.`,
-          url,
-        });
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        setCommunityMessage("Media link copied. Share it with anyone.");
-      } else {
-        window.prompt("Copy this media link to share:", url);
-      }
-    } catch (error) {
-      if (error?.name !== "AbortError") {
-        setCommunityMessage(error?.message || "Could not share this media link.");
-      }
-    } finally {
-      setSharingMedia(null);
     }
   };
 
@@ -2579,13 +2542,21 @@ function Community() {
     const data = new FormData(form);
     const coverFile = data.get("coverPhoto");
     const mediaFiles = data.getAll("media").filter((file) => file instanceof File && file.size);
+    const assetFiles = [
+      ...(coverFile instanceof File && coverFile.size ? [coverFile] : []),
+      ...mediaFiles,
+    ];
+    const coverTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+    const mediaTypes = new Set([...coverTypes, "video/mp4", "video/webm"]);
+    const totalAssetBytes = assetFiles.reduce((total, file) => total + file.size, 0);
     if (
       (coverFile instanceof File && coverFile.size &&
-        !coverTypes.has(coverFile.type)) ||
+        (!coverTypes.has(coverFile.type) || coverFile.size > 2 * 1024 * 1024)) ||
       mediaFiles.length > 4 ||
-      mediaFiles.some((file) => !mediaTypes.has(file.type))
+      mediaFiles.some((file) => !mediaTypes.has(file.type)) ||
+      totalAssetBytes > 2.5 * 1024 * 1024
     ) {
-      setCommunityMessage("Use a JPG, PNG, or WebP cover and up to 4 JPG, PNG, WebP, MP4, or WebM story files.");
+      setCommunityMessage("Use a JPG, PNG, or WebP cover (max 2 MB), plus up to 4 JPG, PNG, WebP, MP4, or WebM files totaling 2.5 MB or less.");
       return;
     }
     const payload = {
@@ -2595,34 +2566,16 @@ function Community() {
     };
     setPosting(true);
     setCommunityMessage("");
-    const uploadedKeys = [];
-    let published = false;
     try {
       if (coverFile instanceof File && coverFile.size) {
-        setCommunityMessage(`Uploading cover photo (${formatFileSize(coverFile.size)})…`);
-        payload.coverKey = await uploadStoryFile(
-          coverFile,
-          "cover",
-          0,
-          session.token,
-          (part, total) => setCommunityMessage(`Uploading cover photo: part ${part} of ${total}…`),
-        );
-        uploadedKeys.push(payload.coverKey);
+        payload.coverPhoto = await readFileAsDataUrl(coverFile);
       }
-      payload.mediaKeys = [];
-      for (const [index, file] of mediaFiles.entries()) {
-        setCommunityMessage(`Uploading story media ${index + 1} of ${mediaFiles.length}: ${file.name} (${formatFileSize(file.size)})…`);
-        const key = await uploadStoryFile(
-          file,
-          "attachment",
-          index,
-          session.token,
-          (part, total) => setCommunityMessage(`Uploading ${file.name}: part ${part} of ${total}…`),
-        );
-        payload.mediaKeys.push(key);
-        uploadedKeys.push(key);
-      }
-      setCommunityMessage("Publishing your story…");
+      payload.media = await Promise.all(
+        mediaFiles.map(async (file) => ({
+          name: file.name,
+          dataUrl: await readFileAsDataUrl(file),
+        })),
+      );
       const response = await fetch("/api/community/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
@@ -2630,31 +2583,13 @@ function Community() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Your story could not be published.");
-      published = true;
       setPosts((current) => [result.post, ...current]);
       form.reset();
       setCommunityMessage("Your story has been published.");
     } catch (error) {
       setCommunityMessage(error.message || "Your story could not be published.");
     } finally {
-      try {
-        if (!published && uploadedKeys.length) {
-          const cleanupResults = await Promise.all(uploadedKeys.map((objectKey) =>
-            fetch("/api/community/media/uploads", {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
-              body: JSON.stringify({ objectKey }),
-            }),
-          ));
-          if (cleanupResults.some((response) => !response.ok)) {
-            setCommunityMessage("Your story was not published and some uploaded media could not be cleaned up. Please contact the site administrator.");
-          }
-        }
-      } catch {
-        setCommunityMessage("Your story was not published and some uploaded media could not be cleaned up. Please contact the site administrator.");
-      } finally {
-        setPosting(false);
-      }
+      setPosting(false);
     }
   };
   return (
@@ -2799,48 +2734,26 @@ function Community() {
                     </div>
                     <h2>{post.title}</h2>
                     {post.coverPhoto && (
-                      <div className="post-cover-wrap">
-                        <img className="post-cover-photo" src={post.coverPhoto} alt={`Cover photo for ${post.title}`} />
-                        <button
-                          className="share-btn post-media-share"
-                          type="button"
-                          disabled={sharingMedia === `${post.id}:${post.coverPhoto}`}
-                          onClick={() => shareMedia(post, { url: post.coverPhoto, name: `${post.title} cover photo` })}
-                        >
-                          <i className="bx bx-share-alt" /> Share cover photo
-                        </button>
-                      </div>
+                      <img className="post-cover-photo" src={post.coverPhoto} alt={`Cover photo for ${post.title}`} />
                     )}
                     <FormattedContent text={post.content} />
                     {!!post.media?.length && (
                       <div className="post-media">
-                        {post.media.map((media, index) => {
-                          const isVideo = media.type?.startsWith("video/");
-                          return (
-                            <div className="post-media-item" key={`${post.id}-media-${index}`}>
-                              {isVideo ? (
-                                <video controls preload="metadata">
-                                  <source src={media.url} type={media.type} />
-                                  Your browser does not support this video.
-                                </video>
-                              ) : (
-                                <img
-                                  src={media.url}
-                                  alt={media.name || `Story image ${index + 1}`}
-                                  loading="lazy"
-                                />
-                              )}
-                              <button
-                                className="share-btn post-media-share"
-                                type="button"
-                                disabled={sharingMedia === `${post.id}:${media.url}`}
-                                onClick={() => shareMedia(post, media)}
-                              >
-                                <i className="bx bx-share-alt" /> Share {isVideo ? "video" : "image"}
-                              </button>
-                            </div>
-                          );
-                        })}
+                        {post.media.map((media, index) =>
+                          media.type?.startsWith("video/") ? (
+                            <video key={`${post.id}-media-${index}`} controls preload="metadata">
+                              <source src={media.url} type={media.type} />
+                              Your browser does not support this video.
+                            </video>
+                          ) : (
+                            <img
+                              key={`${post.id}-media-${index}`}
+                              src={media.url}
+                              alt={media.name || `Story image ${index + 1}`}
+                              loading="lazy"
+                            />
+                          ),
+                        )}
                       </div>
                     )}
                     <div className="post-footer">
@@ -2880,8 +2793,8 @@ function Community() {
                           className="share-btn"
                           type="button"
                           disabled={sharingId === post.id}
-                          aria-label={`Share ${post.title} as a story image`}
-                          title="Share the formatted story image"
+                          aria-label={`Share ${post.title} with its media`}
+                          title="Share this story and its media"
                           onClick={() => handleShare(post)}
                         >
                           {sharingId === post.id ? (
@@ -2979,7 +2892,7 @@ function Community() {
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
                     />
-                    <small>JPG, PNG, or WebP. Cloudflare R2 supports files up to 5 TB each.</small>
+                    <small>JPG, PNG, or WebP; up to 2 MB.</small>
                   </label>
                   <label className="story-media-label">
                     Story images or videos
@@ -2989,7 +2902,7 @@ function Community() {
                       accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
                       multiple
                     />
-                    <small>Up to 4 images or videos. There is no app-imposed upload size limit; Cloudflare R2 supports files up to 5 TB each.</small>
+                    <small>Up to 4 items; cover and attachments share a 2.5 MB total limit. Images and MP4/WebM video are supported.</small>
                   </label>
                   <button className="btn" type="submit" disabled={posting}>
                     {posting ? "Publishing…" : "Publish story"} <i className="bx bx-send" />
@@ -3156,6 +3069,7 @@ function AdminDashboard({ auth, username, onLogout }) {
   const [prayerFilter, setPrayerFilter] = useState("all");
 
   const [announcements, setAnnouncements] = useState([]);
+  const [leaders, setLeaders] = useState([]);
   const [posts, setPosts] = useState([]);
   const [sermons, setSermons] = useState([]);
   const [admins, setAdmins] = useState([]);
@@ -3167,6 +3081,9 @@ function AdminDashboard({ auth, username, onLogout }) {
 
   const [programSaving, setProgramSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editingLeader, setEditingLeader] = useState(null);
+  const [leaderImageData, setLeaderImageData] = useState("");
+  const [removeLeaderImage, setRemoveLeaderImage] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [message, setMessage] = useState(null);
 
@@ -3175,6 +3092,7 @@ function AdminDashboard({ auth, username, onLogout }) {
 
   const TABS = [
     { id: "announcements", label: "Announcements", icon: "bx-megaphone", count: announcements.length },
+    { id: "leaders", label: "Church Leaders", icon: "bx-group", count: leaders.length },
     { id: "prayer", label: "Prayer Requests", icon: "bx-pray", count: prayerRequests.length },
     { id: "feedback", label: "Feedback", icon: "bx-message-dots", count: feedback.length },
     { id: "program", label: "Church Program", icon: "bx-calendar", count: 0 },
@@ -3189,6 +3107,7 @@ function AdminDashboard({ auth, username, onLogout }) {
     try {
       const [
         announcementRes,
+        leadersRes,
         sermonRes,
         adminRes,
         postsRes,
@@ -3198,6 +3117,7 @@ function AdminDashboard({ auth, username, onLogout }) {
         programRes,
       ] = await Promise.all([
         fetch("/api/announcements", { cache: "no-store" }),
+        fetch("/api/admin/leaders", { headers: { Authorization: auth }, cache: "no-store" }),
         fetch("/api/sermons", { cache: "no-store" }),
         fetch("/api/admins", { headers: { Authorization: auth }, cache: "no-store" }),
         fetch("/api/community/posts", { cache: "no-store" }),
@@ -3212,6 +3132,12 @@ function AdminDashboard({ auth, username, onLogout }) {
       }
 
       setAnnouncements(announcementRes.ok ? await announcementRes.json() : []);
+      if (leadersRes.status === 401) {
+        setMessage({ type: "error", text: "Admin session expired. Please sign out and sign in again." });
+      } else if (!leadersRes.ok) {
+        setMessage({ type: "error", text: "Could not load church leader profiles." });
+      }
+      setLeaders(leadersRes.ok ? await leadersRes.json() : []);
       setSermons(sermonRes.ok ? await sermonRes.json() : []);
       setAdmins(adminRes.ok ? await adminRes.json() : []);
       setPosts(postsRes.ok ? await postsRes.json() : []);
@@ -3315,6 +3241,79 @@ function AdminDashboard({ auth, username, onLogout }) {
     }
   };
 
+  const saveLeader = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setMessage(null);
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const payload = {
+      name: data.get("name"),
+      role: data.get("role"),
+      description: data.get("description"),
+      imageData: leaderImageData,
+      removeImage: removeLeaderImage,
+    };
+    const endpoint = editingLeader ? `/api/leaders/${editingLeader.id}` : "/api/leaders";
+    try {
+      const response = await fetch(endpoint, {
+        method: editingLeader ? "PUT" : "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || "Could not save church leader.");
+      }
+      setEditingLeader(null);
+      setLeaderImageData("");
+      setRemoveLeaderImage(false);
+      form.reset();
+      setMessage({ type: "success", text: "Church leader saved successfully." });
+      await load();
+    } catch (error) {
+      setMessage({ type: "error", text: error.message || "Could not save church leader." });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const editLeader = (leader) => {
+    setEditingLeader(leader);
+    setLeaderImageData("");
+    setRemoveLeaderImage(false);
+    setMessage(null);
+  };
+
+  const cancelLeaderEdit = () => {
+    setEditingLeader(null);
+    setLeaderImageData("");
+    setRemoveLeaderImage(false);
+  };
+
+  const selectLeaderImage = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setMessage({ type: "error", text: "Choose a JPG, PNG, or WebP image." });
+      event.target.value = "";
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setMessage({ type: "error", text: "Leader images must be no larger than 3 MB." });
+      event.target.value = "";
+      return;
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setLeaderImageData(dataUrl);
+      setRemoveLeaderImage(false);
+      setMessage(null);
+    } catch {
+      setMessage({ type: "error", text: "Could not read the selected image." });
+    }
+  };
+
   const remove = async (endpoint, label = "item") => {
     if (!window.confirm(`Are you sure you want to delete this ${label}?`)) return;
     setDeletingId(endpoint);
@@ -3339,6 +3338,9 @@ function AdminDashboard({ auth, username, onLogout }) {
         setPosts((prev) => prev.filter((p) => String(p.id) !== id));
       } else if (endpoint.includes("/sermons/")) {
         setSermons((prev) => prev.filter((s) => String(s.id) !== id));
+      } else if (endpoint.includes("/leaders/")) {
+        setLeaders((prev) => prev.filter((leader) => String(leader.id) !== id));
+        if (editingLeader?.id === id) cancelLeaderEdit();
       } else if (endpoint.includes("/admin/users/")) {
         setUsers((prev) => prev.filter((u) => String(u.sessionId) !== id));
       } else if (endpoint.includes("/admins/")) {
@@ -3405,6 +3407,13 @@ function AdminDashboard({ auth, username, onLogout }) {
 
   const filteredSermons = sermons.filter((s) =>
     !q ? true : (s.title && s.title.toLowerCase().includes(q)) || (s.youtubeId && s.youtubeId.toLowerCase().includes(q))
+  );
+
+  const filteredLeaders = leaders.filter((leader) =>
+    !q ||
+    (leader.name && leader.name.toLowerCase().includes(q)) ||
+    (leader.role && leader.role.toLowerCase().includes(q)) ||
+    (leader.description && leader.description.toLowerCase().includes(q))
   );
 
   const filteredUsers = users.filter((u) =>
@@ -3661,6 +3670,7 @@ function AdminDashboard({ auth, username, onLogout }) {
             <div className="admin-view-title-group">
               <h2>
                 {tab === "announcements" && "Church Announcements"}
+                {tab === "leaders" && "Church Leaders"}
                 {tab === "prayer" && "Prayer Requests"}
                 {tab === "feedback" && "Community Feedback"}
                 {tab === "program" && "Church Weekly Program"}
@@ -3672,6 +3682,7 @@ function AdminDashboard({ auth, username, onLogout }) {
               </h2>
               <p>
                 {tab === "announcements" && "Publish timely updates, service schedules, and church events."}
+                {tab === "leaders" && "Add and maintain leader profiles, ministry roles, descriptions, and portrait photos."}
                 {tab === "prayer" && "View and moderate prayer requests submitted by church members."}
                 {tab === "feedback" && "Suggestions and thoughts shared by church visitors and congregants."}
                 {tab === "program" && "Manage the weekly church bulletin and generate printable PDFs."}
@@ -3732,6 +3743,152 @@ function AdminDashboard({ auth, username, onLogout }) {
                 ×
               </button>
             </div>
+          )}
+
+          {tab === "leaders" && (
+            <>
+              <div className="admin-panel">
+                <div className="admin-panel-heading">
+                  <div className="admin-panel-icon">
+                    <i className="bx bx-group" />
+                  </div>
+                  <div className="admin-panel-title">
+                    <h3>{editingLeader ? "Edit Church Leader" : "Add Church Leader"}</h3>
+                    <p>Update the public leadership page with a name, role, description, and portrait.</p>
+                  </div>
+                </div>
+                <form
+                  key={editingLeader?.id || "new-leader"}
+                  className="admin-form"
+                  onSubmit={saveLeader}
+                >
+                  <div className="admin-field">
+                    <label htmlFor="leader-name"><span>Name</span></label>
+                    <input
+                      id="leader-name"
+                      name="name"
+                      defaultValue={editingLeader?.name || ""}
+                      maxLength={100}
+                      required
+                      placeholder="Leader's full name"
+                    />
+                  </div>
+                  <div className="admin-field">
+                    <label htmlFor="leader-role"><span>Role</span></label>
+                    <input
+                      id="leader-role"
+                      name="role"
+                      defaultValue={editingLeader?.role || ""}
+                      maxLength={120}
+                      required
+                      placeholder="e.g. Church Elder"
+                    />
+                  </div>
+                  <div className="admin-field admin-field-wide">
+                    <label htmlFor="leader-description"><span>Description</span></label>
+                    <textarea
+                      id="leader-description"
+                      name="description"
+                      defaultValue={editingLeader?.description || ""}
+                      maxLength={3000}
+                      rows={4}
+                      placeholder="Share a short introduction or ministry description"
+                    />
+                  </div>
+                  <div className="admin-field admin-field-wide">
+                    <label htmlFor="leader-image">
+                      <span>Portrait image</span>
+                      <small>JPG, PNG, or WebP; up to 3 MB</small>
+                    </label>
+                    <input
+                      id="leader-image"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={selectLeaderImage}
+                    />
+                    {(leaderImageData || (editingLeader?.imageUrl && !removeLeaderImage)) && (
+                      <div className="leader-image-preview">
+                        <img
+                          src={leaderImageData || editingLeader.imageUrl}
+                          alt="Selected leader portrait preview"
+                        />
+                        <button
+                          type="button"
+                          className="leader-action-secondary"
+                          onClick={() => {
+                            setLeaderImageData("");
+                            setRemoveLeaderImage(Boolean(editingLeader?.imageUrl));
+                          }}
+                        >
+                          Remove image
+                        </button>
+                      </div>
+                    )}
+                    {removeLeaderImage && <small>The current portrait will be removed when saved.</small>}
+                  </div>
+                  <div className="admin-form-actions">
+                    <button className="admin-btn-primary" type="submit" disabled={submitting}>
+                      <i className={`bx ${submitting ? "bx-loader-alt bx-spin" : "bx-save"}`} />
+                      {submitting ? "Saving..." : editingLeader ? "Save Changes" : "Add Leader"}
+                    </button>
+                    {editingLeader && (
+                      <button className="leader-action-secondary" type="button" onClick={cancelLeaderEdit}>
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              <div className="admin-list-section">
+                <div className="admin-list-header">
+                  <div>
+                    <h3>Published Church Leaders</h3>
+                    <p>Profiles displayed on the public church leaders page</p>
+                  </div>
+                  <span className="admin-list-count">{filteredLeaders.length}</span>
+                </div>
+                <div className="admin-list">
+                  {filteredLeaders.length ? filteredLeaders.map((leader) => (
+                    <article key={leader.id} className="admin-list-item leader-admin-item">
+                      {leader.imageUrl ? (
+                        <img className="leader-admin-image" src={leader.imageUrl} alt="" />
+                      ) : (
+                        <div className="admin-item-icon"><i className="bx bx-user" /></div>
+                      )}
+                      <div className="admin-item-main">
+                        <strong>{leader.name}</strong>
+                        <p>{leader.role}</p>
+                        {leader.description && <p className="admin-item-byline">{leader.description}</p>}
+                      </div>
+                      <button
+                        className="admin-item-action-btn is-edit"
+                        type="button"
+                        aria-label={`Edit ${leader.name}`}
+                        onClick={() => editLeader(leader)}
+                      >
+                        <i className="bx bx-edit-alt" />
+                      </button>
+                      <button
+                        className="admin-item-action-btn"
+                        type="button"
+                        aria-label={`Delete ${leader.name}`}
+                        disabled={deletingId === `/api/leaders/${leader.id}`}
+                        onClick={() => remove(`/api/leaders/${leader.id}`, "church leader")}
+                      >
+                        <i className={`bx ${deletingId === `/api/leaders/${leader.id}` ? "bx-loader-alt bx-spin" : "bx-trash"}`} />
+                      </button>
+                    </article>
+                  )) : (
+                    <div className="admin-empty-state">
+                      <i className="bx bx-group" />
+                      <h4>No church leaders found</h4>
+                      <p>Add a leader profile above to display it on the public website.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
           )}
 
           {/* TAB 1: ANNOUNCEMENTS */}

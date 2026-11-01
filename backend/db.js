@@ -36,6 +36,17 @@ async function ensureDatabase() {
         date TEXT NOT NULL DEFAULT '',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`;
+      await query`CREATE TABLE IF NOT EXISTS church_leaders (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(100) NOT NULL,
+        role VARCHAR(120) NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        image_data TEXT NOT NULL DEFAULT '',
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`;
+      await query`CREATE INDEX IF NOT EXISTS church_leaders_position_idx ON church_leaders(position, name)`;
       await query`CREATE TABLE IF NOT EXISTS members (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(80) NOT NULL,
@@ -73,27 +84,10 @@ async function ensureDatabase() {
         position INTEGER NOT NULL DEFAULT 0,
         name VARCHAR(100) NOT NULL,
         mime_type TEXT NOT NULL,
-        data_url TEXT,
-        object_key TEXT,
+        data_url TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`;
-      await query`ALTER TABLE community_post_media ADD COLUMN IF NOT EXISTS object_key TEXT`;
-      await query`ALTER TABLE community_post_media ALTER COLUMN data_url DROP NOT NULL`;
       await query`CREATE INDEX IF NOT EXISTS community_post_media_post_position_idx ON community_post_media(post_id, kind, position)`;
-      await query`CREATE TABLE IF NOT EXISTS community_media_uploads (
-        object_key TEXT PRIMARY KEY,
-        member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-        upload_id TEXT,
-        kind TEXT NOT NULL CHECK (kind IN ('cover', 'attachment')),
-        name VARCHAR(100) NOT NULL,
-        mime_type TEXT NOT NULL,
-        size_bytes BIGINT NOT NULL,
-        chunk_size BIGINT NOT NULL,
-        position INTEGER NOT NULL DEFAULT 0,
-        completed BOOLEAN NOT NULL DEFAULT FALSE,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )`;
-      await query`CREATE INDEX IF NOT EXISTS community_media_uploads_member_created_idx ON community_media_uploads(member_id, created_at)`;
       await query`CREATE TABLE IF NOT EXISTS community_likes (
         post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
         member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
