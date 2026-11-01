@@ -2540,25 +2540,6 @@ function Community() {
     }
     const form = event.currentTarget;
     const data = new FormData(form);
-    const coverFile = data.get("coverPhoto");
-    const mediaFiles = data.getAll("media").filter((file) => file instanceof File && file.size);
-    const assetFiles = [
-      ...(coverFile instanceof File && coverFile.size ? [coverFile] : []),
-      ...mediaFiles,
-    ];
-    const coverTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-    const mediaTypes = new Set([...coverTypes, "video/mp4", "video/webm"]);
-    const totalAssetBytes = assetFiles.reduce((total, file) => total + file.size, 0);
-    if (
-      (coverFile instanceof File && coverFile.size &&
-        (!coverTypes.has(coverFile.type) || coverFile.size > 2 * 1024 * 1024)) ||
-      mediaFiles.length > 4 ||
-      mediaFiles.some((file) => !mediaTypes.has(file.type)) ||
-      totalAssetBytes > 2.5 * 1024 * 1024
-    ) {
-      setCommunityMessage("Use a JPG, PNG, or WebP cover (max 2 MB), plus up to 4 JPG, PNG, WebP, MP4, or WebM files totaling 2.5 MB or less.");
-      return;
-    }
     const payload = {
       title: data.get("title").trim(),
       content: data.get("content").trim(),
@@ -2567,15 +2548,6 @@ function Community() {
     setPosting(true);
     setCommunityMessage("");
     try {
-      if (coverFile instanceof File && coverFile.size) {
-        payload.coverPhoto = await readFileAsDataUrl(coverFile);
-      }
-      payload.media = await Promise.all(
-        mediaFiles.map(async (file) => ({
-          name: file.name,
-          dataUrl: await readFileAsDataUrl(file),
-        })),
-      );
       const response = await fetch("/api/community/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
@@ -2885,25 +2857,6 @@ function Community() {
                     placeholder="Start writing your reflection, testimony, or story... Use the Word toolbar above or Ctrl+B / Ctrl+I to format."
                     required
                   />
-                  <label className="story-media-label">
-                    Cover photo
-                    <input
-                      name="coverPhoto"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                    />
-                    <small>JPG, PNG, or WebP; up to 2 MB.</small>
-                  </label>
-                  <label className="story-media-label">
-                    Story images or videos
-                    <input
-                      name="media"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-                      multiple
-                    />
-                    <small>Up to 4 items; cover and attachments share a 2.5 MB total limit. Images and MP4/WebM video are supported.</small>
-                  </label>
                   <button className="btn" type="submit" disabled={posting}>
                     {posting ? "Publishing…" : "Publish story"} <i className="bx bx-send" />
                   </button>
