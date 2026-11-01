@@ -749,7 +749,7 @@ async function renderPostImage(post) {
 
 async function renderLeaderIdCard(leader) {
   const width = 1200;
-  const height = 720;
+  const height = 760;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -774,36 +774,36 @@ async function renderLeaderIdCard(leader) {
     logo = null;
   }
   if (logo) {
-    const logoSize = 58;
+    const logoSize = 60;
     const scale = logoSize / Math.max(logo.width, logo.height);
-    ctx.drawImage(logo, 56, 48, logo.width * scale, logo.height * scale);
+    ctx.drawImage(logo, 56, 46, logo.width * scale, logo.height * scale);
   }
   ctx.fillStyle = "#1e3a8a";
-  ctx.font = "700 18px 'Inter', system-ui, sans-serif";
-  ctx.fillText("KERUGOYA MAIN SDA CHURCH", 132, 72);
+  ctx.font = "700 17px 'Inter', system-ui, sans-serif";
+  ctx.fillText("KERUGOYA MAIN SDA CHURCH", 132, 70);
   ctx.fillStyle = "#64748b";
-  ctx.font = "500 14px 'Inter', system-ui, sans-serif";
-  ctx.fillText("LEADERSHIP IDENTIFICATION", 132, 96);
+  ctx.font = "600 12px 'Inter', system-ui, sans-serif";
+  ctx.fillText("LEADERSHIP IDENTIFICATION", 132, 94);
 
   if (leader.imageUrl) {
     const portrait = await loadImage(leader.imageUrl);
     ctx.save();
-    roundRect(ctx, 56, 142, 310, 426, 18);
+    roundRect(ctx, 56, 130, 310, 488, 16);
     ctx.clip();
-    const scale = Math.max(310 / portrait.width, 426 / portrait.height);
+    const scale = Math.max(310 / portrait.width, 488 / portrait.height);
     const portraitWidth = portrait.width * scale;
     const portraitHeight = portrait.height * scale;
     ctx.drawImage(
       portrait,
       56 + (310 - portraitWidth) / 2,
-      142 + (426 - portraitHeight) / 2,
+      130 + (488 - portraitHeight) / 2,
       portraitWidth,
       portraitHeight,
     );
     ctx.restore();
   } else {
     ctx.fillStyle = "#f1f5fb";
-    roundRect(ctx, 56, 142, 310, 426, 18);
+    roundRect(ctx, 56, 130, 310, 488, 16);
     ctx.fill();
     ctx.fillStyle = "#1e3a8a";
     ctx.font = "600 120px Georgia, serif";
@@ -812,29 +812,29 @@ async function renderLeaderIdCard(leader) {
     ctx.fillText(
       String(leader.name || "L").trim().charAt(0).toUpperCase(),
       220,
-      286,
+      374,
     );
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
   }
 
   ctx.fillStyle = "#64748b";
-  ctx.font = "600 13px 'Inter', system-ui, sans-serif";
-  ctx.fillText("KERUGOYA  ·  KENYA", 56, 616);
+  ctx.font = "600 12px 'Inter', system-ui, sans-serif";
+  ctx.fillText("KERUGOYA  ·  KENYA", 56, 680);
 
   ctx.fillStyle = "#dbe3f0";
-  ctx.fillRect(414, 48, 1, 620);
+  ctx.fillRect(414, 46, 1, 668);
   ctx.fillStyle = "#fbbf24";
-  roundRect(ctx, 466, 153, 44, 4, 2);
+  roundRect(ctx, 466, 142, 42, 4, 2);
   ctx.fill();
   ctx.fillStyle = "#1e3a8a";
-  ctx.font = "700 15px 'Inter', system-ui, sans-serif";
-  ctx.fillText("LEADERSHIP  /  PROFILE", 466, 188);
+  ctx.font = "700 13px 'Inter', system-ui, sans-serif";
+  ctx.fillText("OFFICIAL  ·  CHURCH LEADERSHIP", 466, 174);
   ctx.fillStyle = "#0f172a";
-  ctx.font = "700 56px 'Playfair Display', Georgia, serif";
+  ctx.font = "700 54px 'Playfair Display', Georgia, serif";
   const nameLines = wrapText(ctx, leader.name || "Church Leader", 650, 2);
-  nameLines.forEach((line, index) => ctx.fillText(line, 466, 272 + index * 64));
-  const nameBottom = 272 + (nameLines.length - 1) * 64;
+  nameLines.forEach((line, index) => ctx.fillText(line, 466, 253 + index * 62));
+  const nameBottom = 253 + (nameLines.length - 1) * 62;
 
   ctx.font = "700 20px 'Inter', system-ui, sans-serif";
   const roleLines = wrapText(ctx, leader.role || "Church Leader", 610, 2);
@@ -844,7 +844,7 @@ async function renderLeaderIdCard(leader) {
     660,
     Math.max(190, ...roleLines.map((line) => ctx.measureText(line).width + 34)),
   );
-  const roleTop = nameBottom + 24;
+  const roleTop = nameBottom + 21;
   ctx.fillStyle = "#fff4cc";
   roundRect(ctx, 466, roleTop, roleWidth, roleHeight, 12);
   ctx.fill();
@@ -853,23 +853,23 @@ async function renderLeaderIdCard(leader) {
     ctx.fillText(line, 483, roleTop + 28 + index * roleLineHeight),
   );
 
-  const descriptionTop = roleTop + roleHeight + 34;
+  const descriptionTop = roleTop + roleHeight + 30;
   ctx.fillStyle = "#475569";
-  ctx.font = "400 18px 'Inter', system-ui, sans-serif";
-  const maxDescriptionLines = Math.max(1, Math.min(3, Math.floor((558 - descriptionTop) / 31) + 1));
+  ctx.font = "400 17px 'Inter', system-ui, sans-serif";
+  const maxDescriptionLines = Math.max(1, Math.min(3, Math.floor((614 - descriptionTop) / 30) + 1));
   const descriptionLines = wrapText(
     ctx,
     leader.description || "Serving the church community with faith and care.",
     650,
     maxDescriptionLines,
   );
-  descriptionLines.forEach((line, index) => ctx.fillText(line, 466, descriptionTop + index * 31));
+  descriptionLines.forEach((line, index) => ctx.fillText(line, 466, descriptionTop + index * 30));
 
   ctx.fillStyle = "#dbe3f0";
-  ctx.fillRect(466, 594, 660, 1);
+  ctx.fillRect(466, 650, 660, 1);
   ctx.fillStyle = "#1e3a8a";
-  ctx.font = "600 15px 'Inter', system-ui, sans-serif";
-  ctx.fillText("SERVING WITH FAITH  ·  GROWING IN COMMUNITY", 466, 628);
+  ctx.font = "600 13px 'Inter', system-ui, sans-serif";
+  ctx.fillText("SERVING WITH FAITH  ·  GROWING IN COMMUNITY", 466, 682);
 
   ctx.restore();
   return new Promise((resolve, reject) => {
@@ -4228,34 +4228,36 @@ function AdminDashboard({ auth, username, onLogout }) {
                       </button>
                     </div>
 
-                    <article className="leader-id-card-preview">
-                      <div className="leader-id-card-brand">
-                        <div className="leader-id-card-church">
-                          <img src={imagePath} alt="" />
-                          <span>
-                            <strong>Kerugoya Main SDA Church</strong>
-                            <small>Leadership identification</small>
-                          </span>
-                        </div>
-                        {leaderCardPreview.imageUrl ? (
-                          <img src={leaderCardPreview.imageUrl} alt={`${leaderCardPreview.name} portrait`} />
-                        ) : (
-                          <div className="leader-id-card-placeholder" aria-hidden="true">
-                            {(leaderCardPreview.name || "L").trim().charAt(0).toUpperCase()}
+                    <div className="leader-id-card-frame">
+                      <article className="leader-id-card-preview">
+                        <div className="leader-id-card-brand">
+                          <div className="leader-id-card-church">
+                            <img src={imagePath} alt="" />
+                            <span>
+                              <strong>Kerugoya Main SDA Church</strong>
+                              <small>Leadership identification</small>
+                            </span>
                           </div>
-                        )}
-                        <span className="leader-id-card-location">Kerugoya · Kenya</span>
-                      </div>
-                      <div className="leader-id-card-details">
-                        <span className="leader-id-card-kicker">Leadership / Profile</span>
-                        <h4>{leaderCardPreview.name}</h4>
-                        <p className="leader-id-card-role">{leaderCardPreview.role}</p>
-                        <p className="leader-id-card-description">
-                          {leaderCardPreview.description || "Serving the church community with faith and care."}
-                        </p>
-                        <span className="leader-id-card-motto">Serving with faith · Growing in community</span>
-                      </div>
-                    </article>
+                          {leaderCardPreview.imageUrl ? (
+                            <img src={leaderCardPreview.imageUrl} alt={`${leaderCardPreview.name} portrait`} />
+                          ) : (
+                            <div className="leader-id-card-placeholder" aria-hidden="true">
+                              {(leaderCardPreview.name || "L").trim().charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="leader-id-card-location">Kerugoya · Kenya</span>
+                        </div>
+                        <div className="leader-id-card-details">
+                          <span className="leader-id-card-kicker">Official · Church leadership</span>
+                          <h4>{leaderCardPreview.name}</h4>
+                          <p className="leader-id-card-role">{leaderCardPreview.role}</p>
+                          <p className="leader-id-card-description">
+                            {leaderCardPreview.description || "Serving the church community with faith and care."}
+                          </p>
+                          <span className="leader-id-card-motto">Serving with faith · Growing in community</span>
+                        </div>
+                      </article>
+                    </div>
 
                     {leaderCardMessage && (
                       <p
