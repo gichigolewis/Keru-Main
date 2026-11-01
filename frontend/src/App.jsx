@@ -828,35 +828,50 @@ async function renderLeaderIdCard(leader) {
   ctx.fillText("KERUGOYA  ·  KENYA", 58, 625);
 
   ctx.fillStyle = "#fbbf24";
-  ctx.font = "700 16px 'Inter', system-ui, sans-serif";
-  ctx.fillText("LEADERSHIP PROFILE", 500, 164);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "700 54px 'Playfair Display', Georgia, serif";
-  const nameLines = wrapText(ctx, leader.name || "Church Leader", 620, 2);
-  nameLines.forEach((line, index) => ctx.fillText(line, 500, 250 + index * 66));
-  const nameBottom = 250 + (nameLines.length - 1) * 66;
-
+  roundRect(ctx, 500, 132, 44, 4, 2);
+  ctx.fill();
   ctx.fillStyle = "#fbbf24";
-  ctx.font = "700 25px 'Inter', system-ui, sans-serif";
-  const roleLines = wrapText(ctx, leader.role || "Church Leader", 620, 2);
-  roleLines.forEach((line, index) => ctx.fillText(line, 500, nameBottom + 58 + index * 36));
+  ctx.font = "700 15px 'Inter', system-ui, sans-serif";
+  ctx.fillText("LEADERSHIP  /  PROFILE", 500, 170);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 58px 'Playfair Display', Georgia, serif";
+  const nameLines = wrapText(ctx, leader.name || "Church Leader", 620, 2);
+  nameLines.forEach((line, index) => ctx.fillText(line, 500, 258 + index * 68));
+  const nameBottom = 258 + (nameLines.length - 1) * 68;
 
-  const descriptionTop = nameBottom + 122 + Math.max(0, roleLines.length - 1) * 36;
+  ctx.font = "700 21px 'Inter', system-ui, sans-serif";
+  const roleLines = wrapText(ctx, leader.role || "Church Leader", 570, 2);
+  const roleLineHeight = 30;
+  const roleHeight = roleLines.length * roleLineHeight + 22;
+  const roleWidth = Math.min(
+    620,
+    Math.max(190, ...roleLines.map((line) => ctx.measureText(line).width + 36)),
+  );
+  const roleTop = nameBottom + 24;
+  ctx.fillStyle = "#fbbf24";
+  roundRect(ctx, 500, roleTop, roleWidth, roleHeight, 14);
+  ctx.fill();
+  ctx.fillStyle = "#172554";
+  roleLines.forEach((line, index) =>
+    ctx.fillText(line, 518, roleTop + 29 + index * roleLineHeight),
+  );
+
+  const descriptionTop = roleTop + roleHeight + 42;
   ctx.fillStyle = "rgba(255,255,255,0.82)";
-  ctx.font = "400 20px 'Inter', system-ui, sans-serif";
-  const maxDescriptionLines = Math.max(1, Math.min(4, Math.floor((575 - descriptionTop) / 34) + 1));
+  ctx.font = "400 19px 'Inter', system-ui, sans-serif";
+  const maxDescriptionLines = Math.max(1, Math.min(3, Math.floor((560 - descriptionTop) / 32) + 1));
   const descriptionLines = wrapText(
     ctx,
     leader.description || "Serving the church community with faith and care.",
     620,
     maxDescriptionLines,
   );
-  descriptionLines.forEach((line, index) => ctx.fillText(line, 500, descriptionTop + index * 34));
+  descriptionLines.forEach((line, index) => ctx.fillText(line, 500, descriptionTop + index * 32));
 
   ctx.fillStyle = "rgba(255,255,255,0.24)";
   ctx.fillRect(500, 594, 620, 1);
   ctx.fillStyle = "#ffffff";
-  ctx.font = "600 17px 'Inter', system-ui, sans-serif";
+  ctx.font = "600 16px 'Inter', system-ui, sans-serif";
   ctx.fillText("SERVING WITH FAITH  ·  GROWING IN COMMUNITY", 500, 635);
   ctx.restore();
 
@@ -4235,7 +4250,7 @@ function AdminDashboard({ auth, username, onLogout }) {
                         <span className="leader-id-card-location">Leadership · Kerugoya, Kenya</span>
                       </div>
                       <div className="leader-id-card-details">
-                        <span className="leader-id-card-kicker">Church leadership</span>
+                        <span className="leader-id-card-kicker">Leadership / Profile</span>
                         <h4>{leaderCardPreview.name}</h4>
                         <p className="leader-id-card-role">{leaderCardPreview.role}</p>
                         <p className="leader-id-card-description">
