@@ -66,6 +66,17 @@ async function ensureDatabase() {
       // Allow unlimited story text on tables created before this change.
       await query`ALTER TABLE community_posts ALTER COLUMN content TYPE TEXT`;
       await query`CREATE INDEX IF NOT EXISTS community_posts_created_at_idx ON community_posts(created_at DESC)`;
+      await query`CREATE TABLE IF NOT EXISTS community_post_media (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK (kind IN ('cover', 'attachment')),
+        position INTEGER NOT NULL DEFAULT 0,
+        name VARCHAR(100) NOT NULL,
+        mime_type TEXT NOT NULL,
+        data_url TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`;
+      await query`CREATE INDEX IF NOT EXISTS community_post_media_post_position_idx ON community_post_media(post_id, kind, position)`;
       await query`CREATE TABLE IF NOT EXISTS community_likes (
         post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
         member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,

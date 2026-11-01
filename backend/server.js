@@ -36,7 +36,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '4.5mb' }));
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
 app.get('/api/healthz', (_req, res) => res.status(200).json({ ok: true }));
 
@@ -150,6 +150,14 @@ app.delete('/api/members/session', requireMember, asyncRoute(async (req, res) =>
 async function fetchCommunityPost(id, viewerId = null) {
   const query = getSql();
   const rows = await query`SELECT p.id, p.member_id, p.title, p.content, p.category, p.author, p.created_at,
+      (SELECT '/api/community/posts/' || p.id::text || '/media/' || m.id::text
+        FROM community_post_media m WHERE m.post_id = p.id AND m.kind = 'cover' LIMIT 1) AS cover_photo,
+      COALESCE((SELECT json_agg(json_build_object(
+        'name', m.name,
+        'type', m.mime_type,
+        'url', '/api/community/posts/' || p.id::text || '/media/' || m.id::text
+      ) ORDER BY m.position)
+        FROM community_post_media m WHERE m.post_id = p.id AND m.kind = 'attachment'), '[]'::json) AS media,
       (SELECT COUNT(*)::int FROM community_likes l WHERE l.post_id = p.id) AS likes,
       EXISTS (SELECT 1 FROM community_likes l WHERE l.post_id = p.id AND l.member_id = ${viewerId}) AS liked_by_me,
       COALESCE((SELECT json_agg(json_build_object('author', c.author, 'content', c.content) ORDER BY c.created_at)
@@ -167,6 +175,8 @@ function formatCommunityPost(post) {
     content: post.content,
     category: post.category,
     author: post.author,
+    coverPhoto: post.cover_photo || null,
+    media: post.media || [],
     date: createdAt.toISOString().slice(0, 10),
     createdAt: createdAt.toISOString(),
     likes: Number(post.likes || 0),
@@ -179,12 +189,55 @@ app.get('/api/community/posts', optionalMember, asyncRoute(async (req, res) => {
   const query = getSql();
   const viewerId = req.member?.id || null;
   const posts = await query`SELECT p.id, p.member_id, p.title, p.content, p.category, p.author, p.created_at,
+      (SELECT '/api/community/posts/' || p.id::text || '/media/' || m.id::text
+        FROM community_post_media m WHERE m.post_id = p.id AND m.kind = 'cover' LIMIT 1) AS cover_photo,
+      COALESCE((SELECT json_agg(json_build_object(
+        'name', m.name,
+        'type', m.mime_type,
+        'url', '/api/community/posts/' || p.id::text || '/media/' || m.id::text
+      ) ORDER BY m.position)
+        FROM community_post_media m WHERE m.post_id = p.id AND m.kind = 'attachment'), '[]'::json) AS media,
       (SELECT COUNT(*)::int FROM community_likes l WHERE l.post_id = p.id) AS likes,
       EXISTS (SELECT 1 FROM community_likes l WHERE l.post_id = p.id AND l.member_id = ${viewerId}) AS liked_by_me,
       COALESCE((SELECT json_agg(json_build_object('author', c.author, 'content', c.content) ORDER BY c.created_at)
         FROM community_comments c WHERE c.post_id = p.id), '[]'::json) AS comments
     FROM community_posts p ORDER BY p.created_at DESC LIMIT 100`;
   res.json(posts.map(formatCommunityPost));
+}));
+
+app.get('/api/community/posts/:id/media/:mediaId', asyncRoute(async (req, res) => {
+  if (!isUuid(req.params.id) || !isUuid(req.params.mediaId)) {
+    return res.status(404).json({ error: 'Story media not found.' });
+  }
+  const query = getSql();
+  const rows = await query`SELECT mime_type, data_url
+    FROM community_post_media WHERE id = ${req.params.mediaId} AND post_id = ${req.params.id} LIMIT 1`;
+  if (!rows.length) return res.status(404).json({ error: 'Story media not found.' });
+  const data = rows[0].data_url.split(',')[1];
+  const buffer = Buffer.from(data, 'base64');
+  res.set('Content-Type', rows[0].mime_type);
+  res.set('Content-Disposition', 'inline');
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('Accept-Ranges', 'bytes');
+  const range = req.get('range');
+  if (range) {
+    const match = range.match(/^bytes=(\d*)-(\d*)$/);
+    if (!match || (!match[1] && !match[2])) {
+      return res.status(416).set('Content-Range', `bytes */${buffer.length}`).end();
+    }
+    const start = match[1] ? Number(match[1]) : Math.max(0, buffer.length - Number(match[2]));
+    const end = match[2] ? Number(match[2]) : buffer.length - 1;
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || end >= buffer.length) {
+      return res.status(416).set('Content-Range', `bytes */${buffer.length}`).end();
+    }
+    const chunk = buffer.subarray(start, end + 1);
+    return res.status(206)
+      .set('Content-Range', `bytes ${start}-${end}/${buffer.length}`)
+      .set('Content-Length', String(chunk.length))
+      .end(chunk);
+  }
+  res.set('Content-Length', String(buffer.length));
+  res.send(buffer);
 }));
 
 app.get('/api/community/posts/count', asyncRoute(async (req, res) => {
@@ -196,6 +249,22 @@ app.get('/api/community/posts/count', asyncRoute(async (req, res) => {
   res.json({ count: rows[0].count, latest: Math.ceil(Number(rows[0].latest) || 0) });
 }));
 
+const storyMediaTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm']);
+const storyCoverTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const maxStoryAssetBytes = 2.5 * 1024 * 1024;
+const maxCoverPhotoBytes = 2 * 1024 * 1024;
+
+function validateStoryAsset(asset, acceptedTypes, maxBytes) {
+  if (typeof asset !== 'string') return null;
+  const match = asset.match(/^data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/]+={0,2})$/i);
+  if (!match || !acceptedTypes.has(match[1].toLowerCase())) return null;
+  const encoded = match[2];
+  if (encoded.length % 4 !== 0) return null;
+  const bytes = Math.floor(encoded.length * 3 / 4) - (encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0);
+  if (bytes <= 0 || bytes > maxBytes) return null;
+  return { dataUrl: asset, bytes, mimeType: match[1].toLowerCase() };
+}
+
 app.post('/api/community/posts', requireMember, asyncRoute(async (req, res) => {
   const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
   const content = typeof req.body?.content === 'string' ? req.body.content.trim() : '';
@@ -203,9 +272,65 @@ app.post('/api/community/posts', requireMember, asyncRoute(async (req, res) => {
   if (!title || title.length > 80) return res.status(400).json({ error: 'Title is required and must be 80 characters or fewer.' });
   if (!content) return res.status(400).json({ error: 'Story text is required.' });
   if (!['Faith', 'Life', 'Service'].includes(category)) return res.status(400).json({ error: 'Choose a valid story category.' });
+  const coverPhoto = req.body?.coverPhoto
+    ? validateStoryAsset(req.body.coverPhoto, storyCoverTypes, maxCoverPhotoBytes)
+    : null;
+  if (req.body?.coverPhoto && !coverPhoto) {
+    return res.status(400).json({ error: 'Cover photos must be JPG, PNG, or WebP images no larger than 2 MB.' });
+  }
+  const submittedMedia = req.body?.media ?? [];
+  if (!Array.isArray(submittedMedia) || submittedMedia.length > 4) {
+    return res.status(400).json({ error: 'Add no more than 4 story images or videos.' });
+  }
+  const media = [];
+  let totalAssetBytes = coverPhoto?.bytes || 0;
+  for (const [index, item] of submittedMedia.entries()) {
+    const asset = validateStoryAsset(item?.dataUrl, storyMediaTypes, maxStoryAssetBytes);
+    if (!asset) {
+      return res.status(400).json({ error: 'Story media must be JPG, PNG, WebP, MP4, or WebM files.' });
+    }
+    totalAssetBytes += asset.bytes;
+    if (totalAssetBytes > maxStoryAssetBytes) {
+      return res.status(400).json({ error: 'All cover and story media must be 2.5 MB or smaller.' });
+    }
+    const name = typeof item.name === 'string' ? item.name.split(/[\\/]/).pop().slice(0, 100) : `story-media-${index + 1}`;
+    media.push({ name: name || `story-media-${index + 1}`, ...asset });
+  }
   const query = getSql();
-  const rows = await query`INSERT INTO community_posts (member_id, author, title, content, category)
-    VALUES (${req.member.id}, ${req.member.name}, ${title}, ${content}, ${category}) RETURNING id`;
+  const assets = [];
+  if (coverPhoto) {
+    assets.push({
+      kind: 'cover',
+      position: 0,
+      name: 'story-cover',
+      mime_type: coverPhoto.mimeType,
+      data_url: coverPhoto.dataUrl
+    });
+  }
+  for (const [index, item] of media.entries()) {
+    assets.push({
+      kind: 'attachment',
+      position: index,
+      name: item.name,
+      mime_type: item.mimeType,
+      data_url: item.dataUrl
+    });
+  }
+  const rows = await query`WITH new_post AS (
+      INSERT INTO community_posts (member_id, author, title, content, category)
+      VALUES (${req.member.id}, ${req.member.name}, ${title}, ${content}, ${category})
+      RETURNING id
+    ),
+    new_media AS (
+      INSERT INTO community_post_media (post_id, kind, position, name, mime_type, data_url)
+      SELECT new_post.id, asset.kind, asset.position, asset.name, asset.mime_type, asset.data_url
+      FROM new_post
+      CROSS JOIN jsonb_to_recordset(${JSON.stringify(assets)}::jsonb) AS asset(
+        kind TEXT, position INTEGER, name VARCHAR(100), mime_type TEXT, data_url TEXT
+      )
+      RETURNING post_id
+    )
+    SELECT id FROM new_post`;
   const post = await fetchCommunityPost(rows[0].id, req.member.id);
   res.status(201).json({ post: formatCommunityPost(post) });
 }));
@@ -614,6 +739,9 @@ app.get('/api/program/pdf', asyncRoute(async (_req, res) => {
 app.use((error, _req, res, _next) => {
   console.error('API request failed:', error.message);
   if (res.headersSent) return;
+  if (error.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request is too large. Reduce the size of the story text or its attached media and try again.' });
+  }
   res.status(500).json({ error: 'The service is temporarily unavailable.' });
 });
 

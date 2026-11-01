@@ -31,7 +31,8 @@ The backend now uses PostgreSQL tables for administrators, announcements, sermon
 - `GET /api/members/me` — get the signed-in member (requires `Authorization: Bearer <token>`)
 - `DELETE /api/members/session` — sign out and revoke the current session (requires a bearer token)
 - `GET /api/community/posts` — list recent community posts
-- `POST /api/community/posts` — create a post as the signed-in member (`title`, `content`, `category`)
+- `POST /api/community/posts` — create a post as the signed-in member (`title`, `content`, `category`, optional base64 `coverPhoto`, and optional `media` array of `{ name, dataUrl }`)
+- `GET /api/community/posts/:id/media/:mediaId` — stream a story cover photo or attachment
 - `PUT /api/community/posts/:id/like` — toggle the signed-in member's like
 - `POST /api/community/posts/:id/comments` — add a comment (`content`) as the signed-in member
 - `GET /api/announcements` — list announcements
@@ -42,3 +43,5 @@ The backend now uses PostgreSQL tables for administrators, announcements, sermon
 - `POST`, `PUT`, `DELETE /api/sermons` — manage sermons (requires Basic Auth)
 
 Member passwords are stored as scrypt hashes. Member sessions use revocable opaque bearer tokens with a 30-day expiry.
+
+Community story cover photos accept JPG, PNG, and WebP files up to 2 MB. Stories may include up to four JPG, PNG, WebP, MP4, or WebM attachments; cover plus attachments are limited to 2.5 MB total.

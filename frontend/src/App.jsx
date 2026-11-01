@@ -288,66 +288,102 @@ function wrapText(ctx, text, maxWidth, maxLines) {
   return lines;
 }
 
-// Splits post content into blocks so lists stay in point form: bullets and
-// numbers get their own marker with a hanging indent, everything else is a
-// paragraph. Author line breaks and blank lines are preserved.
-function parseContentBlocks(ctx, text, maxWidth) {
-  const blocks = [];
-  const paragraphs = String(text ?? "").split("\n");
-  paragraphs.forEach((paragraph, index) => {
-    const trimmed = paragraph.trim();
-    if (!trimmed) {
-      if (index < paragraphs.length - 1) blocks.push({ kind: "blank", lines: [""] });
-      return;
-    }
+function canvasTextRuns(text, style = {}) {
+  const expression = /\[([^\]]+)\]\(((?:https?:\/\/|www\.)[^\s)]+)\)|(https?:\/\/[^\s<]+|www\.[^\s<]+)|\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|__([^_]+)__|<u>([^<]+)<\/u>|~~([^~]+)~~|==([^=]+)==|<mark>([^<]+)<\/mark>|\*([^*\n]+)\*|_([^\n_]+)_|`([^`]+)`/g;
+  const runs = [];
+  let cursor = 0;
+  let match;
+  const add = (value, extra = {}) => {
+    if (value) runs.push({ text: value, ...style, ...extra });
+  };
 
-    const ordered = paragraph.match(/^(\s*)(\d+)([.)])(\s+)(.*)$/);
-    const bullet = paragraph.match(/^(\s*)([-*+•])(\s+)(.*)$/);
-
-    if (ordered || bullet) {
-      const indent = ordered ? ordered[1] : bullet[1];
-      const marker = ordered ? `${ordered[2]}${ordered[3]}` : "•";
-      const content = ordered ? ordered[5] : bullet[4];
-      const markerWidth = ctx.measureText(`${marker}  `).width;
-      const indentWidth = ctx.measureText(indent).width;
-      const textWidth = Math.max(80, maxWidth - indentWidth - markerWidth);
-      blocks.push({
-        kind: "list",
-        indentWidth,
-        marker,
-        markerWidth,
-        lines: wrapText(ctx, content, textWidth, Infinity),
-      });
-      return;
-    }
-
-    blocks.push({
-      kind: "text",
-      indentWidth: 0,
-      marker: "",
-      markerWidth: 0,
-      lines: wrapText(ctx, trimmed, maxWidth, Infinity),
-    });
-  });
-  return blocks;
+  while ((match = expression.exec(String(text || ""))) !== null) {
+    add(text.slice(cursor, match.index));
+    const [full, linkText, , rawUrl, boldItalic, bold, boldUnder, underline, strike, highlight, highlightMark, italic, italicUnder, code] = match;
+    if (linkText) add(linkText, { underline: true, color: "#2563eb" });
+    else if (rawUrl) add(rawUrl, { underline: true, color: "#2563eb" });
+    else if (boldItalic) add(boldItalic, { bold: true, italic: true });
+    else if (bold || boldUnder) add(bold || boldUnder, { bold: true });
+    else if (underline) add(underline, { underline: true });
+    else if (strike) add(strike, { strike: true });
+    else if (highlight || highlightMark) add(highlight || highlightMark, { highlight: true });
+    else if (italic || italicUnder) add(italic || italicUnder, { italic: true });
+    else if (code) add(code, { code: true });
+    cursor = match.index + full.length;
+  }
+  add(String(text || "").slice(cursor));
+  return runs;
 }
 
-function stripMarkdownForCanvas(text) {
-  if (!text) return "";
-  return String(text)
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^>\s?/gm, "")
-    .replace(/\*\*\*([^*]+)\*\*\*/g, "$1")
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/__([^_]+)__/g, "$1")
-    .replace(/<u>([^<]+)<\/u>/gi, "$1")
-    .replace(/~~([^~]+)~~/g, "$1")
-    .replace(/==([^=]+)==/g, "$1")
-    .replace(/<mark>([^<]+)<\/mark>/gi, "$1")
-    .replace(/\*([^*\n]+)\*/g, "$1")
-    .replace(/_([^\n_]+)_/g, "$1")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\((?:https?:\/\/|www\.)[^\s)]+\)/g, "$1");
+function canvasFont(ctx, size, run) {
+  ctx.font = `${run.bold ? "700" : "400"} ${run.italic ? "italic " : ""}${size}px ${run.code ? "monospace" : "'Inter', system-ui, sans-serif"}`;
+}
+
+function wrapCanvasRuns(ctx, text, maxWidth, size, style = {}) {
+  const lines = [[]];
+  let lineWidth = 0;
+  const append = (value, run) => {
+    if (!value) return;
+    const last = lines[lines.length - 1];
+    if (last.length && JSON.stringify(last[last.length - 1].style) === JSON.stringify(run)) {
+      last[last.length - 1].text += value;
+    } else {
+      last.push({ text: value, style: run });
+    }
+  };
+  const newLine = () => {
+    if (lines[lines.length - 1].length) lines.push([]);
+    lineWidth = 0;
+  };
+
+  canvasTextRuns(text, style).forEach((run) => {
+    const words = run.text.match(/\s+|[^\s]+/g) || [];
+    words.forEach((word) => {
+      canvasFont(ctx, size, run);
+      let candidate = word;
+      if (lineWidth && /^\s+$/.test(word) && lineWidth + ctx.measureText(word).width > maxWidth) {
+        newLine();
+        return;
+      }
+      if (lineWidth && lineWidth + ctx.measureText(candidate).width > maxWidth && !/^\s+$/.test(word)) {
+        newLine();
+      }
+      canvasFont(ctx, size, run);
+      if (ctx.measureText(candidate).width > maxWidth) {
+        for (const character of candidate) {
+          canvasFont(ctx, size, run);
+          const characterWidth = ctx.measureText(character).width;
+          if (lineWidth + characterWidth > maxWidth && lineWidth) newLine();
+          append(character, run);
+          lineWidth += characterWidth;
+        }
+      } else {
+        append(candidate, run);
+        lineWidth += ctx.measureText(candidate).width;
+      }
+    });
+  });
+  return lines.filter((line, index) => line.length || index === 0);
+}
+
+function parseContentBlocks(ctx, content, maxWidth, bodySize) {
+  return parseBlocks(content).map((block) => {
+    if (block.type === "hr") return { kind: "divider", lines: [[]] };
+    if (block.type === "ul" || block.type === "ol") {
+      const items = block.items.map((text, index) => ({
+        marker: block.type === "ul" ? "•" : `${index + 1}.`,
+        lines: wrapCanvasRuns(ctx, text, maxWidth - 54, bodySize),
+      }));
+      return { kind: "list", items, lineCount: items.reduce((count, item) => count + item.lines.length, 0) };
+    }
+    const kind = block.type === "quote" ? "quote" : block.type.startsWith("h") ? block.type : "text";
+    const size = kind === "h1" ? bodySize * 1.45 : kind === "h2" ? bodySize * 1.25 : kind === "h3" ? bodySize * 1.1 : bodySize;
+    const style = kind === "quote" ? { italic: true } : kind.startsWith("h") ? { bold: true } : {};
+    const text = block.type === "quote" ? block.text : block.text;
+    const availableWidth = maxWidth - (kind === "quote" ? 28 : 0);
+    const lines = text.split("\n").flatMap((line) => wrapCanvasRuns(ctx, line, availableWidth, size, style));
+    return { kind, size, lines, lineCount: lines.length };
+  });
 }
 
 async function renderPostImage(post) {
@@ -356,7 +392,8 @@ async function renderPostImage(post) {
   const maxHeight = 4000;
   const padding = 72;
   const contentWidth = width - padding * 2;
-  const top = 104;
+  const coverHeight = post.coverPhoto ? 320 : 0;
+  const top = coverHeight + 104;
   const brandH = 78;
   const chipH = 62;
   const titleGap = 12;
@@ -390,22 +427,13 @@ async function renderPostImage(post) {
 
     ctx.font = `700 ${titleSize}px 'Playfair Display', Georgia, serif`;
     titleLines = wrapText(ctx, post.title || "Community Story", contentWidth, Infinity);
-    ctx.font = `400 ${bodySize}px 'Inter', system-ui, sans-serif`;
-    bodyBlocks = parseContentBlocks(ctx, stripMarkdownForCanvas(post.content || ""), contentWidth);
-
-    // A little breathing room after a list so it reads as its own block.
-    bodyBlocks.forEach((block, index) => {
-      const next = bodyBlocks[index + 1];
-      block.gapAfter =
-        block.kind === "list" && next && next.kind !== "blank"
-          ? Math.round(bodyLineH * 0.4)
-          : 0;
-    });
-
-    bodyHeight = bodyBlocks.reduce(
-      (sum, block) => sum + block.lines.length * bodyLineH + (block.gapAfter || 0),
-      0,
-    );
+    bodyBlocks = parseContentBlocks(ctx, post.content || "", contentWidth, bodySize);
+    bodyHeight = bodyBlocks.reduce((sum, block) => {
+      if (block.kind === "divider") return sum + 28;
+      const lineCount = block.kind === "list" ? block.lineCount : block.lines.length;
+      const size = block.size || bodySize;
+      return sum + lineCount * Math.round(size * 1.55) + 14;
+    }, 0);
 
     const contentEnd =
       top +
@@ -425,6 +453,24 @@ async function renderPostImage(post) {
 
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
+
+  if (post.coverPhoto) {
+    const cover = await loadImage(post.coverPhoto);
+    const scale = Math.max(width / cover.width, coverHeight / cover.height);
+    const coverWidth = cover.width * scale;
+    const scaledHeight = cover.height * scale;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, width, coverHeight);
+    ctx.clip();
+    ctx.drawImage(cover, (width - coverWidth) / 2, (coverHeight - scaledHeight) / 2, coverWidth, scaledHeight);
+    const shade = ctx.createLinearGradient(0, 0, 0, coverHeight);
+    shade.addColorStop(0, "rgba(15, 23, 42, 0.08)");
+    shade.addColorStop(1, "rgba(15, 23, 42, 0.32)");
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, 0, width, coverHeight);
+    ctx.restore();
+  }
 
   let y = top;
 
@@ -483,31 +529,91 @@ async function renderPostImage(post) {
   ctx.fillRect(padding, y, contentWidth, 1);
   y += dividerGap;
 
-  // The complete post — lists stay in point form
-  ctx.font = `400 ${bodySize}px 'Inter', system-ui, sans-serif`;
+  // Draw the same headings, lists, quotes, and inline styles shown in the editor preview.
   bodyBlocks.forEach((block) => {
-    if (block.kind === "blank") {
-      y += bodyLineH;
+    if (block.kind === "divider") {
+      ctx.fillStyle = "#cbd5e1";
+      ctx.fillRect(padding, y + 10, contentWidth, 2);
+      y += 28;
       return;
     }
     if (block.kind === "list") {
-      const markerX = padding + block.indentWidth;
-      const textX = markerX + block.markerWidth;
-      ctx.fillStyle = "#2563eb";
-      ctx.fillText(block.marker, markerX, y + bodyLineH / 2);
-      ctx.fillStyle = "#475569";
-      block.lines.forEach((line) => {
-        ctx.fillText(line, textX, y + bodyLineH / 2);
-        y += bodyLineH;
+      block.items.forEach((item) => {
+        item.lines.forEach((line, index) => {
+          const baseline = y + bodyLineH / 2;
+          if (index === 0) {
+            ctx.fillStyle = "#2563eb";
+            ctx.font = `700 ${bodySize}px 'Inter', system-ui, sans-serif`;
+            ctx.fillText(item.marker, padding, baseline);
+          }
+          let x = padding + 54;
+          line.forEach((run) => {
+            canvasFont(ctx, bodySize, run.style);
+            ctx.fillStyle = run.style.color || "#475569";
+            const measured = ctx.measureText(run.text).width;
+            if (run.style.highlight) {
+              ctx.fillStyle = "#fef08a";
+              ctx.fillRect(x - 2, baseline - bodySize * 0.7, measured + 4, bodySize * 1.05);
+              ctx.fillStyle = "#475569";
+            } else if (run.style.code) {
+              ctx.fillStyle = "#f1f5f9";
+              ctx.fillRect(x - 2, baseline - bodySize * 0.7, measured + 4, bodySize * 1.05);
+              ctx.fillStyle = "#475569";
+            }
+            ctx.fillText(run.text, x, baseline);
+            if (run.style.underline || run.style.strike) {
+              ctx.strokeStyle = ctx.fillStyle;
+              ctx.lineWidth = Math.max(1, bodySize / 16);
+              ctx.beginPath();
+              const decorationY = run.style.strike ? baseline - bodySize * 0.3 : baseline + bodySize * 0.18;
+              ctx.moveTo(x, decorationY);
+              ctx.lineTo(x + measured, decorationY);
+              ctx.stroke();
+            }
+            x += measured;
+          });
+          y += bodyLineH;
+        });
       });
     } else {
-      ctx.fillStyle = "#475569";
+      const size = block.size || bodySize;
+      const lineHeight = Math.round(size * 1.55);
       block.lines.forEach((line) => {
-        ctx.fillText(line, padding, y + bodyLineH / 2);
-        y += bodyLineH;
+        const baseline = y + lineHeight / 2;
+        if (block.kind === "quote") {
+          ctx.fillStyle = "#2563eb";
+          ctx.fillRect(padding + 2, y + 2, 4, lineHeight - 4);
+        }
+        let x = padding + (block.kind === "quote" ? 28 : 0);
+        line.forEach((run) => {
+          canvasFont(ctx, size, run.style);
+          ctx.fillStyle = run.style.color || (block.kind.startsWith("h") ? "#0f172a" : block.kind === "quote" ? "#475569" : "#475569");
+          const measured = ctx.measureText(run.text).width;
+          if (run.style.highlight) {
+            ctx.fillStyle = "#fef08a";
+            ctx.fillRect(x - 2, baseline - size * 0.7, measured + 4, size * 1.05);
+            ctx.fillStyle = "#475569";
+          } else if (run.style.code) {
+            ctx.fillStyle = "#f1f5f9";
+            ctx.fillRect(x - 2, baseline - size * 0.7, measured + 4, size * 1.05);
+            ctx.fillStyle = "#475569";
+          }
+          ctx.fillText(run.text, x, baseline);
+          if (run.style.underline || run.style.strike) {
+            ctx.strokeStyle = ctx.fillStyle;
+            ctx.lineWidth = Math.max(1, size / 16);
+            ctx.beginPath();
+            const decorationY = run.style.strike ? baseline - size * 0.3 : baseline + size * 0.18;
+            ctx.moveTo(x, decorationY);
+            ctx.lineTo(x + measured, decorationY);
+            ctx.stroke();
+          }
+          x += measured;
+        });
+        y += lineHeight;
       });
     }
-    y += block.gapAfter || 0;
+    y += 14;
   });
 
   // Footer
@@ -2167,6 +2273,15 @@ function BottomNav({ route, communityCount = 0 }) {
   );
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    reader.readAsDataURL(file);
+  });
+}
+
 function Community() {
   const [session, setSession] = useState(() => readJson(memberSessionKey, null));
   const user = session?.user || null;
@@ -2190,24 +2305,49 @@ function Community() {
       const blob = await renderPostImage(post);
       if (!blob) throw new Error("The story image could not be created.");
       const filename = `kerugoya-community-story-${post.id}.png`;
-      const file = new File([blob], filename, { type: "image/png" });
+      const files = [new File([blob], filename, { type: "image/png" })];
+      const attachedMedia = [
+        ...(post.coverPhoto
+          ? [{ url: post.coverPhoto, name: "story-cover" }]
+          : []),
+        ...(Array.isArray(post.media) ? post.media : []),
+      ];
+      for (const media of attachedMedia) {
+        const response = await fetch(media.url);
+        if (!response.ok) throw new Error(`Could not load ${media.name || "story media"} for sharing.`);
+        const mediaBlob = await response.blob();
+        let safeName = String(media.name || "story-media").replace(/[^\w.-]+/g, "-");
+        if (!/\.[a-z0-9]{2,5}$/i.test(safeName)) {
+          const extensionByType = {
+            "image/jpeg": ".jpg",
+            "image/png": ".png",
+            "image/webp": ".webp",
+            "video/mp4": ".mp4",
+            "video/webm": ".webm",
+          };
+          safeName += extensionByType[mediaBlob.type] || "";
+        }
+        files.push(new File([mediaBlob], safeName, { type: mediaBlob.type }));
+      }
       const title = post.title || "Community Story";
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (navigator.share && navigator.canShare?.({ files })) {
         await navigator.share({
-          files: [file],
+          files,
           title,
           text: `${title} — a community story from Kerugoya Main SDA Church.`,
         });
       } else {
-        const href = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = href;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(href), 2000);
+        files.forEach((file) => {
+          const href = URL.createObjectURL(file);
+          const link = document.createElement("a");
+          link.href = href;
+          link.download = file.name;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(href), 2000);
+        });
       }
       setSharedId(post.id);
       setTimeout(() => setSharedId(null), 2500);
@@ -2349,6 +2489,25 @@ function Community() {
     }
     const form = event.currentTarget;
     const data = new FormData(form);
+    const coverFile = data.get("coverPhoto");
+    const mediaFiles = data.getAll("media").filter((file) => file instanceof File && file.size);
+    const assetFiles = [
+      ...(coverFile instanceof File && coverFile.size ? [coverFile] : []),
+      ...mediaFiles,
+    ];
+    const coverTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+    const mediaTypes = new Set([...coverTypes, "video/mp4", "video/webm"]);
+    const totalAssetBytes = assetFiles.reduce((total, file) => total + file.size, 0);
+    if (
+      (coverFile instanceof File && coverFile.size &&
+        (!coverTypes.has(coverFile.type) || coverFile.size > 2 * 1024 * 1024)) ||
+      mediaFiles.length > 4 ||
+      mediaFiles.some((file) => !mediaTypes.has(file.type)) ||
+      totalAssetBytes > 2.5 * 1024 * 1024
+    ) {
+      setCommunityMessage("Use a JPG, PNG, or WebP cover (max 2 MB), plus up to 4 JPG, PNG, WebP, MP4, or WebM files totaling 2.5 MB or less.");
+      return;
+    }
     const payload = {
       title: data.get("title").trim(),
       content: data.get("content").trim(),
@@ -2357,6 +2516,15 @@ function Community() {
     setPosting(true);
     setCommunityMessage("");
     try {
+      if (coverFile instanceof File && coverFile.size) {
+        payload.coverPhoto = await readFileAsDataUrl(coverFile);
+      }
+      payload.media = await Promise.all(
+        mediaFiles.map(async (file) => ({
+          name: file.name,
+          dataUrl: await readFileAsDataUrl(file),
+        })),
+      );
       const response = await fetch("/api/community/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
@@ -2514,7 +2682,29 @@ function Community() {
                       </time>
                     </div>
                     <h2>{post.title}</h2>
+                    {post.coverPhoto && (
+                      <img className="post-cover-photo" src={post.coverPhoto} alt={`Cover photo for ${post.title}`} />
+                    )}
                     <FormattedContent text={post.content} />
+                    {!!post.media?.length && (
+                      <div className="post-media">
+                        {post.media.map((media, index) =>
+                          media.type?.startsWith("video/") ? (
+                            <video key={`${post.id}-media-${index}`} controls preload="metadata">
+                              <source src={media.url} type={media.type} />
+                              Your browser does not support this video.
+                            </video>
+                          ) : (
+                            <img
+                              key={`${post.id}-media-${index}`}
+                              src={media.url}
+                              alt={media.name || `Story image ${index + 1}`}
+                              loading="lazy"
+                            />
+                          ),
+                        )}
+                      </div>
+                    )}
                     <div className="post-footer">
                       <span className="post-author">
                         <span className="post-avatar" aria-hidden="true">
@@ -2552,8 +2742,8 @@ function Community() {
                           className="share-btn"
                           type="button"
                           disabled={sharingId === post.id}
-                          aria-label={`Share ${post.title} as an image`}
-                          title="Share this story as an image"
+                          aria-label={`Share ${post.title} with its media`}
+                          title="Share this story and its media"
                           onClick={() => handleShare(post)}
                         >
                           {sharingId === post.id ? (
@@ -2644,6 +2834,25 @@ function Community() {
                     placeholder="Start writing your reflection, testimony, or story... Use the Word toolbar above or Ctrl+B / Ctrl+I to format."
                     required
                   />
+                  <label className="story-media-label">
+                    Cover photo
+                    <input
+                      name="coverPhoto"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                    />
+                    <small>JPG, PNG, or WebP; up to 2 MB.</small>
+                  </label>
+                  <label className="story-media-label">
+                    Story images or videos
+                    <input
+                      name="media"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+                      multiple
+                    />
+                    <small>Up to 4 items; cover and attachments share a 2.5 MB total limit. Images and MP4/WebM video are supported.</small>
+                  </label>
                   <button className="btn" type="submit" disabled={posting}>
                     {posting ? "Publishing…" : "Publish story"} <i className="bx bx-send" />
                   </button>
