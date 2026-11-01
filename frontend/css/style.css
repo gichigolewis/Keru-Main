@@ -5100,6 +5100,38 @@ textarea,
   line-height: 1.1;
 }
 
+.admin-analytics-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+.admin-analytics-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 38px;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid #efcaca;
+  border-radius: var(--admin-radius-sm);
+  background: #fff;
+  color: #a72828;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+.admin-analytics-clear-btn:hover:not(:disabled) {
+  border-color: #df9b9b;
+  background: #fff5f5;
+}
+.admin-analytics-clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ----------------------------------------------------
    Admin Login Screen
    ---------------------------------------------------- */

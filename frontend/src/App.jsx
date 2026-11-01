@@ -3632,6 +3632,23 @@ function AdminDashboard({ auth, username, onLogout }) {
     return entry ? { label: entry[0], count: entry[1] } : { label: username || "Admin", count: 0 };
   };
 
+  const clearAnalytics = () => {
+    if (!visits.length) return;
+    if (!window.confirm(`Clear all ${visits.length} analytics visit records stored in this browser? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      localStorage.removeItem("admin_visits");
+      setVisits([]);
+      setMessage({ type: "success", text: "Analytics visit history cleared for this browser." });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error.message || "Could not clear analytics visit history from this browser.",
+      });
+    }
+  };
+
   // Filtered Data Lists
   const q = searchQuery.toLowerCase().trim();
 
@@ -4939,9 +4956,20 @@ function AdminDashboard({ auth, username, onLogout }) {
               <div className="admin-list-header">
                 <div>
                   <h3>Portal Traffic &amp; Analytics</h3>
-                  <p>Overview of dashboard usage and frequent visitors</p>
+                  <p>Visit history is stored locally in this browser.</p>
                 </div>
-                <span className="admin-list-count">{filteredVisits.length} visits</span>
+                <div className="admin-analytics-header-actions">
+                  <span className="admin-list-count">{filteredVisits.length} visits</span>
+                  <button
+                    className="admin-analytics-clear-btn"
+                    type="button"
+                    disabled={!visits.length}
+                    onClick={clearAnalytics}
+                  >
+                    <i className="bx bx-trash" />
+                    Clear analytics
+                  </button>
+                </div>
               </div>
 
               <div style={{ padding: "1.25rem 1.25rem 0" }}>
