@@ -2,7 +2,7 @@
   "name": "kerugoya-main-sda",
   "private": true,
   "engines": {
-    "node": "24.x"
+    "node": "22.x"
   },
   "workspaces": [
     "frontend",
