@@ -4,15 +4,25 @@ services:
     runtime: node
     plan: free
     region: ohio
-    buildCommand: npm install --prefix backend
+    buildCommand: npm install && npm run build
     startCommand: npm --prefix backend start
     healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
         value: production
-      - key: MONGODB_URI
+      - key: DATABASE_URL
         sync: false
-      - key: ADMIN_USER
+      - key: FIREBASE_PROJECT_ID
         sync: false
-      - key: ADMIN_PASS
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: FIREBASE_ADMIN_EMAILS
+        sync: false
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
         sync: false

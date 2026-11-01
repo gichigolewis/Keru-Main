@@ -1,52 +1,62 @@
-# Backend: Express, Vercel Functions, and Neon Postgres
+# Backend: Express, Vercel Functions, Neon Postgres, and Firebase
 
-The Express API runs as Vercel Node.js Functions and uses Neon Postgres through Neon's serverless HTTP driver. The first API request creates the required tables and indexes automatically.
+The Express API runs as Vercel Node.js Functions and uses Neon Postgres through Neon's serverless HTTP driver. Firebase Authentication handles member and administrator login. The first API request initializes the required database tables and indexes.
+
+## Configure Firebase Authentication
+
+1. Create or select a Firebase project and enable **Authentication → Sign-in method → Email/Password**.
+2. Register a Firebase web app. Copy `frontend/.env.example` to `frontend/.env.local` and fill in the web app's API key, auth domain, project ID, and app ID. These client settings are public; do not put a service-account key in frontend code.
+3. Create a Firebase service account with Firebase Authentication administration permissions. Copy `backend/.env.example` to `backend/.env`, set `FIREBASE_PROJECT_ID`, add the service-account JSON to `FIREBASE_SERVICE_ACCOUNT_JSON`, and list the verified bootstrap administrator email in `FIREBASE_ADMIN_EMAILS`. Keep the service-account key private and out of Git.
+4. Create the bootstrap administrator with Email/Password in the Firebase console and verify the email. It must match an entry in `FIREBASE_ADMIN_EMAILS`.
+
+Member registration sends an email verification link. Members must verify their email before signing in or posting. The admin portal uses the same Firebase project; administrators are Firebase Auth users with the `admin` custom claim. Admins can add further admin accounts from the dashboard.
+
+Existing database passwords are no longer used for login. Users need Firebase Auth accounts. When a verified Firebase member signs in with an email matching an old member record, the backend links that Firebase UID to the old profile so their posts and reactions remain associated.
 
 ## Configure Neon locally
 
 1. Create a Neon project and database. In the Neon dashboard, open **Connect** and copy the Node.js connection string (prefer the pooled connection string for serverless use).
-2. Copy `backend/.env.example` to `backend/.env` and set `DATABASE_URL`, `ADMIN_USER`, and `ADMIN_PASS`. Keep this file private; it is ignored by Git. Do not paste the URL into chat or frontend settings.
+2. Set `DATABASE_URL` in `backend/.env`; keep this file private. Do not paste the URL into chat or frontend settings.
 3. Install from the repository root with `npm install`, then run `npm --prefix backend start`. The local API listens on port 3000. In a separate terminal, run `npm --prefix frontend run dev`.
 
-The database URL should begin with `postgresql://` or `postgres://` and retain Neon's `sslmode=require` option. URL-encode reserved characters in credentials. Use a long, unique admin password.
+The database URL should begin with `postgresql://` or `postgres://` and retain Neon's `sslmode=require` option. URL-encode reserved characters in credentials.
 
-## Configure Vercel production
+## Configure production
 
-In Vercel Project → **Settings → Environment Variables**, set these for Production (and Preview/Development if needed):
+In the hosting environment, set:
 
 - `DATABASE_URL` — Neon pooled connection URL
-- `ADMIN_USER` — initial dashboard login
-- `ADMIN_PASS` — initial dashboard password
+- `FIREBASE_PROJECT_ID` — Firebase project ID
+- `FIREBASE_SERVICE_ACCOUNT_JSON` — private service-account JSON for the backend
+- `FIREBASE_ADMIN_EMAILS` — comma-separated verified bootstrap admin email addresses
+- `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` — public Firebase web-app config, available at frontend build time
 
-Then deploy from the repository root. The API routes are provided by `api/index.js` and `api/[...path].js`; `/api/healthz` checks function availability without connecting to the database, and `/api/ping` checks database readiness.
+Add the deployed site domain to Firebase Authentication's authorized domains. The API routes are provided by `api/index.js` and `api/[...path].js`; `/api/healthz` checks function availability without connecting to the database, and `/api/ping` checks database readiness.
 
 ## Data migration note
 
-The backend now uses PostgreSQL tables for administrators, announcements, church leaders, sermons, members, sessions, posts, likes, and comments. Creating the Neon project does not copy data from the old MongoDB Atlas cluster. The new schema is initialized automatically, but existing Atlas records must be exported and migrated separately if you need to retain them. Keep Atlas intact until you have verified the migrated data and sign-in on Neon.
+PostgreSQL stores church content and member profiles. Firebase Auth stores login accounts and credentials. Existing database passwords are not accepted; members need to create Firebase accounts. Verified accounts that use an existing member email are linked to that profile on first use, preserving community posts and reactions.
 
 ## API endpoints
 
-- `POST /api/members/register` — create a member account and start a session (`name`, `email`, `password`)
-- `POST /api/members/login` — sign in and start a session (`email`, `password`)
-- `GET /api/members/me` — get the signed-in member (requires `Authorization: Bearer <token>`)
-- `DELETE /api/members/session` — sign out and revoke the current session (requires a bearer token)
+- `GET /api/members/me` — get the signed-in Firebase member profile (requires a Firebase ID token as a bearer token)
 - `GET /api/community/posts` — list recent community posts
-- `POST /api/community/posts` — create a post as the signed-in member (`title`, `content`, `category`, optional base64 `coverPhoto`, and optional `media` array of `{ name, dataUrl }`)
-- `GET /api/community/posts/:id/media/:mediaId` — stream a story cover photo or attachment
+- `POST /api/community/posts` — create a post as the signed-in member (`title`, `content`, `category`)
+- `GET /api/community/posts/:id/media/:mediaId` — stream existing story media
 - `PUT /api/community/posts/:id/like` — toggle the signed-in member's like
 - `POST /api/community/posts/:id/comments` — add a comment (`content`) as the signed-in member
 - `GET /api/announcements` — list announcements
-- `POST`, `PUT`, `DELETE /api/announcements` — manage announcements (requires Basic Auth)
+- `POST`, `PUT`, `DELETE /api/announcements` — manage announcements (requires a Firebase admin ID token)
 - `GET /api/leaders` — list public church leader profiles
 - `GET /api/leaders/:id/image` — display a leader portrait
-- `GET /api/admin/leaders` — list leader profiles in the admin dashboard (requires Basic Auth)
-- `POST /api/leaders`, `PUT /api/leaders/:id`, `DELETE /api/leaders/:id` — manage leader profiles (requires Basic Auth)
-- `POST /api/admin-login` — validate an admin login
-- `GET`, `POST`, `DELETE /api/admins` — manage admin accounts (requires Basic Auth)
+- `GET /api/admin/leaders` — list leader profiles in the admin dashboard (requires a Firebase admin ID token)
+- `POST /api/leaders`, `PUT /api/leaders/:id`, `DELETE /api/leaders/:id` — manage leader profiles (requires a Firebase admin ID token)
+- `GET /api/auth-check` — validate administrator access for the current Firebase user
+- `GET`, `POST`, `DELETE /api/admins` — manage Firebase administrator accounts (requires a Firebase admin ID token)
+- `GET /api/admin/users` — list Firebase member accounts (requires a Firebase admin ID token)
+- `DELETE /api/admin/users/:uid` — revoke a member's Firebase refresh tokens (requires a Firebase admin ID token)
 - `GET /api/sermons` — list published sermons
-- `POST`, `PUT`, `DELETE /api/sermons` — manage sermons (requires Basic Auth)
-
-Member passwords are stored as scrypt hashes. Member sessions use revocable opaque bearer tokens with a 30-day expiry.
+- `POST`, `PUT`, `DELETE /api/sermons` — manage sermons (requires a Firebase admin ID token)
 
 Community story cover photos accept JPG, PNG, and WebP files up to 2 MB. Stories may include up to four JPG, PNG, WebP, MP4, or WebM attachments; cover plus attachments are limited to 2.5 MB total.
 

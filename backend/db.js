@@ -22,6 +22,7 @@ async function ensureDatabase() {
         password TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`;
+      await query`UPDATE admins SET password = '' WHERE password <> ''`;
       await query`CREATE TABLE IF NOT EXISTS announcements (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         title TEXT NOT NULL,
@@ -51,11 +52,18 @@ async function ensureDatabase() {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(80) NOT NULL,
         email VARCHAR(254) NOT NULL UNIQUE,
-        password_salt TEXT NOT NULL,
-        password_hash TEXT NOT NULL,
+        password_salt TEXT,
+        password_hash TEXT,
+        firebase_uid TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`;
+      await query`ALTER TABLE members ALTER COLUMN password_salt DROP NOT NULL`;
+      await query`ALTER TABLE members ALTER COLUMN password_hash DROP NOT NULL`;
+      await query`ALTER TABLE members ADD COLUMN IF NOT EXISTS firebase_uid TEXT`;
+      await query`CREATE UNIQUE INDEX IF NOT EXISTS members_firebase_uid_idx ON members(firebase_uid) WHERE firebase_uid IS NOT NULL`;
+      await query`UPDATE members SET password_salt = NULL, password_hash = NULL
+        WHERE password_salt IS NOT NULL OR password_hash IS NOT NULL`;
       await query`CREATE TABLE IF NOT EXISTS member_sessions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,

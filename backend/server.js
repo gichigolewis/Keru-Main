@@ -8,10 +8,9 @@ if (!process.env.DATABASE_URL) {
 if (!process.env.DATABASE_URL) {
   require('dotenv').config({ path: path.join(__dirname, '../.env') });
 }
-const { createHash, randomBytes, randomUUID, scrypt: scryptCallback, timingSafeEqual } = require('crypto');
-const { promisify } = require('util');
 const { getSql, ensureDatabase } = require('./db');
-const scrypt = promisify(scryptCallback);
+const { applicationDefault, cert, getApps, initializeApp } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
 
 const app = express();
 const FRONTEND_PATH = path.join(__dirname, '../frontend');
@@ -20,10 +19,56 @@ const APP_ENTRY = fs.existsSync(path.join(BUILD_PATH, 'index.html'))
   ? path.join(BUILD_PATH, 'index.html')
   : path.join(FRONTEND_PATH, 'index.html');
 const PORT = process.env.PORT || 3000;
-const ADMIN_USER = process.env.ADMIN_USER?.trim();
-const ADMIN_PASS = process.env.ADMIN_PASS;
+const FIREBASE_ADMIN_EMAILS = new Set(
+  (process.env.FIREBASE_ADMIN_EMAILS || '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean)
+);
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value || '');
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+let firebaseApp;
+
+function getFirebaseAuth() {
+  if (!firebaseApp) {
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    const options = {
+      projectId: process.env.FIREBASE_PROJECT_ID?.trim() || undefined
+    };
+    if (serviceAccountJson) {
+      let serviceAccount;
+      try {
+        serviceAccount = JSON.parse(serviceAccountJson);
+      } catch {
+        const error = new Error('FIREBASE_SERVICE_ACCOUNT_JSON must contain valid service-account JSON.');
+        error.code = 'FIREBASE_ADMIN_NOT_CONFIGURED';
+        throw error;
+      }
+      options.credential = cert(serviceAccount);
+    } else {
+      if (
+        !process.env.GOOGLE_APPLICATION_CREDENTIALS &&
+        !process.env.GOOGLE_CLOUD_PROJECT &&
+        !process.env.GCLOUD_PROJECT &&
+        !process.env.K_SERVICE
+      ) {
+        const error = new Error('Configure Firebase Admin with FIREBASE_SERVICE_ACCOUNT_JSON or Google Application Default Credentials.');
+        error.code = 'FIREBASE_ADMIN_NOT_CONFIGURED';
+        throw error;
+      }
+      options.credential = applicationDefault();
+    }
+    firebaseApp = getApps()[0] || initializeApp(options);
+  }
+  return getAuth(firebaseApp);
+}
+
+function isFirebaseAdmin(user) {
+  return Boolean(
+    user?.email_verified === true &&
+    (user.admin === true || FIREBASE_ADMIN_EMAILS.has(String(user.email || '').toLowerCase()))
+  );
+}
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -61,33 +106,70 @@ function formatMember(member) {
   return { id: member.id, name: member.name, email: member.email };
 }
 
-async function createPasswordHash(password, salt = randomBytes(16).toString('hex')) {
-  const hash = await scrypt(password, salt, 64);
-  return { salt, hash: hash.toString('hex') };
-}
-
-async function issueMemberSession(member) {
-  const query = getSql();
-  const token = randomBytes(32).toString('base64url');
-  const tokenHash = createHash('sha256').update(token).digest('hex');
-  await query`INSERT INTO member_sessions (member_id, token_hash, expires_at)
-    VALUES (${member.id}, ${tokenHash}, ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)})`;
-  return { token, member: formatMember(member) };
-}
-
-async function resolveMember(req) {
+async function decodeFirebaseUser(req) {
   const authorization = req.get('authorization') || '';
   if (!authorization.startsWith('Bearer ')) return null;
   const token = authorization.slice(7).trim();
   if (!token) return null;
-  const tokenHash = createHash('sha256').update(token).digest('hex');
+  try {
+    return await getFirebaseAuth().verifyIdToken(token, true);
+  } catch (error) {
+    if (error.code === 'FIREBASE_ADMIN_NOT_CONFIGURED') throw error;
+    return null;
+  }
+}
+
+async function resolveMember(req) {
+  const firebaseUser = await decodeFirebaseUser(req);
+  if (!firebaseUser?.uid || !firebaseUser.email || firebaseUser.email_verified !== true) return null;
+  const email = firebaseUser.email.trim().toLowerCase();
+  const firebaseName = String(firebaseUser.name || '').trim().slice(0, 80);
+  const name = firebaseName || email.split('@')[0] || 'Church member';
   const query = getSql();
-  const rows = await query`SELECT m.id, m.name, m.email, s.id AS session_id
-    FROM member_sessions s JOIN members m ON m.id = s.member_id
-    WHERE s.token_hash = ${tokenHash} AND s.expires_at > NOW() LIMIT 1`;
+  let rows = await query`SELECT id, name, email, firebase_uid FROM members WHERE firebase_uid = ${firebaseUser.uid} LIMIT 1`;
+  if (rows.length) {
+    const updated = await query`UPDATE members SET
+        name = CASE WHEN ${firebaseName} <> '' THEN ${firebaseName} ELSE name END,
+        email = ${email}, updated_at = NOW()
+      WHERE firebase_uid = ${firebaseUser.uid}
+      RETURNING id, name, email`;
+    req.member = updated[0];
+    req.firebaseUser = firebaseUser;
+    return req.member;
+  }
+
+  rows = await query`SELECT id, name, email, firebase_uid FROM members WHERE email = ${email} LIMIT 1`;
+  if (rows.length) {
+    if (rows[0].firebase_uid && rows[0].firebase_uid !== firebaseUser.uid) return null;
+    const linked = await query`UPDATE members SET
+        firebase_uid = ${firebaseUser.uid},
+        name = CASE WHEN ${firebaseName} <> '' THEN ${firebaseName} ELSE name END,
+        updated_at = NOW()
+      WHERE id = ${rows[0].id} AND firebase_uid IS NULL
+      RETURNING id, name, email`;
+    if (linked.length) {
+      req.member = linked[0];
+      req.firebaseUser = firebaseUser;
+      return req.member;
+    }
+    rows = await query`SELECT id, name, email FROM members WHERE firebase_uid = ${firebaseUser.uid} LIMIT 1`;
+    if (!rows.length) return null;
+    req.member = rows[0];
+    req.firebaseUser = firebaseUser;
+    return req.member;
+  }
+
+  try {
+    rows = await query`INSERT INTO members (name, email, firebase_uid)
+      VALUES (${name}, ${email}, ${firebaseUser.uid})
+      RETURNING id, name, email`;
+  } catch (error) {
+    if (error.code !== '23505') throw error;
+    rows = await query`SELECT id, name, email FROM members WHERE firebase_uid = ${firebaseUser.uid} LIMIT 1`;
+  }
   if (!rows.length) return null;
   req.member = rows[0];
-  req.memberSession = { id: rows[0].session_id };
+  req.firebaseUser = firebaseUser;
   return req.member;
 }
 
@@ -102,50 +184,9 @@ const requireMember = asyncRoute(async (req, res, next) => {
   next();
 });
 
-app.post('/api/members/register', asyncRoute(async (req, res) => {
-  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  const password = typeof req.body?.password === 'string' ? req.body.password : '';
-  if (name.length < 2 || name.length > 80) return res.status(400).json({ error: 'Enter a name between 2 and 80 characters.' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: 'Enter a valid email address.' });
-  if (password.length < 8 || password.length > 128) return res.status(400).json({ error: 'Password must be between 8 and 128 characters.' });
-  const { salt, hash } = await createPasswordHash(password);
-  const query = getSql();
-  try {
-    const rows = await query`INSERT INTO members (name, email, password_salt, password_hash)
-      VALUES (${name}, ${email}, ${salt}, ${hash})
-      RETURNING id, name, email`;
-    res.status(201).json(await issueMemberSession(rows[0]));
-  } catch (error) {
-    if (error.code === '23505') return res.status(409).json({ error: 'An account with that email already exists.' });
-    throw error;
-  }
-}));
-
-app.post('/api/members/login', asyncRoute(async (req, res) => {
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  const password = typeof req.body?.password === 'string' ? req.body.password : '';
-  const query = getSql();
-  const rows = await query`SELECT id, name, email, password_salt, password_hash FROM members WHERE email = ${email} LIMIT 1`;
-  const member = rows[0];
-  if (!member || password.length > 128) return res.status(401).json({ error: 'Email or password is incorrect.' });
-  const candidate = await scrypt(password, member.password_salt, 64);
-  const expected = Buffer.from(member.password_hash, 'hex');
-  if (candidate.length !== expected.length || !timingSafeEqual(candidate, expected)) {
-    return res.status(401).json({ error: 'Email or password is incorrect.' });
-  }
-  res.json(await issueMemberSession(member));
-}));
-
 app.get('/api/members/me', requireMember, (req, res) => {
   res.json({ member: formatMember(req.member) });
 });
-
-app.delete('/api/members/session', requireMember, asyncRoute(async (req, res) => {
-  const query = getSql();
-  await query`DELETE FROM member_sessions WHERE id = ${req.memberSession.id}`;
-  res.status(204).end();
-}));
 
 async function fetchCommunityPost(id, viewerId = null) {
   const query = getSql();
@@ -367,17 +408,8 @@ app.post('/api/community/posts/:id/comments', requireMember, asyncRoute(async (r
 app.delete('/api/community/posts/:id', asyncRoute(async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Story not found.' });
 
-  let isAdmin = false;
-  const authHeader = req.headers.authorization || '';
-  if (authHeader.startsWith('Basic ')) {
-    const creds = Buffer.from(authHeader.split(' ')[1], 'base64').toString();
-    const separator = creds.indexOf(':');
-    const username = separator < 0 ? '' : creds.slice(0, separator);
-    const password = separator < 0 ? '' : creds.slice(separator + 1);
-    if (await findAdmin(username, password)) {
-      isAdmin = true;
-    }
-  }
+  const firebaseUser = await decodeFirebaseUser(req);
+  const isAdmin = isFirebaseAdmin(firebaseUser);
 
   let member = null;
   if (!isAdmin) {
@@ -453,21 +485,6 @@ app.get('/api/leaders/:id/image', asyncRoute(async (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.send(Buffer.from(match[2], 'base64'));
 }));
-
-app.post('/api/admin-login', asyncRoute(async (req, res) => {
-  const { username, password } = req.body || {};
-  const admin = await findAdmin(username, password);
-  if (!admin) return res.status(401).json({ error: 'Invalid admin credentials' });
-  res.json({ ok: true, username: admin.username });
-}));
-
-async function findAdmin(username, password) {
-  if (!username || !password) return null;
-  if (ADMIN_USER && ADMIN_PASS && username === ADMIN_USER && password === ADMIN_PASS) return { username: ADMIN_USER };
-  const query = getSql();
-  const rows = await query`SELECT id, username FROM admins WHERE username = ${username} AND password = ${password} LIMIT 1`;
-  return rows[0] || null;
-}
 
 function formatSermon(sermon) {
   return { id: sermon.id, title: sermon.title, youtubeId: sermon.youtube_id, date: sermon.date };
@@ -551,21 +568,49 @@ function buildProgramPdf(title, body) {
 }
 
 const checkAuth = asyncRoute(async (req, res, next) => {
-  const auth = req.headers.authorization || '';
-  if (!auth.startsWith('Basic ')) {
-    res.set('WWW-Authenticate', 'Basic realm="Admin"');
-    return res.status(401).end('Unauthorized');
+  const firebaseUser = await decodeFirebaseUser(req);
+  if (!isFirebaseAdmin(firebaseUser)) {
+    return res.status(401).json({ error: 'A verified Firebase administrator account is required.' });
   }
-  const creds = Buffer.from(auth.split(' ')[1], 'base64').toString();
-  const separator = creds.indexOf(':');
-  const username = separator < 0 ? '' : creds.slice(0, separator);
-  const password = separator < 0 ? '' : creds.slice(separator + 1);
-  if (await findAdmin(username, password)) return next();
-  res.set('WWW-Authenticate', 'Basic realm="Admin"');
-  return res.status(401).end('Unauthorized');
+  if (FIREBASE_ADMIN_EMAILS.has(String(firebaseUser.email || '').toLowerCase()) && firebaseUser.admin !== true) {
+    const auth = getFirebaseAuth();
+    const user = await auth.getUser(firebaseUser.uid);
+    await auth.setCustomUserClaims(firebaseUser.uid, { ...user.customClaims, admin: true });
+  }
+  req.admin = firebaseUser;
+  next();
 });
 
-app.get('/api/auth-check', checkAuth, (_req, res) => res.json({ ok: true }));
+app.get('/api/auth-check', checkAuth, (req, res) => {
+  res.json({ ok: true, uid: req.admin.uid, email: req.admin.email });
+});
+
+async function listFirebaseUsers() {
+  const auth = getFirebaseAuth();
+  const users = [];
+  let pageToken;
+  do {
+    const page = await auth.listUsers(1000, pageToken);
+    users.push(...page.users);
+    pageToken = page.pageToken;
+  } while (pageToken);
+  return users;
+}
+
+function isAdminAccount(user) {
+  return user.customClaims?.admin === true ||
+    FIREBASE_ADMIN_EMAILS.has(String(user.email || '').toLowerCase());
+}
+
+function formatFirebaseAdmin(user) {
+  return {
+    id: user.uid,
+    username: user.email,
+    name: user.displayName || user.email,
+    createdAt: user.metadata.creationTime,
+    isBootstrap: FIREBASE_ADMIN_EMAILS.has(String(user.email || '').toLowerCase())
+  };
+}
 
 function parseLeaderInput(body) {
   const name = typeof body?.name === 'string' ? body.name.trim() : '';
@@ -641,58 +686,85 @@ app.delete('/api/leaders/:id', checkAuth, asyncRoute(async (req, res) => {
   res.status(204).end();
 }));
 
-app.get('/api/admins', checkAuth, asyncRoute(async (_req, res) => {
-  const query = getSql();
-  const admins = await query`SELECT id, username, created_at AS "createdAt" FROM admins ORDER BY created_at DESC`;
-  res.json(admins);
+app.get('/api/admins', checkAuth, asyncRoute(async (req, res) => {
+  const users = await listFirebaseUsers();
+  res.json(users.filter(isAdminAccount).map((user) => ({
+    ...formatFirebaseAdmin(user),
+    isSelf: user.uid === req.admin.uid
+  })));
 }));
 
 app.post('/api/admins', checkAuth, asyncRoute(async (req, res) => {
-  const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
-  if (!username || !password) return res.status(400).json({ error: 'username and password required' });
-  const query = getSql();
+  if (name.length < 2 || name.length > 80) return res.status(400).json({ error: 'Enter a name between 2 and 80 characters.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: 'Enter a valid email address.' });
+  if (password.length < 8 || password.length > 128) return res.status(400).json({ error: 'Password must be between 8 and 128 characters.' });
   try {
-    const rows = await query`INSERT INTO admins (username, password) VALUES (${username}, ${password})
-      RETURNING id, username, created_at AS "createdAt"`;
-    res.status(201).json(rows[0]);
+    const auth = getFirebaseAuth();
+    const user = await auth.createUser({
+      displayName: name,
+      email,
+      emailVerified: true,
+      password
+    });
+    try {
+      await auth.setCustomUserClaims(user.uid, { admin: true });
+    } catch (error) {
+      await auth.deleteUser(user.uid);
+      throw error;
+    }
+    const created = await auth.getUser(user.uid);
+    res.status(201).json(formatFirebaseAdmin(created));
   } catch (error) {
-    if (error.code === '23505') return res.status(409).json({ error: 'That username already exists' });
+    if (error.code === 'auth/email-already-exists') return res.status(409).json({ error: 'An account with that email already exists.' });
+    if (error.code?.startsWith('auth/')) return res.status(400).json({ error: error.message });
     throw error;
   }
 }));
 
 app.delete('/api/admins/:id', checkAuth, asyncRoute(async (req, res) => {
-  if (!isUuid(req.params.id)) return res.status(404).json({ error: 'not found' });
-  const query = getSql();
-  const rows = await query`DELETE FROM admins WHERE id = ${req.params.id} RETURNING id`;
-  if (!rows.length) return res.status(404).json({ error: 'not found' });
+  if (!req.params.id || req.params.id.length > 128) return res.status(404).json({ error: 'Administrator not found.' });
+  if (req.params.id === req.admin.uid) return res.status(400).json({ error: 'You cannot remove your own administrator account.' });
+  const auth = getFirebaseAuth();
+  const user = await auth.getUser(req.params.id).catch((error) => {
+    if (error.code === 'auth/user-not-found') return null;
+    throw error;
+  });
+  if (!user || !isAdminAccount(user)) return res.status(404).json({ error: 'Administrator not found.' });
+  if (FIREBASE_ADMIN_EMAILS.has(String(user.email || '').toLowerCase())) {
+    return res.status(400).json({ error: 'A bootstrap administrator cannot be removed here. Update FIREBASE_ADMIN_EMAILS to change bootstrap access.' });
+  }
+  const admins = (await listFirebaseUsers()).filter(isAdminAccount);
+  if (admins.length <= 1) return res.status(400).json({ error: 'At least one administrator account must remain.' });
+  await auth.deleteUser(user.uid);
   res.status(204).end();
 }));
 
 app.get('/api/admin/users', checkAuth, asyncRoute(async (_req, res) => {
-  const query = getSql();
-  const sessions = await query`
-    SELECT 
-      s.id AS "sessionId",
-      m.id AS "memberId",
-      m.name,
-      m.email,
-      s.created_at AS "loggedInAt",
-      s.expires_at AS "expiresAt"
-    FROM member_sessions s
-    JOIN members m ON m.id = s.member_id
-    WHERE s.expires_at > NOW()
-    ORDER BY s.created_at DESC
-  `;
-  res.json(sessions);
+  const users = await listFirebaseUsers();
+  res.json(users.filter((user) => !isAdminAccount(user)).map((user) => ({
+    sessionId: user.uid,
+    memberId: user.uid,
+    name: user.displayName || user.email,
+    email: user.email,
+    loggedInAt: user.metadata.lastSignInTime,
+    lastSignInAt: user.metadata.lastSignInTime,
+    createdAt: user.metadata.creationTime,
+    disabled: user.disabled
+  })));
 }));
 
 app.delete('/api/admin/users/:sessionId', checkAuth, asyncRoute(async (req, res) => {
-  if (!isUuid(req.params.sessionId)) return res.status(404).json({ error: 'not found' });
-  const query = getSql();
-  const rows = await query`DELETE FROM member_sessions WHERE id = ${req.params.sessionId} RETURNING id`;
-  if (!rows.length) return res.status(404).json({ error: 'not found' });
+  if (!req.params.sessionId || req.params.sessionId.length > 128) return res.status(404).json({ error: 'Member account not found.' });
+  const auth = getFirebaseAuth();
+  const user = await auth.getUser(req.params.sessionId).catch((error) => {
+    if (error.code === 'auth/user-not-found') return null;
+    throw error;
+  });
+  if (!user || isAdminAccount(user)) return res.status(404).json({ error: 'Member account not found.' });
+  await auth.revokeRefreshTokens(user.uid);
   res.status(204).end();
 }));
 
@@ -845,6 +917,9 @@ app.use((error, _req, res, _next) => {
   if (res.headersSent) return;
   if (error.type === 'entity.too.large') {
     return res.status(413).json({ error: 'Request payload is too large. Reduce the size of the submitted content or its attached media and try again.' });
+  }
+  if (error.code === 'FIREBASE_ADMIN_NOT_CONFIGURED') {
+    return res.status(503).json({ error: error.message });
   }
   res.status(500).json({ error: 'The service is temporarily unavailable.' });
 });

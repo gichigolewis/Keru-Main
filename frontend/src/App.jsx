@@ -1,8 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import logoImage from "../assets/images/sda logo.png";
+import {
+  createUserWithEmailAndPassword,
+  firebaseAuth,
+  getFirebaseAuthHeaders,
+  onAuthStateChanged,
+  onIdTokenChanged,
+  requireFirebaseAuth,
+  sendEmailVerification,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+} from "./firebase";
 
 const imagePath = logoImage;
-const memberSessionKey = "keruMemberSession";
 const announcementsKey = "announcements";
 const announcementsSeenKey = "keruAnnouncementsSeenAt";
 const communitySeenKey = "keruCommunitySeenAt";
@@ -1020,33 +1031,38 @@ function Sermons() {
 
 function Account({ register = false }) {
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("error");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submit = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const payload = {
-      email: data.get("email").trim().toLowerCase(),
-      password: data.get("password"),
-    };
-    if (register) payload.name = data.get("name").trim();
+    const email = String(data.get("email")).trim().toLowerCase();
+    const password = String(data.get("password"));
+    const name = register ? String(data.get("name")).trim() : "";
     setSubmitting(true);
     setMessage("");
+    setMessageType("error");
     try {
-      const response = await fetch(`/api/members/${register ? "register" : "login"}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setMessage(result.error || "We could not sign you in. Please try again.");
-        return;
+      const auth = requireFirebaseAuth();
+      if (register) {
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(credential.user, { displayName: name });
+        await sendEmailVerification(credential.user);
+        await signOut(auth);
+        setMessageType("success");
+        setMessage("Account created. Check your email and verify your address before signing in.");
+      } else {
+        const credential = await signInWithEmailAndPassword(auth, email, password);
+        if (!credential.user.emailVerified) {
+          await sendEmailVerification(credential.user);
+          await signOut(auth);
+          throw new Error("Please verify your email address. We sent you a new verification link.");
+        }
+        navigate("/blogs.html");
       }
-      localStorage.setItem(memberSessionKey, JSON.stringify({ token: result.token, user: result.member }));
-      navigate("/blogs.html");
-    } catch {
-      setMessage("We could not connect to the member service. Please try again shortly.");
+    } catch (error) {
+      setMessage(error.message || "We could not authenticate your account. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -1142,7 +1158,7 @@ function Account({ register = false }) {
             {submitting ? "Please wait…" : register ? "Create account" : "Sign in"}{" "}
             <i className="bx bx-right-arrow-alt" />
           </button>
-          <p className="form-message is-error" role="status">
+          <p className={`form-message ${messageType === "error" ? "is-error" : "is-success"}`} role="status">
             {message}
           </p>
           <p className="account-switch">
@@ -2334,7 +2350,7 @@ function readFileAsDataUrl(file) {
 }
 
 function Community() {
-  const [session, setSession] = useState(() => readJson(memberSessionKey, null));
+  const [session, setSession] = useState(null);
   const user = session?.user || null;
   const [posts, setPosts] = useState([]);
   const [category, setCategory] = useState("All");
@@ -2415,46 +2431,47 @@ function Community() {
 
   useEffect(() => {
     let active = true;
-    const storedSession = readJson(memberSessionKey, null);
-    const token = storedSession?.token;
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-    if (!token) {
-      localStorage.removeItem(memberSessionKey);
-      setSession(null);
-    }
-
-    (async () => {
-      if (token) {
-        try {
-          const response = await fetch("/api/members/me", { headers });
-          const result = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error("Session expired");
-          if (active) {
-            const nextSession = { token, user: result.member };
-            setSession(nextSession);
-            localStorage.setItem(memberSessionKey, JSON.stringify(nextSession));
-          }
-        } catch {
-          localStorage.removeItem(memberSessionKey);
-          if (active) setSession(null);
-        }
-      }
-
+    localStorage.removeItem("keruMemberSession");
+    const loadPosts = async (firebaseUser) => {
       try {
+        let headers = {};
+        if (firebaseUser?.emailVerified) {
+          headers = await getFirebaseAuthHeaders(firebaseUser);
+          const memberResponse = await fetch("/api/members/me", { headers });
+          const memberResult = await memberResponse.json().catch(() => ({}));
+          if (!memberResponse.ok) {
+            throw new Error(memberResult.error || "Your member profile could not be loaded.");
+          }
+          if (active) setSession({ firebaseUser, user: memberResult.member });
+        } else if (active) {
+          setSession(null);
+        }
         const response = await fetch("/api/community/posts", { headers });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || "Unable to load stories.");
         if (active) setPosts(Array.isArray(result) ? result : []);
-      } catch {
-        if (active) setCommunityMessage("Stories could not be loaded. Check your connection and try again.");
+      } catch (error) {
+        if (active) {
+          setSession(null);
+          setCommunityMessage(error.message || "Stories could not be loaded. Check your connection and try again.");
+        }
       } finally {
         if (active) setFeedLoading(false);
       }
-    })();
+    };
+
+    if (!firebaseAuth) {
+      void loadPosts(null);
+      return () => { active = false; };
+    }
+
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (firebaseUser) => {
+      void loadPosts(firebaseUser);
+    });
 
     return () => {
       active = false;
+      unsubscribe();
     };
   }, []);
 
@@ -2469,7 +2486,7 @@ function Community() {
   };
 
   const like = async (post) => {
-    if (!session?.token) {
+    if (!session?.firebaseUser) {
       navigate("/login.html");
       return;
     }
@@ -2477,7 +2494,7 @@ function Community() {
     try {
       const response = await fetch(`/api/community/posts/${post.id}/like`, {
         method: "PUT",
-        headers: { Authorization: `Bearer ${session.token}` },
+        headers: await getFirebaseAuthHeaders(session.firebaseUser),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Could not update your reaction.");
@@ -2489,7 +2506,7 @@ function Community() {
 
   const addComment = async (event, post) => {
     event.preventDefault();
-    if (!session?.token) {
+    if (!session?.firebaseUser) {
       navigate("/login.html");
       return;
     }
@@ -2499,7 +2516,7 @@ function Community() {
     try {
       const response = await fetch(`/api/community/posts/${post.id}/comments`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+        headers: await getFirebaseAuthHeaders(session.firebaseUser, { "Content-Type": "application/json" }),
         body: JSON.stringify({ content }),
       });
       const result = await response.json().catch(() => ({}));
@@ -2519,7 +2536,7 @@ function Community() {
     try {
       const response = await fetch(`/api/community/posts/${post.id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${session.token}` },
+        headers: await getFirebaseAuthHeaders(session.firebaseUser),
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -2534,7 +2551,7 @@ function Community() {
 
   const publish = async (event) => {
     event.preventDefault();
-    if (!session?.token) {
+    if (!session?.firebaseUser) {
       navigate("/login.html");
       return;
     }
@@ -2550,7 +2567,7 @@ function Community() {
     try {
       const response = await fetch("/api/community/posts", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+        headers: await getFirebaseAuthHeaders(session.firebaseUser, { "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       });
       const result = await response.json().catch(() => ({}));
@@ -2589,15 +2606,14 @@ function Community() {
                 className="text-button"
                 type="button"
                 onClick={() => {
-                  const token = session?.token;
-                  if (token) {
-                    fetch("/api/members/session", {
-                      method: "DELETE",
-                      headers: { Authorization: `Bearer ${token}` },
-                    }).catch(() => {});
-                  }
-                  localStorage.removeItem(memberSessionKey);
-                  setSession(null);
+                  (async () => {
+                    try {
+                      if (firebaseAuth) await signOut(firebaseAuth);
+                      setSession(null);
+                    } catch (error) {
+                      setCommunityMessage(error.message || "Could not sign out. Please try again.");
+                    }
+                  })();
                 }}
               >
                 Sign out
@@ -2886,7 +2902,7 @@ function Community() {
 }
 
 function AdminLogin({ onLogin }) {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -2896,18 +2912,23 @@ function AdminLogin({ onLogin }) {
     event.preventDefault();
     setLoading(true);
     setMessage("");
-    const header = `Basic ${window.btoa(unescape(encodeURIComponent(`${username}:${password}`)))}`;
     try {
-      const response = await fetch("/api/admin-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+      const auth = requireFirebaseAuth();
+      const credential = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+      if (!credential.user.emailVerified) {
+        await signOut(auth);
+        throw new Error("Verify your email address before signing in to the admin portal.");
+      }
+      const token = await credential.user.getIdToken(true);
+      const response = await fetch("/api/auth-check", {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error("Invalid admin credentials. Please verify your username and password.");
-      const result = await response.json();
-      sessionStorage.setItem("adminAuth", header);
-      sessionStorage.setItem("adminUser", result.username);
-      onLogin(header, result.username);
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        await signOut(auth);
+        throw new Error(result.error || "This Firebase account is not authorized to access the admin portal.");
+      }
+      onLogin(token, result.email);
     } catch (error) {
       setMessage(error.message || "Could not sign in. Please try again.");
     } finally {
@@ -2946,15 +2967,16 @@ function AdminLogin({ onLogin }) {
 
         <form onSubmit={submit} className="admin-field" style={{ gap: "1.1rem" }}>
           <div className="admin-field">
-            <label htmlFor="admin-username">Username</label>
+            <label htmlFor="admin-email">Email address</label>
             <div className="admin-login-input-wrap">
               <i className="bx bx-user" />
               <input
-                id="admin-username"
-                name="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username"
+                id="admin-email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter admin email"
                 required
                 autoComplete="username"
               />
@@ -3041,7 +3063,7 @@ function AdminDashboard({ auth, username, onLogout }) {
   const [message, setMessage] = useState(null);
 
   const tabListRef = useRef(null);
-  const headers = { "Content-Type": "application/json", Authorization: auth };
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${auth}` };
 
   const TABS = [
     { id: "announcements", label: "Announcements", icon: "bx-megaphone", count: announcements.length },
@@ -3070,13 +3092,13 @@ function AdminDashboard({ auth, username, onLogout }) {
         programRes,
       ] = await Promise.all([
         fetch("/api/announcements", { cache: "no-store" }),
-        fetch("/api/admin/leaders", { headers: { Authorization: auth }, cache: "no-store" }),
+        fetch("/api/admin/leaders", { headers: { Authorization: `Bearer ${auth}` }, cache: "no-store" }),
         fetch("/api/sermons", { cache: "no-store" }),
-        fetch("/api/admins", { headers: { Authorization: auth }, cache: "no-store" }),
+        fetch("/api/admins", { headers: { Authorization: `Bearer ${auth}` }, cache: "no-store" }),
         fetch("/api/community/posts", { cache: "no-store" }),
-        fetch("/api/admin/users", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
-        fetch("/api/prayer-requests", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
-        fetch("/api/feedback", { headers: { Authorization: auth }, cache: "no-store" }).catch(() => ({ ok: false })),
+        fetch("/api/admin/users", { headers: { Authorization: `Bearer ${auth}` }, cache: "no-store" }).catch(() => ({ ok: false })),
+        fetch("/api/prayer-requests", { headers: { Authorization: `Bearer ${auth}` }, cache: "no-store" }).catch(() => ({ ok: false })),
+        fetch("/api/feedback", { headers: { Authorization: `Bearer ${auth}` }, cache: "no-store" }).catch(() => ({ ok: false })),
         fetch("/api/program", { cache: "no-store" }).catch(() => ({ ok: false })),
       ]);
 
@@ -3274,7 +3296,7 @@ function AdminDashboard({ auth, username, onLogout }) {
     try {
       const response = await fetch(endpoint, {
         method: "DELETE",
-        headers: { Authorization: auth },
+        headers: { Authorization: `Bearer ${auth}` },
       });
       if (response.status === 401) {
         throw new Error("Admin session expired. Please sign out and sign in again.");
@@ -4360,8 +4382,8 @@ function AdminDashboard({ auth, username, onLogout }) {
             <div className="admin-list-section">
               <div className="admin-list-header">
                 <div>
-                  <h3>Logged In Members</h3>
-                  <p>Church members currently holding active signed-in sessions</p>
+                  <h3>Firebase Member Accounts</h3>
+                  <p>Member accounts managed through Firebase Authentication</p>
                 </div>
                 <span className="admin-list-count">{filteredUsers.length}</span>
               </div>
@@ -4375,31 +4397,25 @@ function AdminDashboard({ auth, username, onLogout }) {
                       <div className="admin-item-main">
                         <div className="admin-item-meta">
                           <strong style={{ fontSize: "0.95rem" }}>{session.name}</strong>
-                          <span className="online-badge">
-                            <span className="online-dot" /> Online Now
-                          </span>
+                          {session.disabled && <span className="admin-tag is-amber">Disabled</span>}
                         </div>
                         <p className="admin-item-byline" style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
                           <i className="bx bx-envelope" /> {session.email}
                         </p>
                         <div className="admin-item-stats">
                           <span>
-                            <i className="bx bx-time" /> Signed in:{" "}
-                            {new Date(session.loggedInAt).toLocaleString()}
-                          </span>
-                          <span>
-                            <i className="bx bx-calendar-check" /> Expires:{" "}
-                            {new Date(session.expiresAt).toLocaleDateString()}
+                            <i className="bx bx-time" /> Last sign in:{" "}
+                            {session.lastSignInAt ? new Date(session.lastSignInAt).toLocaleString() : "Never"}
                           </span>
                         </div>
                       </div>
                       <button
                         className="admin-item-action-btn"
                         type="button"
-                        aria-label={`Disconnect session for ${session.name}`}
-                        title="Disconnect session"
+                        aria-label={`Revoke sessions for ${session.name}`}
+                        title="Revoke Firebase sessions"
                         disabled={deletingId === `/api/admin/users/${session.sessionId}`}
-                        onClick={() => remove(`/api/admin/users/${session.sessionId}`, "user session")}
+                        onClick={() => remove(`/api/admin/users/${session.sessionId}`, "member sessions")}
                       >
                         <i
                           className={`bx ${
@@ -4414,8 +4430,8 @@ function AdminDashboard({ auth, username, onLogout }) {
                 ) : (
                   <div className="admin-empty-state">
                     <i className="bx bx-user-x" />
-                    <h4>No active member sessions</h4>
-                    <p>Signed in members will appear here with live session information.</p>
+                    <h4>No Firebase member accounts</h4>
+                    <p>Member accounts will appear here after they register through Firebase Authentication.</p>
                   </div>
                 )}
               </div>
@@ -4431,31 +4447,40 @@ function AdminDashboard({ auth, username, onLogout }) {
                     <i className="bx bx-user-plus" />
                   </div>
                   <div className="admin-panel-title">
-                    <h3>Add New Administrator</h3>
-                    <p>Grant staff access to trusted leaders and department heads.</p>
+                    <h3>Add Firebase Administrator</h3>
+                    <p>Create a Firebase account and grant it access to the church admin portal.</p>
                   </div>
                 </div>
                 <form className="admin-form" onSubmit={(e) => submit(e, "/api/admins")}>
                   <div className="admin-field">
-                    <label>
-                      <span>Admin Username</span>
-                    </label>
+                    <label htmlFor="admin-name"><span>Administrator name</span></label>
                     <input
-                      name="username"
-                      placeholder="e.g. pastor_john"
-                      autoComplete="off"
+                      id="admin-name"
+                      name="name"
+                      placeholder="e.g. Pastor John"
                       required
                     />
                   </div>
                   <div className="admin-field">
-                    <label>
-                      <span>Temporary Password</span>
-                    </label>
+                    <label htmlFor="admin-account-email"><span>Email address</span></label>
                     <input
+                      id="admin-account-email"
+                      name="email"
+                      type="email"
+                      placeholder="admin@example.com"
+                      autoComplete="email"
+                      required
+                    />
+                  </div>
+                  <div className="admin-field">
+                    <label htmlFor="admin-account-password"><span>Temporary password</span></label>
+                    <input
+                      id="admin-account-password"
                       name="password"
                       type="password"
                       placeholder="Create secure temporary password"
                       autoComplete="new-password"
+                      minLength={8}
                       required
                     />
                   </div>
@@ -4479,7 +4504,7 @@ function AdminDashboard({ auth, username, onLogout }) {
                 <div className="admin-list-header">
                   <div>
                     <h3>Current Administrators</h3>
-                    <p>Team members authorized to manage the church portal</p>
+                    <p>Firebase accounts authorized to manage the church portal</p>
                   </div>
                   <span className="admin-list-count">{filteredAdmins.length}</span>
                 </div>
@@ -4491,7 +4516,8 @@ function AdminDashboard({ auth, username, onLogout }) {
                           <i className="bx bx-shield-quarter" />
                         </div>
                         <div className="admin-item-main">
-                          <div className="admin-item-title">{item.username}</div>
+                          <div className="admin-item-title">{item.name || item.username}</div>
+                          <p className="admin-item-byline">{item.username}</p>
                           <div className="admin-item-meta">
                             <span className="admin-tag is-blue">Church Administrator</span>
                           </div>
@@ -4500,7 +4526,8 @@ function AdminDashboard({ auth, username, onLogout }) {
                           className="admin-item-action-btn"
                           type="button"
                           aria-label={`Remove admin: ${item.username}`}
-                          disabled={deletingId === `/api/admins/${item.id}`}
+                          title={item.isBootstrap ? "Bootstrap administrator is configured in environment settings" : item.isSelf ? "You cannot remove your own administrator account" : "Remove administrator"}
+                          disabled={item.isBootstrap || item.isSelf || deletingId === `/api/admins/${item.id}`}
                           onClick={() => remove(`/api/admins/${item.id}`, "administrator")}
                         >
                           <i
@@ -4603,18 +4630,56 @@ function AdminDashboard({ auth, username, onLogout }) {
 }
 
 function Admin() {
-  const [auth, setAuth] = useState(
-    () => sessionStorage.getItem("adminAuth") || "",
-  );
-  const [username, setUsername] = useState(
-    () => sessionStorage.getItem("adminUser") || "",
-  );
+  const [auth, setAuth] = useState("");
+  const [username, setUsername] = useState("");
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    sessionStorage.removeItem("adminAuth");
+    sessionStorage.removeItem("adminUser");
+    if (!firebaseAuth) {
+      setCheckingAuth(false);
+      return;
+    }
+    const unsubscribe = onIdTokenChanged(firebaseAuth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setAuth("");
+        setUsername("");
+        setCheckingAuth(false);
+        return;
+      }
+      try {
+        const token = await firebaseUser.getIdToken();
+        const response = await fetch("/api/auth-check", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          setAuth("");
+          setUsername("");
+        } else {
+          setAuth(token);
+          setUsername(result.email || firebaseUser.email || "");
+        }
+      } catch {
+        setAuth("");
+        setUsername("");
+      } finally {
+        setCheckingAuth(false);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  if (checkingAuth) {
+    return <div className="admin-login-wrapper">Checking Firebase sign-in…</div>;
+  }
   if (!auth)
     return (
       <AdminLogin
-        onLogin={(nextAuth, nextUsername) => {
-          setAuth(nextAuth);
-          setUsername(nextUsername);
+        onLogin={(token, email) => {
+          setAuth(token);
+          setUsername(email);
         }}
       />
     );
@@ -4622,10 +4687,14 @@ function Admin() {
     <AdminDashboard
       auth={auth}
       username={username}
-      onLogout={() => {
-        sessionStorage.removeItem("adminAuth");
-        sessionStorage.removeItem("adminUser");
-        setAuth("");
+      onLogout={async () => {
+        try {
+          if (firebaseAuth) await signOut(firebaseAuth);
+          setAuth("");
+          setUsername("");
+        } catch (error) {
+          console.error("Could not sign out of Firebase:", error);
+        }
       }}
     />
   );

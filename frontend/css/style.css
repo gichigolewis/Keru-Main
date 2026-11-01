@@ -630,6 +630,9 @@ aside .side-menu a:hover {
 .form-message.is-error {
   color: #b42318;
 }
+.form-message.is-success {
+  color: #16704f;
+}
 .account-switch {
   margin-top: 1.5rem;
   color: var(--text-light);
