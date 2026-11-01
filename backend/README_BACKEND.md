@@ -6,7 +6,7 @@ The Express API runs as Vercel Node.js Functions and uses Neon Postgres through 
 
 1. Create or select a Firebase project and enable **Authentication → Sign-in method → Email/Password**.
 2. Register a Firebase web app. Copy `frontend/.env.example` to `frontend/.env.local` and fill in the web app's API key, auth domain, project ID, and app ID. These client settings are public; do not put a service-account key in frontend code.
-3. Create a Firebase service account with Firebase Authentication administration permissions. Copy `backend/.env.example` to `backend/.env`, set `FIREBASE_PROJECT_ID`, add the service-account JSON to `FIREBASE_SERVICE_ACCOUNT_JSON`, and list the verified bootstrap administrator email in `FIREBASE_ADMIN_EMAILS`. Keep the service-account key private and out of Git.
+3. Create a Firebase service account with Firebase Authentication administration permissions. Copy `backend/.env.example` to `backend/.env` and set `FIREBASE_PROJECT_ID` and `FIREBASE_ADMIN_EMAILS`. For local development, either put the service-account JSON in `FIREBASE_SERVICE_ACCOUNT_JSON` or set `GOOGLE_APPLICATION_CREDENTIALS` to the path of a private service-account JSON file. Keep the key file private and out of Git. For hosted deployments, store the JSON only in the host's secret environment configuration.
 4. Create the bootstrap administrator with Email/Password in the Firebase console and verify the email. It must match an entry in `FIREBASE_ADMIN_EMAILS`.
 
 Member registration sends an email verification link. Members must verify their email before signing in or posting. The admin portal uses the same Firebase project; administrators are Firebase Auth users with the `admin` custom claim. Admins can add further admin accounts from the dashboard.
