@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
   onIdTokenChanged,
   requireFirebaseAuth,
+  sendPasswordResetEmail,
   sendEmailVerification,
   signInWithEmailAndPassword,
   signOut,
@@ -2906,12 +2907,15 @@ function AdminLogin({ onLogin }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("error");
 
   const submit = async (event) => {
     event.preventDefault();
     setLoading(true);
     setMessage("");
+    setMessageType("error");
     try {
       const auth = requireFirebaseAuth();
       const credential = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
@@ -2931,8 +2935,32 @@ function AdminLogin({ onLogin }) {
       onLogin(token, result.email);
     } catch (error) {
       setMessage(error.message || "Could not sign in. Please try again.");
+      setMessageType("error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const sendPasswordReset = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setMessage("Enter your email address above, then choose Forgot password.");
+      setMessageType("error");
+      document.getElementById("admin-email")?.focus();
+      return;
+    }
+
+    setResetLoading(true);
+    setMessage("");
+    try {
+      await sendPasswordResetEmail(requireFirebaseAuth(), normalizedEmail);
+      setMessage("If an account exists for that email, Firebase has sent a password reset link.");
+      setMessageType("success");
+    } catch (error) {
+      setMessage(error.message || "Could not send a password reset email. Please try again.");
+      setMessageType("error");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -2949,7 +2977,7 @@ function AdminLogin({ onLogin }) {
         </div>
 
         {message && (
-          <div className="admin-alert is-error" role="alert">
+          <div className={`admin-alert is-${messageType}`} role={messageType === "error" ? "alert" : "status"}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
               <i className="bx bx-error-circle" style={{ fontSize: "1.2rem" }} />
               {message}
@@ -3009,9 +3037,18 @@ function AdminLogin({ onLogin }) {
           </div>
 
           <button
+            type="button"
+            className="admin-login-forgot-password"
+            onClick={sendPasswordReset}
+            disabled={loading || resetLoading}
+          >
+            {resetLoading ? "Sending reset link..." : "Forgot password?"}
+          </button>
+
+          <button
             className="admin-btn-primary"
             type="submit"
-            disabled={loading}
+            disabled={loading || resetLoading}
             style={{ width: "100%", marginTop: "0.5rem" }}
           >
             {loading ? (
