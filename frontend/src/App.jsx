@@ -747,6 +747,115 @@ async function renderPostImage(post) {
   );
 }
 
+async function renderLeaderIdCard(leader) {
+  const width = 1200;
+  const height = 720;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Your browser could not prepare the ID card.");
+
+  ctx.fillStyle = "#f7f8f4";
+  ctx.fillRect(0, 0, width, height);
+  ctx.save();
+  roundRect(ctx, 0, 0, width, height, 34);
+  ctx.clip();
+
+  const panel = ctx.createLinearGradient(0, 0, 440, height);
+  panel.addColorStop(0, "#0b4a3b");
+  panel.addColorStop(1, "#123a32");
+  ctx.fillStyle = panel;
+  ctx.fillRect(0, 0, 440, height);
+  ctx.fillStyle = "#d4a84e";
+  ctx.fillRect(440, 0, 9, height);
+
+  if (leader.imageUrl) {
+    const portrait = await loadImage(leader.imageUrl);
+    ctx.save();
+    roundRect(ctx, 68, 96, 304, 382, 22);
+    ctx.clip();
+    const scale = Math.max(304 / portrait.width, 382 / portrait.height);
+    const portraitWidth = portrait.width * scale;
+    const portraitHeight = portrait.height * scale;
+    ctx.drawImage(
+      portrait,
+      68 + (304 - portraitWidth) / 2,
+      96 + (382 - portraitHeight) / 2,
+      portraitWidth,
+      portraitHeight,
+    );
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    roundRect(ctx, 68, 96, 304, 382, 22);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "600 120px Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(
+      String(leader.name || "L").trim().charAt(0).toUpperCase(),
+      220,
+      286,
+    );
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+  }
+
+  let logo;
+  try {
+    logo = await loadImage(imagePath);
+  } catch {
+    logo = null;
+  }
+  if (logo) {
+    const logoSize = 48;
+    const scale = logoSize / Math.max(logo.width, logo.height);
+    ctx.drawImage(logo, 68, 548, logo.width * scale, logo.height * scale);
+  }
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 20px 'Inter', system-ui, sans-serif";
+  ctx.fillText("KERUGOYA MAIN SDA CHURCH", 132, 575);
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.font = "500 15px 'Inter', system-ui, sans-serif";
+  ctx.fillText("LEADERSHIP  ·  KERUGOYA, KENYA", 68, 635);
+
+  ctx.fillStyle = "#a17b31";
+  ctx.font = "700 17px 'Inter', system-ui, sans-serif";
+  ctx.fillText("CHURCH LEADERSHIP", 510, 155);
+  ctx.fillStyle = "#183c32";
+  ctx.font = "700 54px 'Playfair Display', Georgia, serif";
+  const nameLines = wrapText(ctx, leader.name || "Church Leader", 610, 2);
+  nameLines.forEach((line, index) => ctx.fillText(line, 510, 235 + index * 64));
+  const nameBottom = 235 + (nameLines.length - 1) * 64;
+
+  ctx.fillStyle = "#48665b";
+  ctx.font = "700 25px 'Inter', system-ui, sans-serif";
+  const roleLines = wrapText(ctx, leader.role || "Church Leader", 610, 2);
+  roleLines.forEach((line, index) => ctx.fillText(line, 510, nameBottom + 56 + index * 34));
+
+  const descriptionTop = nameBottom + 112 + Math.max(0, roleLines.length - 1) * 34;
+  ctx.fillStyle = "#64746c";
+  ctx.font = "400 20px 'Inter', system-ui, sans-serif";
+  const descriptionLines = wrapText(ctx, leader.description || "Serving the church community with faith and care.", 610, 4);
+  descriptionLines.forEach((line, index) => ctx.fillText(line, 510, descriptionTop + index * 32));
+
+  ctx.fillStyle = "#d9dfd6";
+  ctx.fillRect(510, 594, 610, 1);
+  ctx.fillStyle = "#48665b";
+  ctx.font = "600 17px 'Inter', system-ui, sans-serif";
+  ctx.fillText("SERVING WITH FAITH · GROWING IN COMMUNITY", 510, 635);
+  ctx.restore();
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Your browser could not create the ID card image."));
+    }, "image/png");
+  });
+}
+
 const links = [
   ["/", "bx-home-alt-2", "Home"],
   ["/about.html", "bx-user", "About"],
@@ -3188,6 +3297,9 @@ function AdminDashboard({ auth, username, onLogout }) {
   const [editingLeader, setEditingLeader] = useState(null);
   const [leaderImageData, setLeaderImageData] = useState("");
   const [removeLeaderImage, setRemoveLeaderImage] = useState(false);
+  const [leaderCardPreview, setLeaderCardPreview] = useState(null);
+  const [leaderCardBusy, setLeaderCardBusy] = useState(false);
+  const [leaderCardMessage, setLeaderCardMessage] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [message, setMessage] = useState(null);
 
@@ -3393,6 +3505,44 @@ function AdminDashboard({ auth, username, onLogout }) {
     setEditingLeader(null);
     setLeaderImageData("");
     setRemoveLeaderImage(false);
+  };
+
+  const shareLeaderCard = async (downloadOnly = false) => {
+    if (!leaderCardPreview || leaderCardBusy) return;
+    setLeaderCardBusy(true);
+    setLeaderCardMessage(null);
+    try {
+      const blob = await renderLeaderIdCard(leaderCardPreview);
+      const filename = `kerugoya-leader-${String(leaderCardPreview.name || "profile")
+        .trim()
+        .toLowerCase()
+        .replace(/[^\w-]+/g, "-")}-id-card.png`;
+      const file = new File([blob], filename, { type: "image/png" });
+      if (!downloadOnly && navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `${leaderCardPreview.name} — Church Leader ID`,
+          text: `${leaderCardPreview.role} at Kerugoya Main SDA Church.`,
+        });
+        setLeaderCardMessage({ type: "success", text: "Leader ID card shared successfully." });
+      } else {
+        const href = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = href;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(href), 2000);
+        setLeaderCardMessage({ type: "success", text: "Leader ID card downloaded as a PNG." });
+      }
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        setLeaderCardMessage({ type: "error", text: error.message || "Could not create the leader ID card." });
+      }
+    } finally {
+      setLeaderCardBusy(false);
+    }
   };
 
   const selectLeaderImage = async (event) => {
@@ -3966,6 +4116,18 @@ function AdminDashboard({ auth, username, onLogout }) {
                         {leader.description && <p className="admin-item-byline">{leader.description}</p>}
                       </div>
                       <button
+                        className="leader-card-open-btn"
+                        type="button"
+                        aria-label={`Create shareable ID card for ${leader.name}`}
+                        onClick={() => {
+                          setLeaderCardMessage(null);
+                          setLeaderCardPreview(leader);
+                        }}
+                      >
+                        <i className="bx bx-id-card" />
+                        <span>ID card</span>
+                      </button>
+                      <button
                         className="admin-item-action-btn is-edit"
                         type="button"
                         aria-label={`Edit ${leader.name}`}
@@ -3992,6 +4154,96 @@ function AdminDashboard({ auth, username, onLogout }) {
                   )}
                 </div>
               </div>
+
+              {leaderCardPreview && (
+                <div
+                  className="leader-card-modal-backdrop"
+                  onMouseDown={(event) => {
+                    if (event.target === event.currentTarget && !leaderCardBusy) {
+                      setLeaderCardPreview(null);
+                    }
+                  }}
+                >
+                  <section
+                    className="leader-card-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="leader-card-modal-title"
+                  >
+                    <div className="leader-card-modal-heading">
+                      <div>
+                        <span className="leader-card-modal-eyebrow">Share a leadership profile</span>
+                        <h3 id="leader-card-modal-title">Leader ID card</h3>
+                        <p>Share or download a polished profile card for this church leader.</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="admin-item-action-btn"
+                        aria-label="Close ID card preview"
+                        disabled={leaderCardBusy}
+                        onClick={() => setLeaderCardPreview(null)}
+                      >
+                        <i className="bx bx-x" />
+                      </button>
+                    </div>
+
+                    <article className="leader-id-card-preview">
+                      <div className="leader-id-card-brand">
+                        {leaderCardPreview.imageUrl ? (
+                          <img src={leaderCardPreview.imageUrl} alt={`${leaderCardPreview.name} portrait`} />
+                        ) : (
+                          <div className="leader-id-card-placeholder" aria-hidden="true">
+                            {(leaderCardPreview.name || "L").trim().charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="leader-id-card-church">
+                          <img src={imagePath} alt="" />
+                          <span>Kerugoya Main SDA Church</span>
+                        </div>
+                        <span className="leader-id-card-location">Leadership · Kerugoya, Kenya</span>
+                      </div>
+                      <div className="leader-id-card-details">
+                        <span className="leader-id-card-kicker">Church leadership</span>
+                        <h4>{leaderCardPreview.name}</h4>
+                        <p className="leader-id-card-role">{leaderCardPreview.role}</p>
+                        <p className="leader-id-card-description">
+                          {leaderCardPreview.description || "Serving the church community with faith and care."}
+                        </p>
+                        <span className="leader-id-card-motto">Serving with faith · Growing in community</span>
+                      </div>
+                    </article>
+
+                    {leaderCardMessage && (
+                      <p
+                        className={`leader-card-feedback is-${leaderCardMessage.type}`}
+                        role={leaderCardMessage.type === "error" ? "alert" : "status"}
+                      >
+                        {leaderCardMessage.text}
+                      </p>
+                    )}
+                    <div className="leader-card-modal-actions">
+                      <button
+                        type="button"
+                        className="admin-btn-primary"
+                        disabled={leaderCardBusy}
+                        onClick={() => shareLeaderCard(false)}
+                      >
+                        <i className={`bx ${leaderCardBusy ? "bx-loader-alt bx-spin" : "bx-share-alt"}`} />
+                        {leaderCardBusy ? "Preparing card..." : "Share ID card"}
+                      </button>
+                      <button
+                        type="button"
+                        className="leader-action-secondary"
+                        disabled={leaderCardBusy}
+                        onClick={() => shareLeaderCard(true)}
+                      >
+                        <i className="bx bx-download" />
+                        Download PNG
+                      </button>
+                    </div>
+                  </section>
+                </div>
+              )}
             </>
           )}
 

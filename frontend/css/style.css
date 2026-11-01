@@ -4571,6 +4571,233 @@ textarea,
   overflow-wrap: anywhere;
 }
 
+.leader-card-open-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  padding: 0 0.7rem;
+  border: 1px solid #cbd9cf;
+  border-radius: 8px;
+  background: #f5faf6;
+  color: #286344;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+.leader-card-open-btn:hover {
+  border-color: #7eaa8d;
+  background: #eaf4ed;
+}
+.leader-card-open-btn i {
+  font-size: 1.1rem;
+}
+
+.leader-card-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: 1.5rem;
+  background: rgba(15, 29, 22, 0.68);
+  backdrop-filter: blur(5px);
+}
+.leader-card-modal {
+  width: min(100%, 900px);
+  padding: clamp(1.1rem, 3vw, 2rem);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.24);
+}
+.leader-card-modal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.35rem;
+}
+.leader-card-modal-eyebrow,
+.leader-id-card-kicker {
+  color: #9a762e;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.leader-card-modal-heading h3 {
+  margin: 0.3rem 0 0;
+  color: #183c32;
+  font-size: clamp(1.3rem, 3vw, 1.7rem);
+}
+.leader-card-modal-heading p {
+  margin: 0.35rem 0 0;
+  color: #64746c;
+  font-size: 0.92rem;
+}
+.leader-id-card-preview {
+  display: grid;
+  grid-template-columns: 38% minmax(0, 1fr);
+  overflow: hidden;
+  aspect-ratio: 5 / 3;
+  border-radius: 16px;
+  background: #f7f8f4;
+  box-shadow: 0 18px 42px rgba(21, 47, 36, 0.14);
+}
+.leader-id-card-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-width: 0;
+  padding: clamp(0.8rem, 3vw, 2rem);
+  border-right: 5px solid #d4a84e;
+  background: linear-gradient(145deg, #0b4a3b, #123a32);
+  color: #fff;
+}
+.leader-id-card-brand > img,
+.leader-id-card-placeholder {
+  display: block;
+  width: min(100%, 190px);
+  height: 54%;
+  min-height: 100px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.12);
+}
+.leader-id-card-placeholder {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-family: Georgia, serif;
+  font-size: clamp(3rem, 10vw, 6rem);
+}
+.leader-id-card-church {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: clamp(0.64rem, 1.5vw, 0.9rem);
+  font-weight: 750;
+}
+.leader-id-card-church img {
+  width: clamp(24px, 4vw, 40px);
+  height: clamp(24px, 4vw, 40px);
+  object-fit: contain;
+}
+.leader-id-card-location {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: clamp(0.52rem, 1.2vw, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.leader-id-card-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  padding: clamp(1rem, 4vw, 3rem);
+}
+.leader-id-card-details h4 {
+  margin: 0.45rem 0 0;
+  color: #183c32;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(1.2rem, 4vw, 2.45rem);
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+.leader-id-card-role {
+  margin: 0.65rem 0 0;
+  color: #48665b;
+  font-size: clamp(0.75rem, 2vw, 1.16rem);
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+.leader-id-card-description {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0.8rem 0 0;
+  color: #64746c;
+  font-size: clamp(0.66rem, 1.6vw, 0.95rem);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+.leader-id-card-motto {
+  margin-top: 1.2rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #d9dfd6;
+  color: #48665b;
+  font-size: clamp(0.58rem, 1.35vw, 0.8rem);
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+.leader-card-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  margin-top: 1.4rem;
+}
+.leader-card-modal-actions .leader-action-secondary {
+  gap: 0.4rem;
+}
+.leader-card-feedback {
+  margin: 1rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+.leader-card-feedback.is-success {
+  color: #26734d;
+}
+.leader-card-feedback.is-error {
+  color: #b42318;
+}
+
+@media (max-width: 560px) {
+  .leader-card-modal-backdrop {
+    padding: 0.6rem;
+  }
+  .leader-card-modal {
+    padding: 0.85rem;
+    border-radius: 14px;
+  }
+  .leader-id-card-brand {
+    padding: 0.55rem;
+  }
+  .leader-id-card-brand > img,
+  .leader-id-card-placeholder {
+    min-height: 0;
+  }
+  .leader-id-card-details {
+    padding: 0.75rem;
+  }
+  .leader-id-card-motto {
+    margin-top: 0.55rem;
+    padding-top: 0.45rem;
+  }
+  .leader-card-modal-actions {
+    flex-direction: column;
+  }
+  .leader-card-modal-actions > button {
+    width: 100%;
+  }
+  .leader-card-open-btn {
+    width: 36px;
+    padding: 0;
+  }
+  .leader-card-open-btn span {
+    display: none;
+  }
+}
+
 .admin-btn-primary {
   display: inline-flex;
   align-items: center;
