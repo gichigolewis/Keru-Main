@@ -11,6 +11,18 @@ if (!process.env.DATABASE_URL) {
 const { createHash, randomBytes, randomUUID, scrypt: scryptCallback, timingSafeEqual } = require('crypto');
 const { promisify } = require('util');
 const { getSql, ensureDatabase } = require('./db');
+const {
+  S3Client,
+  PutObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  GetObjectCommand
+} = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const scrypt = promisify(scryptCallback);
 
 const app = express();
@@ -22,8 +34,39 @@ const APP_ENTRY = fs.existsSync(path.join(BUILD_PATH, 'index.html'))
 const PORT = process.env.PORT || 3000;
 const ADMIN_USER = process.env.ADMIN_USER?.trim();
 const ADMIN_PASS = process.env.ADMIN_PASS;
+const R2_BUCKET = process.env.R2_BUCKET_NAME?.trim();
+const R2_MAX_OBJECT_BYTES = 5 * 1024 ** 4;
+const R2_MULTIPART_CHUNK_BYTES = 64 * 1024 ** 2;
+const R2_SINGLE_UPLOAD_BYTES = 100 * 1024 ** 2;
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value || '');
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+let r2Client;
+
+function getR2Client() {
+  const accountId = process.env.R2_ACCOUNT_ID?.trim();
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  if (!accountId || !accessKeyId || !secretAccessKey || !R2_BUCKET) {
+    const error = new Error('Cloudflare R2 is not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME.');
+    error.code = 'R2_NOT_CONFIGURED';
+    throw error;
+  }
+  if (!r2Client) {
+    r2Client = new S3Client({
+      region: 'auto',
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId, secretAccessKey }
+    });
+  }
+  return r2Client;
+}
+
+function storyMediaTypeAllowed(kind, type) {
+  const imageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  return kind === 'cover'
+    ? imageTypes.includes(type)
+    : [...imageTypes, 'video/mp4', 'video/webm'].includes(type);
+}
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -210,9 +253,18 @@ app.get('/api/community/posts/:id/media/:mediaId', asyncRoute(async (req, res) =
     return res.status(404).json({ error: 'Story media not found.' });
   }
   const query = getSql();
-  const rows = await query`SELECT mime_type, data_url
+  const rows = await query`SELECT mime_type, data_url, object_key
     FROM community_post_media WHERE id = ${req.params.mediaId} AND post_id = ${req.params.id} LIMIT 1`;
   if (!rows.length) return res.status(404).json({ error: 'Story media not found.' });
+  if (rows[0].object_key) {
+    const url = await getSignedUrl(
+      getR2Client(),
+      new GetObjectCommand({ Bucket: R2_BUCKET, Key: rows[0].object_key }),
+      { expiresIn: 7 * 24 * 60 * 60 }
+    );
+    return res.redirect(302, url);
+  }
+  if (!rows[0].data_url) return res.status(404).json({ error: 'Story media not found.' });
   const data = rows[0].data_url.split(',')[1];
   const buffer = Buffer.from(data, 'base64');
   res.set('Content-Type', rows[0].mime_type);
@@ -249,21 +301,168 @@ app.get('/api/community/posts/count', asyncRoute(async (req, res) => {
   res.json({ count: rows[0].count, latest: Math.ceil(Number(rows[0].latest) || 0) });
 }));
 
-const storyMediaTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm']);
-const storyCoverTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const maxStoryAssetBytes = 2.5 * 1024 * 1024;
-const maxCoverPhotoBytes = 2 * 1024 * 1024;
+app.post('/api/community/media/uploads', requireMember, asyncRoute(async (req, res) => {
+  const name = typeof req.body?.name === 'string'
+    ? path.basename(req.body.name).replace(/[^\w.-]+/g, '-').slice(0, 100)
+    : '';
+  const kind = req.body?.kind;
+  const mimeType = typeof req.body?.type === 'string' ? req.body.type.toLowerCase() : '';
+  const sizeBytes = Number(req.body?.sizeBytes);
+  const position = Number.isSafeInteger(req.body?.position) && req.body.position >= 0
+    ? req.body.position
+    : 0;
+  if (!name || !['cover', 'attachment'].includes(kind) || !storyMediaTypeAllowed(kind, mimeType)) {
+    return res.status(400).json({ error: 'Choose a supported story image or video file.' });
+  }
+  if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > R2_MAX_OBJECT_BYTES) {
+    return res.status(400).json({ error: 'The file exceeds Cloudflare R2’s 5 TB per-file limit.' });
+  }
 
-function validateStoryAsset(asset, acceptedTypes, maxBytes) {
-  if (typeof asset !== 'string') return null;
-  const match = asset.match(/^data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/]+={0,2})$/i);
-  if (!match || !acceptedTypes.has(match[1].toLowerCase())) return null;
-  const encoded = match[2];
-  if (encoded.length % 4 !== 0) return null;
-  const bytes = Math.floor(encoded.length * 3 / 4) - (encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0);
-  if (bytes <= 0 || bytes > maxBytes) return null;
-  return { dataUrl: asset, bytes, mimeType: match[1].toLowerCase() };
-}
+  const client = getR2Client();
+  const objectKey = `community/${req.member.id}/${randomUUID()}`;
+  const chunkSize = Math.ceil(Math.max(R2_MULTIPART_CHUNK_BYTES, Math.ceil(sizeBytes / 10000)) / 1024 ** 2) * 1024 ** 2;
+  let uploadId = null;
+  let uploadUrl = null;
+  if (sizeBytes <= R2_SINGLE_UPLOAD_BYTES) {
+    uploadUrl = await getSignedUrl(
+      client,
+      new PutObjectCommand({ Bucket: R2_BUCKET, Key: objectKey, ContentType: mimeType }),
+      { expiresIn: 60 * 60 }
+    );
+  } else {
+    const result = await client.send(new CreateMultipartUploadCommand({
+      Bucket: R2_BUCKET,
+      Key: objectKey,
+      ContentType: mimeType
+    }));
+    uploadId = result.UploadId;
+    if (!uploadId) throw new Error('Cloudflare R2 did not return a multipart upload ID.');
+  }
+
+  const query = getSql();
+  try {
+    await query`INSERT INTO community_media_uploads
+      (object_key, member_id, upload_id, kind, name, mime_type, size_bytes, chunk_size, position)
+      VALUES (${objectKey}, ${req.member.id}, ${uploadId}, ${kind}, ${name},
+        ${mimeType}, ${sizeBytes}, ${chunkSize}, ${position})`;
+  } catch (error) {
+    if (uploadId) {
+      await client.send(new AbortMultipartUploadCommand({
+        Bucket: R2_BUCKET,
+        Key: objectKey,
+        UploadId: uploadId
+      }));
+    }
+    throw error;
+  }
+  res.status(201).json({ objectKey, uploadId, uploadUrl, chunkSize });
+}));
+
+app.post('/api/community/media/uploads/part-urls', requireMember, asyncRoute(async (req, res) => {
+  const objectKey = req.body?.objectKey;
+  const uploadId = req.body?.uploadId;
+  const partNumbers = req.body?.partNumbers;
+  if (typeof objectKey !== 'string' || typeof uploadId !== 'string' ||
+      !Array.isArray(partNumbers) || !partNumbers.length || partNumbers.length > 100) {
+    return res.status(400).json({ error: 'Invalid multipart upload request.' });
+  }
+  const query = getSql();
+  const rows = await query`SELECT size_bytes, chunk_size
+    FROM community_media_uploads
+    WHERE object_key = ${objectKey} AND upload_id = ${uploadId}
+      AND member_id = ${req.member.id} AND completed = FALSE LIMIT 1`;
+  if (!rows.length) return res.status(404).json({ error: 'Upload session not found.' });
+  const totalParts = Math.ceil(Number(rows[0].size_bytes) / Number(rows[0].chunk_size));
+  if (partNumbers.some((part) => !Number.isInteger(part) || part < 1 || part > totalParts) ||
+      new Set(partNumbers).size !== partNumbers.length) {
+    return res.status(400).json({ error: 'Invalid multipart part number.' });
+  }
+  const client = getR2Client();
+  const urls = await Promise.all(partNumbers.map(async (partNumber) => ({
+    partNumber,
+    url: await getSignedUrl(
+      client,
+      new UploadPartCommand({
+        Bucket: R2_BUCKET,
+        Key: objectKey,
+        UploadId: uploadId,
+        PartNumber: partNumber
+      }),
+      { expiresIn: 60 * 60 }
+    )
+  })));
+  res.json({ urls });
+}));
+
+app.post('/api/community/media/uploads/complete', requireMember, asyncRoute(async (req, res) => {
+  const objectKey = req.body?.objectKey;
+  const uploadId = req.body?.uploadId || null;
+  const parts = req.body?.parts;
+  if (typeof objectKey !== 'string' || (uploadId && !Array.isArray(parts))) {
+    return res.status(400).json({ error: 'Invalid upload completion request.' });
+  }
+  const query = getSql();
+  const rows = await query`SELECT size_bytes, chunk_size, upload_id, mime_type
+    FROM community_media_uploads
+    WHERE object_key = ${objectKey} AND member_id = ${req.member.id}
+      AND completed = FALSE LIMIT 1`;
+  if (!rows.length || rows[0].upload_id !== uploadId) {
+    return res.status(404).json({ error: 'Upload session not found.' });
+  }
+  const client = getR2Client();
+  if (uploadId) {
+    const totalParts = Math.ceil(Number(rows[0].size_bytes) / Number(rows[0].chunk_size));
+    if (parts.length !== totalParts || parts.some((part, index) =>
+      part?.partNumber !== index + 1 ||
+      typeof part.etag !== 'string' ||
+      part.etag.length > 128
+    )) {
+      return res.status(400).json({ error: 'The uploaded file is incomplete. Please try uploading it again.' });
+    }
+    await client.send(new CompleteMultipartUploadCommand({
+      Bucket: R2_BUCKET,
+      Key: objectKey,
+      UploadId: uploadId,
+      MultipartUpload: {
+        Parts: parts.map((part) => ({ PartNumber: part.partNumber, ETag: part.etag }))
+      }
+    }));
+    await query`UPDATE community_media_uploads SET upload_id = NULL
+      WHERE object_key = ${objectKey} AND member_id = ${req.member.id}`;
+  }
+  const object = await client.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: objectKey }));
+  if (Number(object.ContentLength) !== Number(rows[0].size_bytes) ||
+      object.ContentType !== rows[0].mime_type) {
+    await client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: objectKey }));
+    await query`DELETE FROM community_media_uploads
+      WHERE object_key = ${objectKey} AND member_id = ${req.member.id}`;
+    return res.status(400).json({ error: 'The uploaded file did not match its original details.' });
+  }
+  await query`UPDATE community_media_uploads SET completed = TRUE, upload_id = NULL
+    WHERE object_key = ${objectKey} AND member_id = ${req.member.id}`;
+  res.json({ objectKey, sizeBytes: object.ContentLength });
+}));
+
+app.delete('/api/community/media/uploads', requireMember, asyncRoute(async (req, res) => {
+  const objectKey = req.body?.objectKey;
+  if (typeof objectKey !== 'string') return res.status(400).json({ error: 'Upload key is required.' });
+  const query = getSql();
+  const rows = await query`SELECT upload_id FROM community_media_uploads
+    WHERE object_key = ${objectKey} AND member_id = ${req.member.id} LIMIT 1`;
+  if (!rows.length) return res.status(204).end();
+  const client = getR2Client();
+  if (rows[0].upload_id) {
+    await client.send(new AbortMultipartUploadCommand({
+      Bucket: R2_BUCKET,
+      Key: objectKey,
+      UploadId: rows[0].upload_id
+    }));
+  }
+  await client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: objectKey }));
+  await query`DELETE FROM community_media_uploads
+    WHERE object_key = ${objectKey} AND member_id = ${req.member.id}`;
+  res.status(204).end();
+}));
 
 app.post('/api/community/posts', requireMember, asyncRoute(async (req, res) => {
   const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
@@ -272,63 +471,46 @@ app.post('/api/community/posts', requireMember, asyncRoute(async (req, res) => {
   if (!title || title.length > 80) return res.status(400).json({ error: 'Title is required and must be 80 characters or fewer.' });
   if (!content) return res.status(400).json({ error: 'Story text is required.' });
   if (!['Faith', 'Life', 'Service'].includes(category)) return res.status(400).json({ error: 'Choose a valid story category.' });
-  const coverPhoto = req.body?.coverPhoto
-    ? validateStoryAsset(req.body.coverPhoto, storyCoverTypes, maxCoverPhotoBytes)
-    : null;
-  if (req.body?.coverPhoto && !coverPhoto) {
-    return res.status(400).json({ error: 'Cover photos must be JPG, PNG, or WebP images no larger than 2 MB.' });
-  }
-  const submittedMedia = req.body?.media ?? [];
-  if (!Array.isArray(submittedMedia) || submittedMedia.length > 4) {
+  const coverKey = typeof req.body?.coverKey === 'string' ? req.body.coverKey : null;
+  const mediaKeys = req.body?.mediaKeys ?? [];
+  if (!Array.isArray(mediaKeys) || mediaKeys.length > 4 ||
+      mediaKeys.some((key) => typeof key !== 'string') ||
+      new Set(mediaKeys).size !== mediaKeys.length) {
     return res.status(400).json({ error: 'Add no more than 4 story images or videos.' });
   }
-  const media = [];
-  let totalAssetBytes = coverPhoto?.bytes || 0;
-  for (const [index, item] of submittedMedia.entries()) {
-    const asset = validateStoryAsset(item?.dataUrl, storyMediaTypes, maxStoryAssetBytes);
-    if (!asset) {
-      return res.status(400).json({ error: 'Story media must be JPG, PNG, WebP, MP4, or WebM files.' });
-    }
-    totalAssetBytes += asset.bytes;
-    if (totalAssetBytes > maxStoryAssetBytes) {
-      return res.status(400).json({ error: 'All cover and story media must be 2.5 MB or smaller.' });
-    }
-    const name = typeof item.name === 'string' ? item.name.split(/[\\/]/).pop().slice(0, 100) : `story-media-${index + 1}`;
-    media.push({ name: name || `story-media-${index + 1}`, ...asset });
+  const objectKeys = [...(coverKey ? [coverKey] : []), ...mediaKeys];
+  if (new Set(objectKeys).size !== objectKeys.length) {
+    return res.status(400).json({ error: 'A story file cannot be attached more than once.' });
   }
   const query = getSql();
-  const assets = [];
-  if (coverPhoto) {
-    assets.push({
-      kind: 'cover',
-      position: 0,
-      name: 'story-cover',
-      mime_type: coverPhoto.mimeType,
-      data_url: coverPhoto.dataUrl
-    });
-  }
-  for (const [index, item] of media.entries()) {
-    assets.push({
-      kind: 'attachment',
-      position: index,
-      name: item.name,
-      mime_type: item.mimeType,
-      data_url: item.dataUrl
-    });
+  if (objectKeys.length) {
+    const uploads = await query`SELECT object_key, kind FROM community_media_uploads
+      WHERE member_id = ${req.member.id} AND completed = TRUE
+        AND object_key IN (SELECT jsonb_array_elements_text(${JSON.stringify(objectKeys)}::jsonb))`;
+    if (uploads.length !== objectKeys.length ||
+        uploads.filter((upload) => upload.kind === 'cover').length !== Number(Boolean(coverKey)) ||
+        uploads.filter((upload) => upload.kind === 'attachment').length !== mediaKeys.length) {
+      return res.status(400).json({ error: 'A story image or video is missing or belongs to another account. Upload it again.' });
+    }
   }
   const rows = await query`WITH new_post AS (
       INSERT INTO community_posts (member_id, author, title, content, category)
       VALUES (${req.member.id}, ${req.member.name}, ${title}, ${content}, ${category})
       RETURNING id
     ),
-    new_media AS (
-      INSERT INTO community_post_media (post_id, kind, position, name, mime_type, data_url)
-      SELECT new_post.id, asset.kind, asset.position, asset.name, asset.mime_type, asset.data_url
+    attached_media AS (
+      INSERT INTO community_post_media (post_id, kind, position, name, mime_type, object_key)
+      SELECT new_post.id, upload.kind, upload.position, upload.name, upload.mime_type, upload.object_key
       FROM new_post
-      CROSS JOIN jsonb_to_recordset(${JSON.stringify(assets)}::jsonb) AS asset(
-        kind TEXT, position INTEGER, name VARCHAR(100), mime_type TEXT, data_url TEXT
-      )
-      RETURNING post_id
+      JOIN community_media_uploads upload ON upload.member_id = ${req.member.id}
+        AND upload.completed = TRUE
+        AND upload.object_key IN (SELECT jsonb_array_elements_text(${JSON.stringify(objectKeys)}::jsonb))
+      RETURNING object_key
+    ),
+    deleted_uploads AS (
+      DELETE FROM community_media_uploads
+      WHERE object_key IN (SELECT object_key FROM attached_media)
+      RETURNING object_key
     )
     SELECT id FROM new_post`;
   const post = await fetchCommunityPost(rows[0].id, req.member.id);
@@ -389,6 +571,8 @@ app.delete('/api/community/posts/:id', asyncRoute(async (req, res) => {
   }
 
   const query = getSql();
+  const mediaRows = await query`SELECT object_key FROM community_post_media
+    WHERE post_id = ${req.params.id} AND object_key IS NOT NULL`;
   let rows;
   if (isAdmin) {
     rows = await query`DELETE FROM community_posts WHERE id = ${req.params.id} RETURNING id`;
@@ -400,6 +584,12 @@ app.delete('/api/community/posts/:id', asyncRoute(async (req, res) => {
     return res.status(404).json({ error: 'Story not found or you are not authorized to delete it.' });
   }
 
+  if (mediaRows.length) {
+    const client = getR2Client();
+    await Promise.all(mediaRows.map(({ object_key }) =>
+      client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: object_key })),
+    ));
+  }
   res.status(204).end();
 }));
 
@@ -739,6 +929,9 @@ app.get('/api/program/pdf', asyncRoute(async (_req, res) => {
 app.use((error, _req, res, _next) => {
   console.error('API request failed:', error.message);
   if (res.headersSent) return;
+  if (error.code === 'R2_NOT_CONFIGURED') {
+    return res.status(503).json({ error: error.message });
+  }
   if (error.type === 'entity.too.large') {
     return res.status(413).json({ error: 'Request is too large. Reduce the size of the story text or its attached media and try again.' });
   }

@@ -31,7 +31,11 @@ The backend now uses PostgreSQL tables for administrators, announcements, sermon
 - `GET /api/members/me` — get the signed-in member (requires `Authorization: Bearer <token>`)
 - `DELETE /api/members/session` — sign out and revoke the current session (requires a bearer token)
 - `GET /api/community/posts` — list recent community posts
-- `POST /api/community/posts` — create a post as the signed-in member (`title`, `content`, `category`, optional base64 `coverPhoto`, and optional `media` array of `{ name, dataUrl }`)
+- `POST /api/community/media/uploads` — start an authenticated direct upload to Cloudflare R2
+- `POST /api/community/media/uploads/part-urls` — sign multipart upload parts
+- `POST /api/community/media/uploads/complete` — complete and verify an R2 upload
+- `DELETE /api/community/media/uploads` — abort or remove an unfinished upload
+- `POST /api/community/posts` — create a post as the signed-in member (`title`, `content`, `category`, optional `coverKey`, and optional `mediaKeys` array)
 - `GET /api/community/posts/:id/media/:mediaId` — stream a story cover photo or attachment
 - `PUT /api/community/posts/:id/like` — toggle the signed-in member's like
 - `POST /api/community/posts/:id/comments` — add a comment (`content`) as the signed-in member
@@ -44,4 +48,29 @@ The backend now uses PostgreSQL tables for administrators, announcements, sermon
 
 Member passwords are stored as scrypt hashes. Member sessions use revocable opaque bearer tokens with a 30-day expiry.
 
-Community story cover photos accept JPG, PNG, and WebP files up to 2 MB. Stories may include up to four JPG, PNG, WebP, MP4, or WebM attachments; cover plus attachments are limited to 2.5 MB total.
+Community story cover photos accept JPG, PNG, and WebP. Stories may include up to four JPG, PNG, WebP, MP4, or WebM attachments. Files upload directly to Cloudflare R2 using multipart uploads for large files, without an application size cap; Cloudflare R2's maximum object size is 5 TB per file.
+
+Configure these server environment variables before enabling story media:
+
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET_NAME`
+
+Configure the R2 bucket CORS policy to allow `PUT` from the deployed site origin and expose the `ETag` response header. For example, replace the origin below with the production frontend origin:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://your-site.example"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+`ETag` is required to complete multipart video uploads. Set an R2 lifecycle rule to abort incomplete multipart uploads after a few days so abandoned browser uploads do not accumulate.
+
+Each story image/video has its own share button. It shares a stable application media URL, so sharing does not download the full media file into the browser; the browser and receiving app can still impose their own limits.

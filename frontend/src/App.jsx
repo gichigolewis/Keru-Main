@@ -209,6 +209,7 @@ function loadImage(src) {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = reject;
+    image.crossOrigin = "anonymous";
     image.src = src;
   });
 }
@@ -2273,13 +2274,95 @@ function BottomNav({ route, communityCount = 0 }) {
   );
 }
 
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
-    reader.readAsDataURL(file);
+const mediaTypes = new Set(["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"]);
+const coverTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const singleUploadLimit = 100 * 1024 * 1024;
+const maxMultipartPartsPerRequest = 100;
+
+function formatFileSize(bytes) {
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+}
+
+async function uploadStoryFile(file, kind, position, token, onProgress) {
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const createResponse = await fetch("/api/community/media/uploads", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ name: file.name, type: file.type, sizeBytes: file.size, kind, position }),
   });
+  const upload = await createResponse.json().catch(() => ({}));
+  if (!createResponse.ok) throw new Error(upload.error || `Could not prepare ${file.name} for upload.`);
+
+  try {
+    let parts = [];
+    if (file.size <= singleUploadLimit) {
+      const response = await fetch(upload.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!response.ok) throw new Error(`Could not upload ${file.name} to Cloudflare R2.`);
+      onProgress?.(1, 1);
+    } else {
+      const totalParts = Math.ceil(file.size / upload.chunkSize);
+      for (let firstPart = 1; firstPart <= totalParts; firstPart += maxMultipartPartsPerRequest) {
+        const partNumbers = Array.from(
+          { length: Math.min(maxMultipartPartsPerRequest, totalParts - firstPart + 1) },
+          (_unused, index) => firstPart + index,
+        );
+        const signedResponse = await fetch("/api/community/media/uploads/part-urls", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ objectKey: upload.objectKey, uploadId: upload.uploadId, partNumbers }),
+        });
+        const signed = await signedResponse.json().catch(() => ({}));
+        if (!signedResponse.ok) throw new Error(signed.error || `Could not prepare ${file.name} for upload.`);
+        for (let offset = 0; offset < signed.urls.length; offset += 4) {
+          const batch = await Promise.allSettled(signed.urls.slice(offset, offset + 4).map(async ({ partNumber, url }) => {
+            const start = (partNumber - 1) * upload.chunkSize;
+            const end = Math.min(file.size, start + upload.chunkSize);
+            const response = await fetch(url, { method: "PUT", body: file.slice(start, end) });
+            if (!response.ok) throw new Error(`Could not upload part ${partNumber} of ${file.name}.`);
+            const etag = response.headers.get("ETag");
+            if (!etag) throw new Error("Cloudflare R2 CORS must expose the ETag response header for multipart uploads.");
+            onProgress?.(partNumber, totalParts);
+            return { partNumber, etag };
+          }));
+          const failed = batch.find((result) => result.status === "rejected");
+          if (failed) throw failed.reason;
+          parts.push(...batch.map((result) => result.value));
+        }
+      }
+      parts.sort((left, right) => left.partNumber - right.partNumber);
+    }
+
+    const completeResponse = await fetch("/api/community/media/uploads/complete", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        objectKey: upload.objectKey,
+        uploadId: upload.uploadId,
+        parts: upload.uploadId ? parts : undefined,
+      }),
+    });
+    const completed = await completeResponse.json().catch(() => ({}));
+    if (!completeResponse.ok) throw new Error(completed.error || `Could not finish uploading ${file.name}.`);
+    return upload.objectKey;
+  } catch (error) {
+    try {
+      const cleanup = await fetch("/api/community/media/uploads", {
+        method: "DELETE",
+        headers,
+        body: JSON.stringify({ objectKey: upload.objectKey }),
+      });
+      if (!cleanup.ok) throw new Error("The temporary upload could not be removed.");
+    } catch (cleanupError) {
+      throw new Error(`${error.message} ${cleanupError.message}`);
+    }
+    throw error;
+  }
 }
 
 function Community() {
@@ -2293,6 +2376,7 @@ function Community() {
   const [feedLoading, setFeedLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [sharingId, setSharingId] = useState(null);
+  const [sharingMedia, setSharingMedia] = useState(null);
   const [sharedId, setSharedId] = useState(null);
   const route = useRoute();
   const { announcements: announcementCount, community: communityCount } =
@@ -2306,29 +2390,6 @@ function Community() {
       if (!blob) throw new Error("The story image could not be created.");
       const filename = `kerugoya-community-story-${post.id}.png`;
       const files = [new File([blob], filename, { type: "image/png" })];
-      const attachedMedia = [
-        ...(post.coverPhoto
-          ? [{ url: post.coverPhoto, name: "story-cover" }]
-          : []),
-        ...(Array.isArray(post.media) ? post.media : []),
-      ];
-      for (const media of attachedMedia) {
-        const response = await fetch(media.url);
-        if (!response.ok) throw new Error(`Could not load ${media.name || "story media"} for sharing.`);
-        const mediaBlob = await response.blob();
-        let safeName = String(media.name || "story-media").replace(/[^\w.-]+/g, "-");
-        if (!/\.[a-z0-9]{2,5}$/i.test(safeName)) {
-          const extensionByType = {
-            "image/jpeg": ".jpg",
-            "image/png": ".png",
-            "image/webp": ".webp",
-            "video/mp4": ".mp4",
-            "video/webm": ".webm",
-          };
-          safeName += extensionByType[mediaBlob.type] || "";
-        }
-        files.push(new File([mediaBlob], safeName, { type: mediaBlob.type }));
-      }
       const title = post.title || "Community Story";
 
       if (navigator.share && navigator.canShare?.({ files })) {
@@ -2359,6 +2420,33 @@ function Community() {
       }
     } finally {
       setSharingId(null);
+    }
+  };
+
+  const shareMedia = async (post, media) => {
+    const shareKey = `${post.id}:${media.url}`;
+    setSharingMedia(shareKey);
+    setCommunityMessage("");
+    const url = new URL(media.url, window.location.origin).href;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: media.name || post.title || "Community story media",
+          text: `Shared from ${post.title || "a community story"} at Kerugoya Main SDA Church.`,
+          url,
+        });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCommunityMessage("Media link copied. Share it with anyone.");
+      } else {
+        window.prompt("Copy this media link to share:", url);
+      }
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        setCommunityMessage(error?.message || "Could not share this media link.");
+      }
+    } finally {
+      setSharingMedia(null);
     }
   };
 
@@ -2491,21 +2579,13 @@ function Community() {
     const data = new FormData(form);
     const coverFile = data.get("coverPhoto");
     const mediaFiles = data.getAll("media").filter((file) => file instanceof File && file.size);
-    const assetFiles = [
-      ...(coverFile instanceof File && coverFile.size ? [coverFile] : []),
-      ...mediaFiles,
-    ];
-    const coverTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-    const mediaTypes = new Set([...coverTypes, "video/mp4", "video/webm"]);
-    const totalAssetBytes = assetFiles.reduce((total, file) => total + file.size, 0);
     if (
       (coverFile instanceof File && coverFile.size &&
-        (!coverTypes.has(coverFile.type) || coverFile.size > 2 * 1024 * 1024)) ||
+        !coverTypes.has(coverFile.type)) ||
       mediaFiles.length > 4 ||
-      mediaFiles.some((file) => !mediaTypes.has(file.type)) ||
-      totalAssetBytes > 2.5 * 1024 * 1024
+      mediaFiles.some((file) => !mediaTypes.has(file.type))
     ) {
-      setCommunityMessage("Use a JPG, PNG, or WebP cover (max 2 MB), plus up to 4 JPG, PNG, WebP, MP4, or WebM files totaling 2.5 MB or less.");
+      setCommunityMessage("Use a JPG, PNG, or WebP cover and up to 4 JPG, PNG, WebP, MP4, or WebM story files.");
       return;
     }
     const payload = {
@@ -2515,16 +2595,34 @@ function Community() {
     };
     setPosting(true);
     setCommunityMessage("");
+    const uploadedKeys = [];
+    let published = false;
     try {
       if (coverFile instanceof File && coverFile.size) {
-        payload.coverPhoto = await readFileAsDataUrl(coverFile);
+        setCommunityMessage(`Uploading cover photo (${formatFileSize(coverFile.size)})…`);
+        payload.coverKey = await uploadStoryFile(
+          coverFile,
+          "cover",
+          0,
+          session.token,
+          (part, total) => setCommunityMessage(`Uploading cover photo: part ${part} of ${total}…`),
+        );
+        uploadedKeys.push(payload.coverKey);
       }
-      payload.media = await Promise.all(
-        mediaFiles.map(async (file) => ({
-          name: file.name,
-          dataUrl: await readFileAsDataUrl(file),
-        })),
-      );
+      payload.mediaKeys = [];
+      for (const [index, file] of mediaFiles.entries()) {
+        setCommunityMessage(`Uploading story media ${index + 1} of ${mediaFiles.length}: ${file.name} (${formatFileSize(file.size)})…`);
+        const key = await uploadStoryFile(
+          file,
+          "attachment",
+          index,
+          session.token,
+          (part, total) => setCommunityMessage(`Uploading ${file.name}: part ${part} of ${total}…`),
+        );
+        payload.mediaKeys.push(key);
+        uploadedKeys.push(key);
+      }
+      setCommunityMessage("Publishing your story…");
       const response = await fetch("/api/community/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
@@ -2532,13 +2630,31 @@ function Community() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Your story could not be published.");
+      published = true;
       setPosts((current) => [result.post, ...current]);
       form.reset();
       setCommunityMessage("Your story has been published.");
     } catch (error) {
       setCommunityMessage(error.message || "Your story could not be published.");
     } finally {
-      setPosting(false);
+      try {
+        if (!published && uploadedKeys.length) {
+          const cleanupResults = await Promise.all(uploadedKeys.map((objectKey) =>
+            fetch("/api/community/media/uploads", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+              body: JSON.stringify({ objectKey }),
+            }),
+          ));
+          if (cleanupResults.some((response) => !response.ok)) {
+            setCommunityMessage("Your story was not published and some uploaded media could not be cleaned up. Please contact the site administrator.");
+          }
+        }
+      } catch {
+        setCommunityMessage("Your story was not published and some uploaded media could not be cleaned up. Please contact the site administrator.");
+      } finally {
+        setPosting(false);
+      }
     }
   };
   return (
@@ -2683,26 +2799,48 @@ function Community() {
                     </div>
                     <h2>{post.title}</h2>
                     {post.coverPhoto && (
-                      <img className="post-cover-photo" src={post.coverPhoto} alt={`Cover photo for ${post.title}`} />
+                      <div className="post-cover-wrap">
+                        <img className="post-cover-photo" src={post.coverPhoto} alt={`Cover photo for ${post.title}`} />
+                        <button
+                          className="share-btn post-media-share"
+                          type="button"
+                          disabled={sharingMedia === `${post.id}:${post.coverPhoto}`}
+                          onClick={() => shareMedia(post, { url: post.coverPhoto, name: `${post.title} cover photo` })}
+                        >
+                          <i className="bx bx-share-alt" /> Share cover photo
+                        </button>
+                      </div>
                     )}
                     <FormattedContent text={post.content} />
                     {!!post.media?.length && (
                       <div className="post-media">
-                        {post.media.map((media, index) =>
-                          media.type?.startsWith("video/") ? (
-                            <video key={`${post.id}-media-${index}`} controls preload="metadata">
-                              <source src={media.url} type={media.type} />
-                              Your browser does not support this video.
-                            </video>
-                          ) : (
-                            <img
-                              key={`${post.id}-media-${index}`}
-                              src={media.url}
-                              alt={media.name || `Story image ${index + 1}`}
-                              loading="lazy"
-                            />
-                          ),
-                        )}
+                        {post.media.map((media, index) => {
+                          const isVideo = media.type?.startsWith("video/");
+                          return (
+                            <div className="post-media-item" key={`${post.id}-media-${index}`}>
+                              {isVideo ? (
+                                <video controls preload="metadata">
+                                  <source src={media.url} type={media.type} />
+                                  Your browser does not support this video.
+                                </video>
+                              ) : (
+                                <img
+                                  src={media.url}
+                                  alt={media.name || `Story image ${index + 1}`}
+                                  loading="lazy"
+                                />
+                              )}
+                              <button
+                                className="share-btn post-media-share"
+                                type="button"
+                                disabled={sharingMedia === `${post.id}:${media.url}`}
+                                onClick={() => shareMedia(post, media)}
+                              >
+                                <i className="bx bx-share-alt" /> Share {isVideo ? "video" : "image"}
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                     <div className="post-footer">
@@ -2742,8 +2880,8 @@ function Community() {
                           className="share-btn"
                           type="button"
                           disabled={sharingId === post.id}
-                          aria-label={`Share ${post.title} with its media`}
-                          title="Share this story and its media"
+                          aria-label={`Share ${post.title} as a story image`}
+                          title="Share the formatted story image"
                           onClick={() => handleShare(post)}
                         >
                           {sharingId === post.id ? (
@@ -2841,7 +2979,7 @@ function Community() {
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
                     />
-                    <small>JPG, PNG, or WebP; up to 2 MB.</small>
+                    <small>JPG, PNG, or WebP. Cloudflare R2 supports files up to 5 TB each.</small>
                   </label>
                   <label className="story-media-label">
                     Story images or videos
@@ -2851,7 +2989,7 @@ function Community() {
                       accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
                       multiple
                     />
-                    <small>Up to 4 items; cover and attachments share a 2.5 MB total limit. Images and MP4/WebM video are supported.</small>
+                    <small>Up to 4 images or videos. There is no app-imposed upload size limit; Cloudflare R2 supports files up to 5 TB each.</small>
                   </label>
                   <button className="btn" type="submit" disabled={posting}>
                     {posting ? "Publishing…" : "Publish story"} <i className="bx bx-send" />

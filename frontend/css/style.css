@@ -2722,6 +2722,11 @@ textarea,
   line-height: 1.25;
   letter-spacing: -0.01em;
 }
+.post-cover-wrap,
+.post-media-item {
+  position: relative;
+  min-width: 0;
+}
 .post-cover-photo {
   display: block;
   width: 100%;
@@ -2744,6 +2749,9 @@ textarea,
   border-radius: 10px;
   background: #0f172a;
   object-fit: contain;
+}
+.post-media-share {
+  margin-top: 0.45rem;
 }
 .story-media-label {
   display: grid;
