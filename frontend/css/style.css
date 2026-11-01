@@ -4632,7 +4632,7 @@ textarea,
 }
 .leader-card-modal-eyebrow,
 .leader-id-card-kicker {
-  color: #3b82f6;
+  color: #fbbf24;
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -4652,22 +4652,24 @@ textarea,
 }
 .leader-id-card-preview {
   display: grid;
-  grid-template-columns: 42% minmax(0, 1fr);
+  grid-template-columns: 36% minmax(0, 1fr);
   overflow: hidden;
+  aspect-ratio: 5 / 3;
   border-radius: 20px;
-  background: #ffffff;
-  box-shadow: none;
+  background: #1e3a8a;
+  box-shadow: 0 18px 42px rgba(30, 58, 138, 0.18);
 }
 .leader-id-card-brand {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 1rem;
   min-width: 0;
-  padding: 1.75rem;
-  border-right: 1px solid #eef2f7;
-  background: linear-gradient(145deg, #f8fafc, #f1f5f9);
-  color: #0f172a;
+  padding: clamp(1rem, 3vw, 2rem);
+  border-right: 5px solid #fbbf24;
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
+  color: #1e3a8a;
   position: relative;
 }
 .leader-id-card-brand::after {
@@ -4676,22 +4678,23 @@ textarea,
   inset: 0;
   border-radius: 20px 0 0 20px;
   pointer-events: none;
-  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(30, 58, 138, 0.1);
 }
 .leader-id-card-brand > img,
 .leader-id-card-placeholder {
   display: block;
-  width: min(100%, 220px);
-  height: 220px;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
   border-radius: 16px;
   object-fit: cover;
-  background: #e2e8f0;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  background: #eef2fb;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.1);
 }
 .leader-id-card-placeholder {
   display: grid;
   place-items: center;
-  color: #64748b;
+  color: #1e3a8a;
   font-family: "Playfair Display", Georgia, serif;
   font-size: clamp(2.5rem, 8vw, 5rem);
   font-weight: 700;
@@ -4699,22 +4702,36 @@ textarea,
 .leader-id-card-church {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  font-size: clamp(0.68rem, 1.4vw, 0.9rem);
+  gap: 0.7rem;
+  min-height: 52px;
+  font-size: clamp(0.72rem, 1.4vw, 0.92rem);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
+.leader-id-card-church span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: #1e3a8a;
+}
+.leader-id-card-church small {
+  color: #64748b;
+  font-size: 0.7em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .leader-id-card-church img {
-  width: clamp(24px, 3vw, 36px);
-  height: clamp(24px, 3vw, 36px);
+  width: clamp(38px, 5vw, 54px);
+  height: clamp(38px, 5vw, 54px);
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 10px;
   background: #ffffff;
-  padding: 2px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  padding: 4px;
+  box-shadow: 0 3px 12px rgba(30, 58, 138, 0.12);
 }
 .leader-id-card-location {
-  color: #94a3b8;
+  color: #64748b;
   font-size: clamp(0.55rem, 1.2vw, 0.7rem);
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -4725,12 +4742,13 @@ textarea,
   flex-direction: column;
   justify-content: center;
   min-width: 0;
-  padding: 2rem 2.25rem;
+  padding: clamp(1.25rem, 4vw, 3rem);
   gap: 0.5rem;
+  background: linear-gradient(145deg, #1e3a8a, #172554);
 }
 .leader-id-card-details h4 {
   margin: 0;
-  color: #0f172a;
+  color: #ffffff;
   font-family: "Playfair Display", Georgia, serif;
   font-size: clamp(1.5rem, 5vw, 3rem);
   line-height: 1.08;
@@ -4739,14 +4757,14 @@ textarea,
 }
 .leader-id-card-role {
   margin: 0;
-  color: #3b82f6;
+  color: #fbbf24;
   font-size: clamp(0.9rem, 2vw, 1.25rem);
   font-weight: 700;
   overflow-wrap: anywhere;
 }
 .leader-id-card-description {
   margin: 0;
-  color: #475569;
+  color: rgba(255, 255, 255, 0.82);
   font-size: clamp(0.8rem, 1.6vw, 1rem);
   line-height: 1.6;
   overflow-wrap: anywhere;
@@ -4754,8 +4772,8 @@ textarea,
 .leader-id-card-motto {
   margin-top: auto;
   padding-top: 1rem;
-  border-top: 1px solid #eef2f7;
-  color: #64748b;
+  border-top: 1px solid rgba(255, 255, 255, 0.24);
+  color: #ffffff;
   font-size: clamp(0.7rem, 1.4vw, 0.85rem);
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -4791,10 +4809,11 @@ textarea,
 @media (max-width: 700px) {
   .leader-id-card-preview {
     grid-template-columns: 1fr;
+    aspect-ratio: auto;
   }
   .leader-id-card-brand {
     border-right: none;
-    border-bottom: 1px solid #eef2f7;
+    border-bottom: 5px solid #fbbf24;
     border-radius: 20px 20px 0 0;
   }
   .leader-id-card-brand::after {
@@ -4802,8 +4821,9 @@ textarea,
   }
   .leader-id-card-brand > img,
   .leader-id-card-placeholder {
-    width: clamp(140px, 50vw, 200px);
-    height: clamp(140px, 50vw, 200px);
+    width: clamp(140px, 50vw, 220px);
+    min-height: clamp(160px, 50vw, 220px);
+    flex: none;
     align-self: center;
   }
   .leader-id-card-details {

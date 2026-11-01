@@ -762,35 +762,55 @@ async function renderLeaderIdCard(leader) {
   roundRect(ctx, 0, 0, width, height, 34);
   ctx.clip();
 
-  const panel = ctx.createLinearGradient(0, 0, 440, height);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, 430, height);
+  const panel = ctx.createLinearGradient(430, 0, width, height);
   panel.addColorStop(0, "#1e3a8a");
   panel.addColorStop(1, "#172554");
   ctx.fillStyle = panel;
-  ctx.fillRect(0, 0, 440, height);
+  ctx.fillRect(430, 0, width - 430, height);
   ctx.fillStyle = "#fbbf24";
-  ctx.fillRect(440, 0, 9, height);
+  ctx.fillRect(430, 0, 8, height);
+
+  let logo;
+  try {
+    logo = await loadImage(imagePath);
+  } catch {
+    logo = null;
+  }
+  if (logo) {
+    const logoSize = 62;
+    const scale = logoSize / Math.max(logo.width, logo.height);
+    ctx.drawImage(logo, 58, 52, logo.width * scale, logo.height * scale);
+  }
+  ctx.fillStyle = "#1e3a8a";
+  ctx.font = "700 18px 'Inter', system-ui, sans-serif";
+  ctx.fillText("KERUGOYA MAIN SDA", 136, 78);
+  ctx.fillStyle = "#64748b";
+  ctx.font = "500 14px 'Inter', system-ui, sans-serif";
+  ctx.fillText("CHURCH LEADERSHIP", 136, 103);
 
   if (leader.imageUrl) {
     const portrait = await loadImage(leader.imageUrl);
     ctx.save();
-    roundRect(ctx, 68, 96, 304, 382, 22);
+    roundRect(ctx, 58, 148, 314, 420, 20);
     ctx.clip();
-    const scale = Math.max(304 / portrait.width, 382 / portrait.height);
+    const scale = Math.max(314 / portrait.width, 420 / portrait.height);
     const portraitWidth = portrait.width * scale;
     const portraitHeight = portrait.height * scale;
     ctx.drawImage(
       portrait,
-      68 + (304 - portraitWidth) / 2,
-      96 + (382 - portraitHeight) / 2,
+      58 + (314 - portraitWidth) / 2,
+      148 + (420 - portraitHeight) / 2,
       portraitWidth,
       portraitHeight,
     );
     ctx.restore();
   } else {
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
-    roundRect(ctx, 68, 96, 304, 382, 22);
+    ctx.fillStyle = "#eef2fb";
+    roundRect(ctx, 58, 148, 314, 420, 20);
     ctx.fill();
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = "#1e3a8a";
     ctx.font = "600 120px Georgia, serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -803,49 +823,41 @@ async function renderLeaderIdCard(leader) {
     ctx.textBaseline = "alphabetic";
   }
 
-  let logo;
-  try {
-    logo = await loadImage(imagePath);
-  } catch {
-    logo = null;
-  }
-  if (logo) {
-    const logoSize = 48;
-    const scale = logoSize / Math.max(logo.width, logo.height);
-    ctx.drawImage(logo, 68, 548, logo.width * scale, logo.height * scale);
-  }
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "700 20px 'Inter', system-ui, sans-serif";
-  ctx.fillText("KERUGOYA MAIN SDA CHURCH", 132, 575);
-  ctx.fillStyle = "rgba(255,255,255,0.72)";
-  ctx.font = "500 15px 'Inter', system-ui, sans-serif";
-  ctx.fillText("LEADERSHIP  ·  KERUGOYA, KENYA", 68, 635);
-
-  ctx.fillStyle = "#1e3a8a";
-  ctx.font = "700 17px 'Inter', system-ui, sans-serif";
-  ctx.fillText("CHURCH LEADERSHIP", 510, 155);
-  ctx.fillStyle = "#1e3a8a";
-  ctx.font = "700 54px 'Playfair Display', Georgia, serif";
-  const nameLines = wrapText(ctx, leader.name || "Church Leader", 610, 2);
-  nameLines.forEach((line, index) => ctx.fillText(line, 510, 235 + index * 64));
-  const nameBottom = 235 + (nameLines.length - 1) * 64;
-
-  ctx.fillStyle = "#334155";
-  ctx.font = "700 25px 'Inter', system-ui, sans-serif";
-  const roleLines = wrapText(ctx, leader.role || "Church Leader", 610, 2);
-  roleLines.forEach((line, index) => ctx.fillText(line, 510, nameBottom + 56 + index * 34));
-
-  const descriptionTop = nameBottom + 112 + Math.max(0, roleLines.length - 1) * 34;
   ctx.fillStyle = "#64748b";
-  ctx.font = "400 20px 'Inter', system-ui, sans-serif";
-  const descriptionLines = wrapText(ctx, leader.description || "Serving the church community with faith and care.", 610, 4);
-  descriptionLines.forEach((line, index) => ctx.fillText(line, 510, descriptionTop + index * 32));
+  ctx.font = "600 13px 'Inter', system-ui, sans-serif";
+  ctx.fillText("KERUGOYA  ·  KENYA", 58, 625);
 
-  ctx.fillStyle = "#dbe3f0";
-  ctx.fillRect(510, 594, 610, 1);
-  ctx.fillStyle = "#1e3a8a";
+  ctx.fillStyle = "#fbbf24";
+  ctx.font = "700 16px 'Inter', system-ui, sans-serif";
+  ctx.fillText("LEADERSHIP PROFILE", 500, 164);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 54px 'Playfair Display', Georgia, serif";
+  const nameLines = wrapText(ctx, leader.name || "Church Leader", 620, 2);
+  nameLines.forEach((line, index) => ctx.fillText(line, 500, 250 + index * 66));
+  const nameBottom = 250 + (nameLines.length - 1) * 66;
+
+  ctx.fillStyle = "#fbbf24";
+  ctx.font = "700 25px 'Inter', system-ui, sans-serif";
+  const roleLines = wrapText(ctx, leader.role || "Church Leader", 620, 2);
+  roleLines.forEach((line, index) => ctx.fillText(line, 500, nameBottom + 58 + index * 36));
+
+  const descriptionTop = nameBottom + 122 + Math.max(0, roleLines.length - 1) * 36;
+  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.font = "400 20px 'Inter', system-ui, sans-serif";
+  const maxDescriptionLines = Math.max(1, Math.min(4, Math.floor((575 - descriptionTop) / 34) + 1));
+  const descriptionLines = wrapText(
+    ctx,
+    leader.description || "Serving the church community with faith and care.",
+    620,
+    maxDescriptionLines,
+  );
+  descriptionLines.forEach((line, index) => ctx.fillText(line, 500, descriptionTop + index * 34));
+
+  ctx.fillStyle = "rgba(255,255,255,0.24)";
+  ctx.fillRect(500, 594, 620, 1);
+  ctx.fillStyle = "#ffffff";
   ctx.font = "600 17px 'Inter', system-ui, sans-serif";
-  ctx.fillText("SERVING WITH FAITH · GROWING IN COMMUNITY", 510, 635);
+  ctx.fillText("SERVING WITH FAITH  ·  GROWING IN COMMUNITY", 500, 635);
   ctx.restore();
 
   return new Promise((resolve, reject) => {
@@ -4206,6 +4218,13 @@ function AdminDashboard({ auth, username, onLogout }) {
 
                     <article className="leader-id-card-preview">
                       <div className="leader-id-card-brand">
+                        <div className="leader-id-card-church">
+                          <img src={imagePath} alt="" />
+                          <span>
+                            <strong>Kerugoya Main SDA</strong>
+                            <small>Church leadership</small>
+                          </span>
+                        </div>
                         {leaderCardPreview.imageUrl ? (
                           <img src={leaderCardPreview.imageUrl} alt={`${leaderCardPreview.name} portrait`} />
                         ) : (
@@ -4213,10 +4232,6 @@ function AdminDashboard({ auth, username, onLogout }) {
                             {(leaderCardPreview.name || "L").trim().charAt(0).toUpperCase()}
                           </div>
                         )}
-                        <div className="leader-id-card-church">
-                          <img src={imagePath} alt="" />
-                          <span>Kerugoya Main SDA Church</span>
-                        </div>
                         <span className="leader-id-card-location">Leadership · Kerugoya, Kenya</span>
                       </div>
                       <div className="leader-id-card-details">
