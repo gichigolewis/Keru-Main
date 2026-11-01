@@ -4663,6 +4663,7 @@ textarea,
   width: 100%;
   min-width: 560px;
   aspect-ratio: 30 / 19;
+  container-type: inline-size;
   border: 1px solid #dbe3f0;
   border-radius: 14px;
   background: #ffffff;
@@ -4781,10 +4782,14 @@ textarea,
   margin: 0.7rem 0 0;
   color: #172554;
   font-family: "Playfair Display", Georgia, serif;
-  font-size: clamp(1.6rem, 4.5vw, 3.35rem);
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: clamp(1.4rem, 4.5cqw, 3.35rem);
   line-height: 1.08;
   overflow-wrap: anywhere;
   letter-spacing: -0.035em;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .leader-id-card-role {
   width: fit-content;
@@ -4795,24 +4800,32 @@ textarea,
   border-radius: 7px;
   background: #fff8df;
   color: #1e3a8a;
-  font-size: clamp(0.75rem, 1.7vw, 0.98rem);
+  font-size: clamp(0.7rem, 1.7cqw, 0.98rem);
   font-weight: 700;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .leader-id-card-description {
+  display: -webkit-box;
   max-width: 48ch;
   margin: 0.55rem 0 0;
   color: #64748b;
-  font-size: clamp(0.76rem, 1.5vw, 0.92rem);
+  font-size: clamp(0.68rem, 1.5cqw, 0.92rem);
   line-height: 1.65;
   overflow-wrap: anywhere;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 .leader-id-card-motto {
   margin-top: auto;
   padding-top: 0.7rem;
   border-top: 1px solid #e2e8f0;
   color: #1e3a8a;
-  font-size: clamp(0.64rem, 1.1vw, 0.76rem);
+  font-size: clamp(0.6rem, 1.1cqw, 0.76rem);
   font-weight: 700;
   letter-spacing: 0.06em;
 }

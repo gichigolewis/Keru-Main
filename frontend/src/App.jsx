@@ -811,7 +811,7 @@ async function renderLeaderIdCard(leader) {
     ctx.textBaseline = "middle";
     ctx.fillText(
       String(leader.name || "L").trim().charAt(0).toUpperCase(),
-      220,
+      211,
       374,
     );
     ctx.textAlign = "left";
