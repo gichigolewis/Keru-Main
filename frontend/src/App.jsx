@@ -60,6 +60,98 @@ function navigate(path) {
   window.scrollTo(0, 0);
 }
 
+const pageMetadata = {
+  "/": {
+    title: "Kerugoya Main SDA Church | Worship & Community",
+    description: "Visit Kerugoya Main Seventh-day Adventist Church in Kerugoya, Kenya. Find worship services, church programs, ministries, sermons, and ways to connect with our church family.",
+  },
+  "/about": {
+    title: "About Our Church | Kerugoya Main SDA Church",
+    description: "Learn about Kerugoya Main SDA Church, a welcoming Christian community in Kerugoya, Kenya, committed to worship, fellowship, spiritual growth, and service.",
+  },
+  "/ministries": {
+    title: "Church Ministries | Kerugoya Main SDA Church",
+    description: "Explore youth, Pathfinder, Adventurer, women's, and men's ministries at Kerugoya Main SDA Church in Kerugoya, Kenya.",
+  },
+  "/sermons": {
+    title: "Sermons | Kerugoya Main SDA Church",
+    description: "Explore sermons and Bible messages from Kerugoya Main SDA Church in Kerugoya, Kenya.",
+  },
+  "/giving": {
+    title: "Giving | Kerugoya Main SDA Church",
+    description: "Learn about giving and supporting the ministry and community work of Kerugoya Main SDA Church.",
+  },
+  "/announcements": {
+    title: "Church Announcements | Kerugoya Main SDA Church",
+    description: "Read the latest church announcements, notices, and updates from Kerugoya Main SDA Church.",
+  },
+  "/leaders": {
+    title: "Church Leaders | Kerugoya Main SDA Church",
+    description: "Meet the leaders serving Kerugoya Main SDA Church in Kerugoya, Kenya.",
+  },
+  "/program": {
+    title: "Church Program | Kerugoya Main SDA Church",
+    description: "Find worship, learning, and fellowship program information for Kerugoya Main SDA Church in Kerugoya, Kenya.",
+  },
+  "/contact": {
+    title: "Contact Kerugoya Main SDA Church",
+    description: "Contact Kerugoya Main SDA Church in Kerugoya, Kenya, for questions, prayer, and ministry information.",
+  },
+  "/blogs": {
+    title: "Community Stories | Kerugoya Main SDA Church",
+    description: "Connect with the Kerugoya Main SDA Church community and read member stories.",
+  },
+  "/login": {
+    title: "Sign In | Kerugoya Main SDA Church",
+    description: "Sign in to your Kerugoya Main SDA Church account.",
+  },
+  "/register": {
+    title: "Create an Account | Kerugoya Main SDA Church",
+    description: "Create an account to connect with the Kerugoya Main SDA Church community.",
+  },
+  "/admin": {
+    title: "Administration | Kerugoya Main SDA Church",
+    description: "Kerugoya Main SDA Church administration.",
+  },
+  "/admin-pro": {
+    title: "Administration | Kerugoya Main SDA Church",
+    description: "Kerugoya Main SDA Church administration.",
+  },
+};
+
+const nonIndexableRoutes = new Set([
+  "/admin",
+  "/admin-pro",
+  "/blogs",
+  "/login",
+  "/register",
+]);
+
+function updatePageMetadata(route) {
+  const metadata = pageMetadata[route] || pageMetadata["/"];
+  const canonicalPath = pageMetadata[route] ? route : "/";
+  const canonicalUrl = `https://keru-main-teal.vercel.app${canonicalPath === "/" ? "/" : canonicalPath}`;
+  document.title = metadata.title;
+
+  const setMetaContent = (selector, content) => {
+    const element = document.head.querySelector(selector);
+    if (element) element.setAttribute("content", content);
+  };
+  setMetaContent('meta[name="description"]', metadata.description);
+  setMetaContent(
+    'meta[name="robots"]',
+    nonIndexableRoutes.has(route) || !pageMetadata[route] ? "noindex, nofollow" : "index, follow",
+  );
+  setMetaContent('meta[property="og:title"]', metadata.title);
+  setMetaContent('meta[property="og:description"]', metadata.description);
+  setMetaContent('meta[property="og:url"]', canonicalUrl);
+  setMetaContent('meta[name="twitter:title"]', metadata.title);
+  setMetaContent('meta[name="twitter:description"]', metadata.description);
+
+  const canonical = document.head.querySelector('link[rel="canonical"]');
+  if (canonical) canonical.setAttribute("href", canonicalUrl);
+}
+
 function Link({ href, children, ...props }) {
   const internal = href.startsWith("/");
   return (
@@ -4748,12 +4840,7 @@ export default function App() {
           : route === "/register"
             ? "account-page"
             : "";
-    document.title =
-      route === "/blogs"
-        ? "Community stories | Kerugoya Main SDA"
-        : route === "/giving"
-          ? "Giving | Kerugoya Main SDA Church"
-          : "Kerugoya Main SDA Church";
+    updatePageMetadata(route);
   }, [route]);
   if (route === "/about") return <About />;
   if (route === "/ministries") return <Ministries />;
