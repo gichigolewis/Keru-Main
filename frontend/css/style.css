@@ -4578,10 +4578,10 @@ textarea,
   gap: 0.45rem;
   min-height: 38px;
   padding: 0 0.85rem;
-  border: 1px solid #b6d2c0;
+  border: 1px solid #c7d2ea;
   border-radius: 8px;
-  background: #eaf4ed;
-  color: #1d5b3b;
+  background: #eef2fb;
+  color: var(--primary-color);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 700;
@@ -4591,8 +4591,8 @@ textarea,
   transition: background 0.16s ease, border-color 0.16s ease;
 }
 .leader-card-open-btn:hover {
-  border-color: #5e9a73;
-  background: #dceee2;
+  border-color: var(--secondary-color);
+  background: #fff8e1;
 }
 .leader-card-open-btn i {
   font-size: 1.1rem;
@@ -4626,7 +4626,7 @@ textarea,
 }
 .leader-card-modal-eyebrow,
 .leader-id-card-kicker {
-  color: #9a762e;
+  color: var(--primary-color);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -4634,7 +4634,7 @@ textarea,
 }
 .leader-card-modal-heading h3 {
   margin: 0.3rem 0 0;
-  color: #183c32;
+  color: var(--primary-color);
   font-size: clamp(1.3rem, 3vw, 1.7rem);
 }
 .leader-card-modal-heading p {
@@ -4648,7 +4648,7 @@ textarea,
   overflow: hidden;
   aspect-ratio: 5 / 3;
   border-radius: 16px;
-  background: #f7f8f4;
+  background: var(--bg-light);
   box-shadow: 0 18px 42px rgba(21, 47, 36, 0.14);
 }
 .leader-id-card-brand {
@@ -4658,8 +4658,8 @@ textarea,
   justify-content: space-between;
   min-width: 0;
   padding: clamp(0.8rem, 3vw, 2rem);
-  border-right: 5px solid #d4a84e;
-  background: linear-gradient(145deg, #0b4a3b, #123a32);
+  border-right: 5px solid var(--secondary-color);
+  background: linear-gradient(145deg, var(--primary-color), #172554);
   color: #fff;
 }
 .leader-id-card-brand > img,
@@ -4708,7 +4708,7 @@ textarea,
 }
 .leader-id-card-details h4 {
   margin: 0.45rem 0 0;
-  color: #183c32;
+  color: var(--primary-color);
   font-family: "Playfair Display", Georgia, serif;
   font-size: clamp(1.2rem, 4vw, 2.45rem);
   line-height: 1.12;
@@ -4716,7 +4716,7 @@ textarea,
 }
 .leader-id-card-role {
   margin: 0.65rem 0 0;
-  color: #48665b;
+  color: #334155;
   font-size: clamp(0.75rem, 2vw, 1.16rem);
   font-weight: 750;
   overflow-wrap: anywhere;
@@ -4725,7 +4725,7 @@ textarea,
   display: -webkit-box;
   overflow: hidden;
   margin: 0.8rem 0 0;
-  color: #64746c;
+  color: var(--text-light);
   font-size: clamp(0.66rem, 1.6vw, 0.95rem);
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -4735,8 +4735,8 @@ textarea,
 .leader-id-card-motto {
   margin-top: 1.2rem;
   padding-top: 0.8rem;
-  border-top: 1px solid #d9dfd6;
-  color: #48665b;
+  border-top: 1px solid #dbe3f0;
+  color: var(--primary-color);
   font-size: clamp(0.58rem, 1.35vw, 0.8rem);
   font-weight: 750;
   letter-spacing: 0.04em;

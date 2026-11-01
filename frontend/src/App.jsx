@@ -756,18 +756,18 @@ async function renderLeaderIdCard(leader) {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Your browser could not prepare the ID card.");
 
-  ctx.fillStyle = "#f7f8f4";
+  ctx.fillStyle = "#f8fafc";
   ctx.fillRect(0, 0, width, height);
   ctx.save();
   roundRect(ctx, 0, 0, width, height, 34);
   ctx.clip();
 
   const panel = ctx.createLinearGradient(0, 0, 440, height);
-  panel.addColorStop(0, "#0b4a3b");
-  panel.addColorStop(1, "#123a32");
+  panel.addColorStop(0, "#1e3a8a");
+  panel.addColorStop(1, "#172554");
   ctx.fillStyle = panel;
   ctx.fillRect(0, 0, 440, height);
-  ctx.fillStyle = "#d4a84e";
+  ctx.fillStyle = "#fbbf24";
   ctx.fillRect(440, 0, 9, height);
 
   if (leader.imageUrl) {
@@ -821,29 +821,29 @@ async function renderLeaderIdCard(leader) {
   ctx.font = "500 15px 'Inter', system-ui, sans-serif";
   ctx.fillText("LEADERSHIP  ·  KERUGOYA, KENYA", 68, 635);
 
-  ctx.fillStyle = "#a17b31";
+  ctx.fillStyle = "#1e3a8a";
   ctx.font = "700 17px 'Inter', system-ui, sans-serif";
   ctx.fillText("CHURCH LEADERSHIP", 510, 155);
-  ctx.fillStyle = "#183c32";
+  ctx.fillStyle = "#1e3a8a";
   ctx.font = "700 54px 'Playfair Display', Georgia, serif";
   const nameLines = wrapText(ctx, leader.name || "Church Leader", 610, 2);
   nameLines.forEach((line, index) => ctx.fillText(line, 510, 235 + index * 64));
   const nameBottom = 235 + (nameLines.length - 1) * 64;
 
-  ctx.fillStyle = "#48665b";
+  ctx.fillStyle = "#334155";
   ctx.font = "700 25px 'Inter', system-ui, sans-serif";
   const roleLines = wrapText(ctx, leader.role || "Church Leader", 610, 2);
   roleLines.forEach((line, index) => ctx.fillText(line, 510, nameBottom + 56 + index * 34));
 
   const descriptionTop = nameBottom + 112 + Math.max(0, roleLines.length - 1) * 34;
-  ctx.fillStyle = "#64746c";
+  ctx.fillStyle = "#64748b";
   ctx.font = "400 20px 'Inter', system-ui, sans-serif";
   const descriptionLines = wrapText(ctx, leader.description || "Serving the church community with faith and care.", 610, 4);
   descriptionLines.forEach((line, index) => ctx.fillText(line, 510, descriptionTop + index * 32));
 
-  ctx.fillStyle = "#d9dfd6";
+  ctx.fillStyle = "#dbe3f0";
   ctx.fillRect(510, 594, 610, 1);
-  ctx.fillStyle = "#48665b";
+  ctx.fillStyle = "#1e3a8a";
   ctx.font = "600 17px 'Inter', system-ui, sans-serif";
   ctx.fillText("SERVING WITH FAITH · GROWING IN COMMUNITY", 510, 635);
   ctx.restore();
