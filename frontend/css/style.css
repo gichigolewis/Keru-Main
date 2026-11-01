@@ -4575,23 +4575,24 @@ textarea,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  min-height: 36px;
-  padding: 0 0.7rem;
-  border: 1px solid #cbd9cf;
+  gap: 0.45rem;
+  min-height: 38px;
+  padding: 0 0.85rem;
+  border: 1px solid #b6d2c0;
   border-radius: 8px;
-  background: #f5faf6;
-  color: #286344;
+  background: #eaf4ed;
+  color: #1d5b3b;
   font: inherit;
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
+  white-space: nowrap;
   transition: background 0.16s ease, border-color 0.16s ease;
 }
 .leader-card-open-btn:hover {
-  border-color: #7eaa8d;
-  background: #eaf4ed;
+  border-color: #5e9a73;
+  background: #dceee2;
 }
 .leader-card-open-btn i {
   font-size: 1.1rem;
@@ -4790,11 +4791,9 @@ textarea,
     width: 100%;
   }
   .leader-card-open-btn {
-    width: 36px;
-    padding: 0;
-  }
-  .leader-card-open-btn span {
-    display: none;
+    min-height: 36px;
+    padding: 0 0.6rem;
+    font-size: 0.75rem;
   }
 }
 

@@ -4114,8 +4114,8 @@ function AdminDashboard({ auth, username, onLogout }) {
               <div className="admin-list-section">
                 <div className="admin-list-header">
                   <div>
-                    <h3>Published Church Leaders</h3>
-                    <p>Profiles displayed on the public church leaders page</p>
+                    <h3>Leader Profiles &amp; ID Cards</h3>
+                    <p>Preview, share, or download a professional image card for each leader.</p>
                   </div>
                   <span className="admin-list-count">{filteredLeaders.length}</span>
                 </div>
@@ -4142,7 +4142,7 @@ function AdminDashboard({ auth, username, onLogout }) {
                         }}
                       >
                         <i className="bx bx-id-card" />
-                        <span>ID card</span>
+                        <span>Share ID card</span>
                       </button>
                       <button
                         className="admin-item-action-btn is-edit"
