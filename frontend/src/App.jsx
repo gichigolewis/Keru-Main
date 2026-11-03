@@ -117,6 +117,14 @@ const pageMetadata = {
     title: "Administration | Kerugoya Main SDA Church",
     description: "Kerugoya Main SDA Church administration.",
   },
+  "/hymnal": {
+    title: "SDA Hymnal | Kerugoya Main SDA Church",
+    description: "Browse and sing along with the Seventh-day Adventist Hymnal. Search hymns by number or title.",
+  },
+  "/bible": {
+    title: "Bible | Kerugoya Main SDA Church",
+    description: "Read the Holy Bible online. Browse all 66 books of the King James Version.",
+  },
 };
 
 const nonIndexableRoutes = new Set([
@@ -887,6 +895,8 @@ const links = [
   ["/sermons.html", "bx-tv", "Sermons"],
   ["/blogs.html", "bx-conversation", "Community"],
   ["/giving.html", "bx-donate-heart", "Giving"],
+  ["/hymnal.html", "bx-music", "Hymnal"],
+  ["/bible.html", "bx-book-open", "Bible"],
 ];
 
 function isLinkActive(href, route) {
@@ -990,6 +1000,16 @@ function PublicHeader() {
                 </Link>
               </li>
               <li>
+                <Link href="/hymnal.html">
+                  <i className="bx bx-music" /> <span>SDA Hymnal</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/bible.html">
+                  <i className="bx bx-book-open" /> <span>Bible</span>
+                </Link>
+              </li>
+              <li>
                 <Link href="/admin.html">
                   <i className="bx bx-lock-alt" /> <span>Admin login</span>
                 </Link>
@@ -1071,6 +1091,12 @@ function Footer() {
           </li>
           <li>
             <a href="https://m.egwwritings.org/">Ellen G. White Writings</a>
+          </li>
+          <li>
+            <Link href="/hymnal.html">SDA Hymnal</Link>
+          </li>
+          <li>
+            <Link href="/bible.html">Bible (KJV)</Link>
           </li>
         </ul>
       </div>
@@ -5163,5 +5189,7 @@ export default function App() {
     return <ResponsivePage page={route.slice(1)} />;
   }
   if (route === "/admin" || route === "/admin-pro") return <Admin />;
+  if (route === "/hymnal") return <Hymnal />;
+  if (route === "/bible") return <BibleReader />;
   return <Home />;
 }
