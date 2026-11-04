@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const hymnals = {
   sdah: {
@@ -21,91 +21,6 @@ const hymnals = {
     licensePath: "/data/NYIMBO-ZA-KRISTO-LICENSE.txt",
   },
 };
-
-function formatAudioTime(seconds) {
-  if (!Number.isFinite(seconds)) return "0:00";
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
-}
-
-export function AudioPlayer({ src, title }) {
-  const audioRef = useRef(null);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    setPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
-    setError("");
-    if (audioRef.current) audioRef.current.load();
-  }, [src]);
-
-  const togglePlayback = async () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (audio.paused) {
-      try {
-        await audio.play();
-        setError("");
-      } catch {
-        setError("Audio playback could not start. Please try again.");
-      }
-    } else {
-      audio.pause();
-    }
-  };
-
-  return (
-    <div className="church-audio-player">
-      <audio
-        ref={audioRef}
-        src={src}
-        preload="metadata"
-        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
-        onDurationChange={(event) => setDuration(event.currentTarget.duration)}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => setPlaying(false)}
-        onError={() => setError("This audio recording could not be loaded.")}
-      />
-      <button
-        className="church-audio-play"
-        type="button"
-        onClick={togglePlayback}
-        aria-label={`${playing ? "Pause" : "Play"} ${title}`}
-      >
-        <i className={`bx ${playing ? "bx-pause" : "bx-play"}`} aria-hidden="true" />
-      </button>
-      <div className="church-audio-main">
-        <div className="church-audio-title" title={title}>{title}</div>
-        <div className="church-audio-timeline">
-          <span>{formatAudioTime(currentTime)}</span>
-          <input
-            type="range"
-            min="0"
-            max={duration || 0}
-            step="0.1"
-            value={Math.min(currentTime, duration || 0)}
-            disabled={!duration}
-            aria-label={`Seek ${title}`}
-            onChange={(event) => {
-              const nextTime = Number(event.target.value);
-              if (audioRef.current) audioRef.current.currentTime = nextTime;
-              setCurrentTime(nextTime);
-            }}
-          />
-          <span>{formatAudioTime(duration)}</span>
-        </div>
-        {error && <span className="church-audio-error" role="alert">{error}</span>}
-      </div>
-    </div>
-  );
-}
 
 const hymnStories = [
   {

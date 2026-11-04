@@ -5,10 +5,9 @@ The Express API runs as Vercel Node.js Functions and uses Neon Postgres through 
 ## Configure Firebase Authentication
 
 1. Create or select a Firebase project and enable **Authentication → Sign-in method → Email/Password**.
-2. Register a Firebase web app. Copy `frontend/.env.example` to `frontend/.env.local` and fill in the web app's API key, auth domain, project ID, app ID, and Storage bucket name. These client settings are public; do not put a service-account key in frontend code.
+2. Register a Firebase web app. Copy `frontend/.env.example` to `frontend/.env.local` and fill in the web app's API key, auth domain, project ID, and app ID. These client settings are public; do not put a service-account key in frontend code.
 3. Create a Firebase service account with Firebase Authentication administration permissions. Copy `backend/.env.example` to `backend/.env` and set `FIREBASE_PROJECT_ID` and `FIREBASE_ADMIN_EMAILS`. For local development, either put the service-account JSON in `FIREBASE_SERVICE_ACCOUNT_JSON` or set `GOOGLE_APPLICATION_CREDENTIALS` to the path of a private service-account JSON file. Keep the key file private and out of Git. For hosted deployments, store the JSON only in the host's secret environment configuration.
 4. Create the bootstrap administrator with Email/Password in the Firebase console and verify the email. It must match an entry in `FIREBASE_ADMIN_EMAILS`.
-5. Enable Firebase Storage and deploy the repository's `storage.rules` to the same Firebase project with `firebase deploy --only storage --project YOUR_FIREBASE_PROJECT_ID`. The rules allow public playback of published audio, but restrict uploads and deletes to admins and audio files no larger than 100 MB.
 
 Member registration sends an email verification link. Members must verify their email before signing in or posting. The admin portal uses the same Firebase project; administrators are Firebase Auth users with the `admin` custom claim. Admins can add further admin accounts from the dashboard.
 
@@ -30,7 +29,7 @@ In the hosting environment, set:
 - `FIREBASE_PROJECT_ID` — Firebase project ID
 - `FIREBASE_SERVICE_ACCOUNT_JSON` — private service-account JSON for the backend
 - `FIREBASE_ADMIN_EMAILS` — comma-separated verified bootstrap admin email addresses
-- `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_STORAGE_BUCKET` — public Firebase web-app config, available at frontend build time
+- `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` — public Firebase web-app config, available at frontend build time
 
 Add the deployed site domain to Firebase Authentication's authorized domains. The API routes are provided by `api/index.js` and `api/[...path].js`; `/api/healthz` checks function availability without connecting to the database, and `/api/ping` checks database readiness.
 
@@ -58,8 +57,6 @@ PostgreSQL stores church content and member profiles. Firebase Auth stores login
 - `DELETE /api/admin/users/:uid` — revoke a member's Firebase refresh tokens (requires a Firebase admin ID token)
 - `GET /api/sermons` — list published sermons
 - `POST`, `PUT`, `DELETE /api/sermons` — manage sermons (requires a Firebase admin ID token)
-
-The Sermons page separates YouTube video sermons, songs, and audio sermons. Audio uploads use Firebase Storage directly, not the API's JSON request body. Configure the `VITE_FIREBASE_STORAGE_BUCKET` value in local and production frontend environments and deploy `storage.rules` before enabling audio uploads. Audio files are limited to 100 MB and MP3, M4A, AAC, OGG, WAV, or WebM formats.
 
 Community story cover photos accept JPG, PNG, and WebP files up to 2 MB. Stories may include up to four JPG, PNG, WebP, MP4, or WebM attachments; cover plus attachments are limited to 2.5 MB total.
 

@@ -33,19 +33,10 @@ async function ensureDatabase() {
       await query`CREATE TABLE IF NOT EXISTS sermons (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         title TEXT NOT NULL,
-        youtube_id TEXT NOT NULL DEFAULT '',
+        youtube_id TEXT NOT NULL,
         date TEXT NOT NULL DEFAULT '',
-        media_type TEXT NOT NULL DEFAULT 'video',
-        audio_url TEXT NOT NULL DEFAULT '',
-        audio_storage_path TEXT NOT NULL DEFAULT '',
-        audio_mime_type TEXT NOT NULL DEFAULT '',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`;
-      await query`ALTER TABLE sermons ALTER COLUMN youtube_id SET DEFAULT ''`;
-      await query`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS media_type TEXT NOT NULL DEFAULT 'video'`;
-      await query`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS audio_url TEXT NOT NULL DEFAULT ''`;
-      await query`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS audio_storage_path TEXT NOT NULL DEFAULT ''`;
-      await query`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS audio_mime_type TEXT NOT NULL DEFAULT ''`;
       await query`CREATE TABLE IF NOT EXISTS church_leaders (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(100) NOT NULL,

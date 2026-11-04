@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import logoImage from "../assets/images/sda logo.png";
-import { AudioPlayer, BibleReader, Hymnal } from "./StudyResources";
+import { BibleReader, Hymnal } from "./StudyResources";
 import {
   createUserWithEmailAndPassword,
-  deleteChurchAudio,
   firebaseAuth,
   getFirebaseAuthHeaders,
   onAuthStateChanged,
@@ -14,7 +13,6 @@ import {
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
-  uploadChurchAudio,
 } from "./firebase";
 
 const imagePath = logoImage;
@@ -1255,68 +1253,30 @@ const featuredSermons = [
 ];
 function Sermons() {
   const [videos, setVideos] = useState([]);
-  const [songs, setSongs] = useState([]);
-  const [audioSermons, setAudioSermons] = useState([]);
   useEffect(() => {
     (async () => {
       try {
         const response = await fetch("/api/sermons");
         if (response.ok) {
           const sermons = await response.json();
-          if (Array.isArray(sermons)) {
-            setVideos(sermons.filter((sermon) => !sermon.mediaType || sermon.mediaType === "video"));
-            setSongs(sermons.filter((sermon) => sermon.mediaType === "song"));
-            setAudioSermons(sermons.filter((sermon) => sermon.mediaType === "audio-sermon"));
-            if (sermons.length > 0) return;
+          if (Array.isArray(sermons) && sermons.length > 0) {
+            setVideos(sermons);
+            return;
           }
         }
-      } catch {
-        setVideos(featuredSermons);
-        return;
-      }
+      } catch {}
       setVideos(featuredSermons);
     })();
   }, []);
-
-  const renderAudioSection = (title, items, emptyMessage) => (
-    <section className="sermon-audio-section">
-      <h2>{title}</h2>
-      {items.length ? (
-        <div className="sermon-audio-list">
-          {items.map((item) => (
-            <article className="sermon-audio-card" key={item.id}>
-              <div className="sermon-audio-card-heading">
-                <h3>{item.title}</h3>
-                {item.date && <time dateTime={item.date}>{item.date}</time>}
-              </div>
-              <AudioPlayer src={item.audioUrl} title={item.title} />
-            </article>
-          ))}
-        </div>
-      ) : (
-        <p className="sermon-media-empty">{emptyMessage}</p>
-      )}
-    </section>
-  );
-
   return (
     <PublicShell>
       <section className="sermons">
         <div className="sermons-heading">
           <p className="eyebrow">Watch and grow</p>
           <h1>Sermons &amp; Messages</h1>
-          <p>Worship with us and explore sermons, music, and audio messages from Kerugoya Main SDA Church.</p>
+          <p>Worship with us and explore messages from Kerugoya Main SDA Church.</p>
         </div>
-        <section className="sermon-video-section">
-          <h2>Video Sermons</h2>
-          {videos.length ? (
-            <div className="video-gallery">{videos.map(renderSermon)}</div>
-          ) : (
-            <p className="sermon-media-empty">No video sermons have been added yet.</p>
-          )}
-        </section>
-        {renderAudioSection("Songs", songs, "No songs have been added yet.")}
-        {renderAudioSection("Audio Sermons", audioSermons, "No audio sermons have been added yet.")}
+        <div className="video-gallery">{videos.map(renderSermon)}</div>
       </section>
     </PublicShell>
   );
@@ -3385,8 +3345,6 @@ function AdminDashboard({ auth, username, onLogout }) {
 
   const [programSaving, setProgramSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [sermonMediaType, setSermonMediaType] = useState("video");
-  const [audioUploadProgress, setAudioUploadProgress] = useState(0);
   const [editingLeader, setEditingLeader] = useState(null);
   const [leaderImageData, setLeaderImageData] = useState("");
   const [removeLeaderImage, setRemoveLeaderImage] = useState(false);
@@ -3518,79 +3476,6 @@ function AdminDashboard({ auth, username, onLogout }) {
       setMessage({ type: "error", text: error.message || "Failed to save entry." });
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const refreshAdminStorageToken = async () => {
-    const user = requireFirebaseAuth().currentUser;
-    const response = await fetch("/api/auth-check", {
-      headers: await getFirebaseAuthHeaders(user),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(result.error || "Administrator access is required for Firebase Storage.");
-    }
-    await user.getIdToken(true);
-    return user;
-  };
-
-  const submitSermon = async (event) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setMessage(null);
-    setAudioUploadProgress(0);
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    const mediaType = String(data.get("mediaType") || "video");
-    let uploadedAudio = null;
-    let sermonHeaders = headers;
-    try {
-      const payload = {
-        title: String(data.get("title") || "").trim(),
-        date: String(data.get("date") || ""),
-        mediaType,
-        youtubeId: mediaType === "video" ? String(data.get("youtubeId") || "").trim() : "",
-      };
-      if (mediaType !== "video") {
-        const file = data.get("audioFile");
-        if (!(file instanceof File) || !file.size) {
-          throw new Error("Choose an audio file to upload.");
-        }
-        const user = await refreshAdminStorageToken();
-        sermonHeaders = await getFirebaseAuthHeaders(user, { "Content-Type": "application/json" });
-        uploadedAudio = await uploadChurchAudio(file, setAudioUploadProgress);
-        Object.assign(payload, uploadedAudio);
-      }
-      const response = await fetch("/api/sermons", {
-        method: "POST",
-        headers: sermonHeaders,
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
-        throw new Error(result.error || "Could not publish the recording.");
-      }
-      form.reset();
-      setSermonMediaType("video");
-      setMessage({ type: "success", text: "Recording published successfully." });
-      await load();
-    } catch (error) {
-      if (uploadedAudio?.audioStoragePath) {
-        try {
-          await refreshAdminStorageToken();
-          await deleteChurchAudio(uploadedAudio.audioStoragePath);
-        } catch (cleanupError) {
-          setMessage({
-            type: "error",
-            text: `${error.message || "Could not publish the recording."} Firebase cleanup also failed: ${cleanupError.message || "remove the unused audio file from Storage."}`,
-          });
-          return;
-        }
-      }
-      setMessage({ type: "error", text: error.message || "Could not publish the recording." });
-    } finally {
-      setSubmitting(false);
-      setAudioUploadProgress(0);
     }
   };
 
@@ -3740,9 +3625,6 @@ function AdminDashboard({ auth, username, onLogout }) {
     setMessage(null);
     try {
       const id = endpoint.split("/").pop();
-      const sermonToDelete = endpoint.includes("/sermons/")
-        ? sermons.find((sermon) => String(sermon.id) === id)
-        : null;
       const response = await fetch(endpoint, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${auth}` },
@@ -3761,19 +3643,6 @@ function AdminDashboard({ auth, username, onLogout }) {
         setPosts((prev) => prev.filter((p) => String(p.id) !== id));
       } else if (endpoint.includes("/sermons/")) {
         setSermons((prev) => prev.filter((s) => String(s.id) !== id));
-        if (sermonToDelete?.audioStoragePath) {
-          try {
-            await refreshAdminStorageToken();
-            await deleteChurchAudio(sermonToDelete.audioStoragePath);
-          } catch (error) {
-            setMessage({
-              type: "error",
-              text: `Deleted ${label}, but Firebase audio cleanup failed: ${error.message || "remove the unused audio file from Storage."}`,
-            });
-            await load();
-            return;
-          }
-        }
       } else if (endpoint.includes("/leaders/")) {
         setLeaders((prev) => prev.filter((leader) => String(leader.id) !== id));
         if (editingLeader?.id === id) cancelLeaderEdit();
@@ -3859,7 +3728,7 @@ function AdminDashboard({ auth, username, onLogout }) {
   );
 
   const filteredSermons = sermons.filter((s) =>
-    !q ? true : (s.title && s.title.toLowerCase().includes(q)) || (s.youtubeId && s.youtubeId.toLowerCase().includes(q)) || (s.mediaType && s.mediaType.toLowerCase().includes(q))
+    !q ? true : (s.title && s.title.toLowerCase().includes(q)) || (s.youtubeId && s.youtubeId.toLowerCase().includes(q))
   );
 
   const filteredLeaders = leaders.filter((leader) =>
@@ -4851,61 +4720,27 @@ function AdminDashboard({ auth, username, onLogout }) {
                     <i className="bx bx-video-plus" />
                   </div>
                   <div className="admin-panel-title">
-                    <h3>Add Church Media</h3>
-                    <p>Publish video sermons, songs, or audio sermons for the congregation.</p>
+                    <h3>Add New Sermon Recording</h3>
+                    <p>Publish a YouTube sermon for congregation members to watch.</p>
                   </div>
                 </div>
-                <form className="admin-form" onSubmit={submitSermon}>
+                <form className="admin-form" onSubmit={(e) => submit(e, "/api/sermons")}>
                   <div className="admin-field">
                     <label>
-                      <span>Title</span>
+                      <span>Sermon Title</span>
                     </label>
                     <input name="title" placeholder="e.g. Walking in Faith and Truth" required />
                   </div>
                   <div className="admin-field">
                     <label>
-                      <span>Media Type</span>
+                      <span>YouTube Video ID</span>
+                      <small>e.g. dQw4w9WgXcQ</small>
                     </label>
-                    <select
-                      name="mediaType"
-                      value={sermonMediaType}
-                      onChange={(event) => setSermonMediaType(event.target.value)}
-                    >
-                      <option value="video">Video sermon (YouTube)</option>
-                      <option value="song">Song (audio upload)</option>
-                      <option value="audio-sermon">Audio sermon (audio upload)</option>
-                    </select>
+                    <input name="youtubeId" placeholder="Video ID from YouTube URL" required />
                   </div>
-                  {sermonMediaType === "video" ? (
-                    <div className="admin-field">
-                      <label>
-                        <span>YouTube Video ID</span>
-                        <small>e.g. dQw4w9WgXcQ</small>
-                      </label>
-                      <input name="youtubeId" placeholder="Video ID from YouTube URL" required />
-                    </div>
-                  ) : (
-                    <div className="admin-field admin-field-wide">
-                      <label>
-                        <span>Audio File</span>
-                        <small>MP3, M4A, AAC, OGG, WAV, or WebM; maximum 100 MB</small>
-                      </label>
-                      <input
-                        name="audioFile"
-                        type="file"
-                        accept="audio/aac,audio/mp4,audio/mpeg,audio/ogg,audio/wav,audio/webm,audio/x-m4a,audio/x-wav"
-                        required
-                      />
-                      {submitting && sermonMediaType !== "video" && (
-                        <progress className="audio-upload-progress" value={audioUploadProgress} max="100">
-                          {audioUploadProgress}%
-                        </progress>
-                      )}
-                    </div>
-                  )}
                   <div className="admin-field">
                     <label>
-                      <span>Recording Date</span>
+                      <span>Service Date</span>
                       <small>Optional</small>
                     </label>
                     <input name="date" type="date" />
@@ -4914,12 +4749,11 @@ function AdminDashboard({ auth, username, onLogout }) {
                     <button className="admin-btn-primary" type="submit" disabled={submitting}>
                       {submitting ? (
                         <>
-                          <i className="bx bx-loader-alt bx-spin" />
-                          {sermonMediaType === "video" ? "Publishing..." : `Uploading ${audioUploadProgress}%...`}
+                          <i className="bx bx-loader-alt bx-spin" /> Publishing...
                         </>
                       ) : (
                         <>
-                          <i className="bx bx-upload" /> Publish Media
+                          <i className="bx bx-upload" /> Publish Sermon
                         </>
                       )}
                     </button>
@@ -4930,8 +4764,8 @@ function AdminDashboard({ auth, username, onLogout }) {
               <div className="admin-list-section">
                 <div className="admin-list-header">
                   <div>
-                    <h3>Published Media</h3>
-                    <p>Sermons and songs available in the church media library</p>
+                    <h3>Published Sermons</h3>
+                    <p>Recordings available in the church media library</p>
                   </div>
                   <span className="admin-list-count">{filteredSermons.length}</span>
                 </div>
@@ -4940,24 +4774,17 @@ function AdminDashboard({ auth, username, onLogout }) {
                     filteredSermons.map((item) => (
                       <article key={item.id} className="admin-list-item">
                         <div className="admin-item-icon" style={{ background: "#fee2e2", color: "#b91c1c" }}>
-                          <i className={`bx ${item.mediaType === "song" ? "bx-music" : item.mediaType === "video" || !item.mediaType ? "bx-play-circle" : "bx-headphone"}`} />
+                          <i className="bx bx-play-circle" />
                         </div>
                         <div className="admin-item-main">
                           <div className="admin-item-title">{item.title}</div>
                           <div className="admin-item-meta" style={{ marginTop: "0.25rem" }}>
-                            <span className="admin-tag is-blue">
-                              {item.mediaType === "song" ? "Song" : item.mediaType === "audio-sermon" ? "Audio sermon" : "Video sermon"}
-                            </span>
-                            {item.youtubeId && <span className="admin-tag is-blue">YouTube ID: {item.youtubeId}</span>}
+                            <span className="admin-tag is-blue">YouTube ID: {item.youtubeId}</span>
                             {item.date && (
                               <span className="admin-item-byline">Date: {item.date}</span>
                             )}
                           </div>
-                          {item.audioUrl ? (
-                            <div className="admin-audio-preview">
-                              <AudioPlayer src={item.audioUrl} title={item.title} />
-                            </div>
-                          ) : item.youtubeId && (
+                          {item.youtubeId && (
                             <div style={{ marginTop: "0.4rem" }}>
                               <a
                                 href={`https://www.youtube.com/watch?v=${item.youtubeId}`}
@@ -4997,8 +4824,8 @@ function AdminDashboard({ auth, username, onLogout }) {
                   ) : (
                     <div className="admin-empty-state">
                       <i className="bx bx-video" />
-                      <h4>No media published</h4>
-                      <p>Add video sermons, songs, or audio sermons above to build your church library.</p>
+                      <h4>No sermons uploaded</h4>
+                      <p>Add YouTube sermon recordings above to build your church library.</p>
                     </div>
                   )}
                 </div>
