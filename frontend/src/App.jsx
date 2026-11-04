@@ -15,6 +15,7 @@ import {
   signInWithPopup,
   signOut,
   updateProfile,
+  firebaseConfigured,
 } from "./firebase";
 
 const imagePath = logoImage;
@@ -1440,6 +1441,7 @@ function Account({ register = false }) {
   const [submitting, setSubmitting] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
+  const firebaseReady = firebaseConfigured;
   const submit = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -1479,6 +1481,13 @@ function Account({ register = false }) {
     }
   };
   const signInWithGoogle = async () => {
+    if (!firebaseReady) {
+      setMessageType("error");
+      setMessage(
+        "Google sign-in is not configured yet. Add your Firebase web app config to frontend/.env.local (VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_APP_ID), then enable the Google provider and add this domain to Authorized domains in Firebase Console -> Authentication -> Settings.",
+      );
+      return;
+    }
     if (!acceptedPolicies) {
       setMessage("Please agree to the Terms and Conditions and acknowledge the Privacy Policy to continue with Google.");
       setMessageType("error");
@@ -1628,11 +1637,21 @@ function Account({ register = false }) {
             <i className="bx bx-right-arrow-alt" />
           </button>
           <div className="account-divider"><span>or</span></div>
+          {!firebaseReady && (
+            <div className="account-setup-note">
+              <i className="bx bx-info-circle" aria-hidden="true" />
+              <span>
+                Google sign-in is not configured. Add your Firebase web app config to{" "}
+                <code>frontend/.env.local</code> and enable the Google provider in
+                Firebase Console.
+              </span>
+            </div>
+          )}
           <button
             className="google-sign-in"
             type="button"
             onClick={signInWithGoogle}
-            disabled={submitting}
+            disabled={submitting || !firebaseReady}
           >
             <i className="bx bxl-google" aria-hidden="true" />
             {submitting ? "Please wait…" : register ? "Sign up with Google" : "Sign in with Google"}
