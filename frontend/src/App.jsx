@@ -1506,6 +1506,14 @@ function Account({ register = false }) {
         setMessage("Google sign-in was cancelled.");
       } else if (error.code === "auth/popup-blocked") {
         setMessage("Your browser blocked the Google sign-in window. Allow pop-ups and try again.");
+      } else if (error.code === "auth/unauthorized-domain") {
+        const hostname = window.location.hostname;
+        const localHostHint = hostname === "127.0.0.1"
+          ? " For local testing, open the site at http://localhost:5173 instead."
+          : "";
+        setMessage(
+          `Firebase does not authorize ${hostname} for Google sign-in. In Firebase Console, open Authentication → Settings → Authorized domains and add this domain.${localHostHint}`,
+        );
       } else {
         setMessage(error.message || "We could not sign in with Google. Please try again.");
       }
