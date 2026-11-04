@@ -1444,6 +1444,11 @@ function Account({ register = false }) {
     const email = String(data.get("email")).trim().toLowerCase();
     const password = String(data.get("password"));
     const name = register ? String(data.get("name")).trim() : "";
+    if (!acceptedPolicies) {
+      setMessage("Please agree to the Terms and Conditions and Privacy Policy to continue.");
+      setMessageType("error");
+      return;
+    }
     setSubmitting(true);
     setMessage("");
     setMessageType("error");
@@ -1569,7 +1574,7 @@ function Account({ register = false }) {
               id="account-policies"
               type="checkbox"
               checked={acceptedPolicies}
-              required={register}
+              required
               onChange={(event) => setAcceptedPolicies(event.target.checked)}
             />
             <label htmlFor="account-policies">
@@ -1577,7 +1582,7 @@ function Account({ register = false }) {
               the <Link href="/privacy.html">Privacy Policy</Link>.
             </label>
           </div>
-          <button className="btn form-submit" type="submit" disabled={submitting}>
+          <button className="btn form-submit" type="submit" disabled={submitting || !acceptedPolicies}>
             {submitting ? "Please wait…" : register ? "Create account" : "Sign in"}{" "}
             <i className="bx bx-right-arrow-alt" />
           </button>
