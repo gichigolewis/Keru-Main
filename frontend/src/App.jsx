@@ -4,7 +4,6 @@ import { BibleReader, Hymnal } from "./StudyResources";
 import {
   createUserWithEmailAndPassword,
   firebaseAuth,
-  GoogleAuthProvider,
   getFirebaseAuthHeaders,
   onAuthStateChanged,
   onIdTokenChanged,
@@ -12,10 +11,8 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
   signInWithEmailAndPassword,
-  signInWithPopup,
   signOut,
   updateProfile,
-  firebaseConfigured,
 } from "./firebase";
 
 const imagePath = logoImage;
@@ -1441,7 +1438,6 @@ function Account({ register = false }) {
   const [submitting, setSubmitting] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
-  const firebaseReady = firebaseConfigured;
   const submit = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -1476,57 +1472,6 @@ function Account({ register = false }) {
       }
     } catch (error) {
       setMessage(error.message || "We could not authenticate your account. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-  const signInWithGoogle = async () => {
-    if (!firebaseReady) {
-      setMessageType("error");
-      setMessage(
-        "Google sign-in is not configured yet. Add your Firebase web app config to frontend/.env.local (VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_APP_ID), then enable the Google provider and add this domain to Authorized domains in Firebase Console -> Authentication -> Settings.",
-      );
-      return;
-    }
-    if (!acceptedPolicies) {
-      setMessage("Please agree to the Terms and Conditions and acknowledge the Privacy Policy to continue with Google.");
-      setMessageType("error");
-      return;
-    }
-    setSubmitting(true);
-    setMessage("");
-    setVerificationEmail("");
-    try {
-      const credential = await signInWithPopup(
-        requireFirebaseAuth(),
-        new GoogleAuthProvider(),
-      );
-      if (!credential.user.emailVerified) {
-        await sendEmailVerification(credential.user);
-        await signOut(requireFirebaseAuth());
-        setVerificationEmail(credential.user.email || "");
-        setMessageType("success");
-        setMessage("Please verify your email address before continuing.");
-        return;
-      }
-      navigate("/blogs.html");
-    } catch (error) {
-      if (error.code === "auth/popup-closed-by-user") {
-        setMessage("Google sign-in was cancelled.");
-      } else if (error.code === "auth/popup-blocked") {
-        setMessage("Your browser blocked the Google sign-in window. Allow pop-ups and try again.");
-      } else if (error.code === "auth/unauthorized-domain") {
-        const hostname = window.location.hostname;
-        const localHostHint = hostname === "127.0.0.1"
-          ? " For local testing, open the site at http://localhost:5173 instead."
-          : "";
-        setMessage(
-          `Firebase does not authorize ${hostname} for Google sign-in. In Firebase Console, open Authentication → Settings → Authorized domains and add this domain.${localHostHint}`,
-        );
-      } else {
-        setMessage(error.message || "We could not sign in with Google. Please try again.");
-      }
-      setMessageType("error");
     } finally {
       setSubmitting(false);
     }
@@ -1635,26 +1580,6 @@ function Account({ register = false }) {
           <button className="btn form-submit" type="submit" disabled={submitting}>
             {submitting ? "Please wait…" : register ? "Create account" : "Sign in"}{" "}
             <i className="bx bx-right-arrow-alt" />
-          </button>
-          <div className="account-divider"><span>or</span></div>
-          {!firebaseReady && (
-            <div className="account-setup-note">
-              <i className="bx bx-info-circle" aria-hidden="true" />
-              <span>
-                Google sign-in is not configured. Add your Firebase web app config to{" "}
-                <code>frontend/.env.local</code> and enable the Google provider in
-                Firebase Console.
-              </span>
-            </div>
-          )}
-          <button
-            className="google-sign-in"
-            type="button"
-            onClick={signInWithGoogle}
-            disabled={submitting || !firebaseReady}
-          >
-            <i className="bx bxl-google" aria-hidden="true" />
-            {submitting ? "Please wait…" : register ? "Sign up with Google" : "Sign in with Google"}
           </button>
           <p className={`form-message ${messageType === "error" ? "is-error" : "is-success"}`} role="status">
             {message}
