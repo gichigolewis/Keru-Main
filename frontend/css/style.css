@@ -1877,6 +1877,7 @@ footer .copy {
   gap: 0.6rem;
 }
 .resource-content input,
+.hymnal-selector select,
 .bible-controls select {
   width: 100%;
   min-width: 0;
@@ -1889,6 +1890,7 @@ footer .copy {
   font: inherit;
 }
 .resource-content input:focus,
+.hymnal-selector select:focus,
 .bible-controls select:focus,
 .resource-tabs button:focus-visible,
 .resource-primary-button:focus-visible,
@@ -1924,6 +1926,15 @@ footer .copy {
   margin-top: 0.25rem;
   color: #64748b;
   font-size: 0.92rem;
+}
+.hymnal-selector {
+  display: grid;
+  gap: 0.4rem;
+  max-width: 38rem;
+  margin-bottom: 1rem;
+  color: #1e293b;
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 .resource-text-button {
   min-height: auto;
@@ -2089,25 +2100,43 @@ footer .copy {
 .hymn-focus-lyrics {
   display: grid;
   justify-items: center;
-  gap: 1.3rem;
+  gap: 1.5rem;
   padding: clamp(1.5rem, 5vw, 3rem) 1rem;
 }
+.hymn-stanza {
+  display: grid;
+  justify-items: center;
+  width: min(100%, 48rem);
+  padding: 1.1rem 1rem;
+  border-radius: 0.9rem;
+}
+.hymn-stanza--chorus {
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+}
+.hymn-stanza--verse {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+.hymn-stanza-label {
+  margin-bottom: 0.45rem;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.hymn-stanza--chorus .hymn-stanza-label {
+  color: #92400e;
+}
 .hymn-focus-verse {
-  width: min(100%, 42rem);
+  width: 100%;
   color: #1e293b;
   font-family: "Playfair Display", Georgia, serif;
   font-size: clamp(1.1rem, 2.5vw, 1.3rem);
   line-height: 1.9;
   text-align: center;
   white-space: pre-line;
-}
-.hymn-focus-verse sup {
-  display: block;
-  margin-bottom: 0.2rem;
-  color: #1e40af;
-  font-family: "Inter", sans-serif;
-  font-size: 0.68rem;
-  font-weight: 800;
 }
 .hymn-sheet-unavailable {
   display: grid;

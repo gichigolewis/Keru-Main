@@ -1,6 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 
-const hymnalSourceUrl = "https://github.com/rejnac/sdah-hymnal";
+const hymnals = {
+  sdah: {
+    name: "Seventh-day Adventist Hymnal",
+    abbreviation: "SDAH",
+    songCount: 952,
+    dataPath: "/data/sdah-hymnal.json",
+    sourceUrl: "https://github.com/rejnac/sdah-hymnal",
+    sourceName: "Rejnac Foundation SDAH Hymnal",
+    licensePath: "/data/SDAH-HYMNAL-LICENSE.txt",
+  },
+  nzk: {
+    name: "Nyimbo za Kristo",
+    abbreviation: "NZK",
+    language: "Kiswahili",
+    songCount: 220,
+    dataPath: "/data/nyimbo-za-kristo.json",
+    sourceUrl: "https://github.com/rejnac/swahili-hymnal",
+    sourceName: "Rejnac Foundation Nyimbo za Kristo",
+    licensePath: "/data/NYIMBO-ZA-KRISTO-LICENSE.txt",
+  },
+};
 
 const hymnStories = [
   {
@@ -106,6 +126,7 @@ const bibleBooks = [
 ].map(([name, chapters]) => ({ name, chapters }));
 
 export function Hymnal() {
+  const [selectedHymnalId, setSelectedHymnalId] = useState("sdah");
   const [activeTab, setActiveTab] = useState("browse");
   const [query, setQuery] = useState("");
   const [hymnNumber, setHymnNumber] = useState("");
@@ -116,48 +137,59 @@ export function Hymnal() {
   const [catalogueLoading, setCatalogueLoading] = useState(true);
   const [catalogueError, setCatalogueError] = useState("");
   const [catalogueRetryKey, setCatalogueRetryKey] = useState(0);
+  const selectedHymnal = hymnals[selectedHymnalId];
 
   useEffect(() => {
     const controller = new AbortController();
     setCatalogueLoading(true);
     setCatalogueError("");
 
-    fetch("/data/sdah-hymnal.json", { signal: controller.signal })
+    fetch(selectedHymnal.dataPath, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) {
-          throw new Error("The SDA hymnal catalogue could not be loaded.");
+          throw new Error(`${selectedHymnal.name} could not be loaded.`);
         }
         const catalogue = await response.json();
         if (
-          catalogue.Abbreviation !== "SDAH" ||
+          catalogue.Abbreviation !== selectedHymnal.abbreviation ||
           !Array.isArray(catalogue.Songs) ||
-          catalogue.Songs.length !== 952 ||
+          catalogue.Songs.length !== selectedHymnal.songCount ||
           catalogue.Songs.some(
             (song) =>
               !Number.isInteger(song.ID) ||
               song.ID < 1 ||
-              song.ID > 952 ||
+              song.ID > selectedHymnal.songCount ||
               typeof song.Text !== "string" ||
               !Array.isArray(song.Verses),
           ) ||
-          new Set(catalogue.Songs.map((song) => song.ID)).size !== 952
+          new Set(catalogue.Songs.map((song) => song.ID)).size !==
+            selectedHymnal.songCount
         ) {
-          throw new Error("The SDA hymnal catalogue is incomplete or invalid.");
+          throw new Error(`${selectedHymnal.name} is incomplete or invalid.`);
         }
         setHymns(
-          catalogue.Songs.map((song) => ({
-            id: song.ID,
-            title: song.Text,
-            verses: song.Verses.map((verse) =>
-              typeof verse === "string" ? verse : verse.Text,
-            ).filter((verse) => typeof verse === "string" && verse.trim()),
-          })).sort((first, second) => first.id - second.id),
+          catalogue.Songs.map((song) => {
+            let verseNumber = 0;
+            const stanzas = song.Verses.map((section) => {
+              const isChorus = section.Tag === 1;
+              if (!isChorus) verseNumber += 1;
+              return {
+                type: isChorus ? "chorus" : "verse",
+                number: isChorus ? null : verseNumber,
+                text: typeof section === "string" ? section : section.Text,
+              };
+            }).filter(
+              (stanza) =>
+                typeof stanza.text === "string" && stanza.text.trim(),
+            );
+            return { id: song.ID, title: song.Text, verses: stanzas };
+          }).sort((first, second) => first.id - second.id),
         );
       })
       .catch((error) => {
         if (error.name !== "AbortError") {
           setCatalogueError(
-            error.message || "The SDA hymnal catalogue could not be loaded.",
+            error.message || `${selectedHymnal.name} could not be loaded.`,
           );
         }
       })
@@ -166,7 +198,7 @@ export function Hymnal() {
       });
 
     return () => controller.abort();
-  }, [catalogueRetryKey]);
+  }, [catalogueRetryKey, selectedHymnal]);
 
   useEffect(() => {
     setVisibleHymnCount(36);
@@ -190,7 +222,7 @@ export function Hymnal() {
         String(hymn.id).includes(normalizedQuery) ||
         hymn.title.toLocaleLowerCase().includes(normalizedQuery) ||
         hymn.verses.some((verse) =>
-          verse.toLocaleLowerCase().includes(normalizedQuery),
+          verse.text.toLocaleLowerCase().includes(normalizedQuery),
         )
       );
     });
@@ -199,7 +231,7 @@ export function Hymnal() {
 
   const selectedHymn = hymns.find((hymn) => hymn.id === selectedHymnId);
   const selectedHymnStory = hymnStories.find(
-    (story) => story.hymnNumber === selectedHymnId,
+    (story) => selectedHymnalId === "sdah" && story.hymnNumber === selectedHymnId,
   );
   const sheetMusicSearchUrl = selectedHymn
     ? `https://www.google.com/search?q=${encodeURIComponent(`${selectedHymn.title} SDA hymnal sheet music`)}`
@@ -218,6 +250,15 @@ export function Hymnal() {
     }
   };
 
+  const changeHymnal = (event) => {
+    setSelectedHymnalId(event.target.value);
+    setSelectedHymnId(null);
+    setSelectedHymnTab("lyrics");
+    setActiveTab("browse");
+    setHymnNumber("");
+    setQuery("");
+  };
+
   return (
     <main className="resource-page hymnal-page">
       {selectedHymn ? (
@@ -230,6 +271,7 @@ export function Hymnal() {
             <i className="bx bx-left-arrow-alt" aria-hidden="true" /> Back to hymnal
           </button>
           <header className="hymn-focus-heading">
+            <span>{selectedHymnal.name}</span>
             <span>Hymn {selectedHymn.id}</span>
             <h1>{selectedHymn.title}</h1>
           </header>
@@ -265,10 +307,15 @@ export function Hymnal() {
           {selectedHymnTab === "lyrics" && (
             <div className="hymn-focus-lyrics">
               {selectedHymn.verses.map((verse, index) => (
-                <p className="hymn-focus-verse" key={`${selectedHymn.id}-${index}`}>
-                  <sup>{index + 1}</sup>
-                  {verse}
-                </p>
+                <div
+                  className={`hymn-stanza hymn-stanza--${verse.type}`}
+                  key={`${selectedHymn.id}-${index}`}
+                >
+                  <span className="hymn-stanza-label">
+                    {verse.type === "chorus" ? "Chorus" : `Verse ${verse.number}`}
+                  </span>
+                  <p className="hymn-focus-verse">{verse.text}</p>
+                </div>
               ))}
             </div>
           )}
@@ -313,22 +360,27 @@ export function Hymnal() {
           )}
           <p className="resource-content-note hymn-focus-attribution">
             Hymn text courtesy of the{" "}
-            <a href={hymnalSourceUrl} target="_blank" rel="noreferrer">
-              Rejnac Foundation SDAH Hymnal
+            <a href={selectedHymnal.sourceUrl} target="_blank" rel="noreferrer">
+              {selectedHymnal.sourceName}
             </a>{" "}
-            under the MIT License.
+            under the MIT License.{" "}
+            <a href={selectedHymnal.licensePath}>View license</a>.
           </p>
         </section>
       ) : (
         <>
           <header className="resource-hero">
             <span className="resource-eyebrow">Worship resources</span>
-            <h1>Seventh-day Adventist Hymnal</h1>
-            <p>Search all 952 hymns, read their lyrics, and explore the stories behind familiar songs.</p>
+            <h1>{selectedHymnal.name}</h1>
+            <p>
+              {selectedHymnal.language
+                ? `${selectedHymnal.language} hymns. Search by number, title, or lyrics.`
+                : "Search all 952 hymns, read their lyrics, and explore the stories behind familiar songs."}
+            </p>
             <div className="resource-stat">
               <i className="bx bx-music" aria-hidden="true" />
               <strong>{catalogueLoading ? "…" : hymns.length}</strong>
-              <span>hymn numbers</span>
+              <span>{selectedHymnal.language ? "Nyimbo" : "hymn numbers"}</span>
             </div>
           </header>
 
@@ -342,18 +394,31 @@ export function Hymnal() {
           >
             <i className="bx bx-list-ol" aria-hidden="true" /> Browse hymns
           </button>
-          <button
-            type="button"
-            className={activeTab === "stories" ? "is-active" : ""}
-            aria-pressed={activeTab === "stories"}
-            onClick={() => setActiveTab("stories")}
-          >
-            <i className="bx bx-book-heart" aria-hidden="true" /> Hymn stories
-          </button>
+          {selectedHymnalId === "sdah" && (
+            <button
+              type="button"
+              className={activeTab === "stories" ? "is-active" : ""}
+              aria-pressed={activeTab === "stories"}
+              onClick={() => setActiveTab("stories")}
+            >
+              <i className="bx bx-book-heart" aria-hidden="true" /> Hymn stories
+            </button>
+          )}
         </div>
 
         {activeTab === "browse" ? (
           <>
+            <label className="hymnal-selector">
+              <span>Select a hymnal</span>
+              <select value={selectedHymnalId} onChange={changeHymnal}>
+                {Object.entries(hymnals).map(([id, hymnal]) => (
+                  <option value={id} key={id}>
+                    {hymnal.name}
+                    {hymnal.language ? ` (${hymnal.language})` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
             <form className="hymn-number-form" onSubmit={openHymnNumber}>
               <label htmlFor="hymn-number">Go to a hymn number</label>
               <div className="resource-search-row">
@@ -362,7 +427,7 @@ export function Hymnal() {
                   type="number"
                   inputMode="numeric"
                   min="1"
-                  max="952"
+                  max={selectedHymnal.songCount}
                   step="1"
                   placeholder="Enter 1–952"
                   value={hymnNumber}
@@ -402,7 +467,7 @@ export function Hymnal() {
 
             <div className="resource-section-heading">
               <div>
-                <h2>Browse the hymnal</h2>
+                <h2>Browse {selectedHymnal.name}</h2>
                 <p>Search by hymn number, title, or words in the lyrics.</p>
               </div>
               <button
@@ -414,7 +479,8 @@ export function Hymnal() {
               </button>
             </div>
             <label className="resource-search-label" htmlFor="hymn-search">
-              Search all 952 hymns
+              Search all {selectedHymnal.songCount}{" "}
+              {selectedHymnalId === "nzk" ? "songs" : "hymns"}
             </label>
             <div className="resource-search-row">
               <input
@@ -539,11 +605,11 @@ export function Hymnal() {
         )}
         <p className="resource-content-note">
           Hymnal catalogue and lyrics are provided by the{" "}
-          <a href={hymnalSourceUrl} target="_blank" rel="noreferrer">
-            Rejnac Foundation SDAH Hymnal
+          <a href={selectedHymnal.sourceUrl} target="_blank" rel="noreferrer">
+            {selectedHymnal.sourceName}
           </a>{" "}
           under the MIT License.{" "}
-          <a href="/data/SDAH-HYMNAL-LICENSE.txt">View license</a>.
+          <a href={selectedHymnal.licensePath}>View license</a>.
         </p>
           </section>
         </>
