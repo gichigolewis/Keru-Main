@@ -452,7 +452,10 @@ app.get('/api/announcements/count', asyncRoute(async (req, res) => {
 
 app.get('/api/sermons', asyncRoute(async (_req, res) => {
   const query = getSql();
-  const list = await query`SELECT id, title, youtube_id AS "youtubeId", date FROM sermons ORDER BY created_at DESC`;
+  const list = await query`SELECT id, title, youtube_id AS "youtubeId", date,
+      media_type AS "mediaType", audio_url AS "audioUrl",
+      audio_storage_path AS "audioStoragePath", audio_mime_type AS "audioMimeType"
+    FROM sermons ORDER BY created_at DESC`;
   res.json(list);
 }));
 
@@ -487,7 +490,70 @@ app.get('/api/leaders/:id/image', asyncRoute(async (req, res) => {
 }));
 
 function formatSermon(sermon) {
-  return { id: sermon.id, title: sermon.title, youtubeId: sermon.youtube_id, date: sermon.date };
+  return {
+    id: sermon.id,
+    title: sermon.title,
+    youtubeId: sermon.youtube_id || '',
+    date: sermon.date,
+    mediaType: sermon.media_type || 'video',
+    audioUrl: sermon.audio_url || '',
+    audioStoragePath: sermon.audio_storage_path || '',
+    audioMimeType: sermon.audio_mime_type || ''
+  };
+}
+
+const sermonAudioMimeTypes = new Set([
+  'audio/aac',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/ogg',
+  'audio/wav',
+  'audio/webm',
+  'audio/x-m4a',
+  'audio/x-wav'
+]);
+
+function parseSermonPayload(body) {
+  const title = typeof body?.title === 'string' ? body.title.trim() : '';
+  const date = typeof body?.date === 'string' ? body.date : '';
+  const mediaType = body?.mediaType || 'video';
+  const youtubeId = typeof body?.youtubeId === 'string' ? body.youtubeId.trim() : '';
+  const audioUrl = typeof body?.audioUrl === 'string' ? body.audioUrl : '';
+  const audioStoragePath = typeof body?.audioStoragePath === 'string' ? body.audioStoragePath : '';
+  const audioMimeType = typeof body?.audioMimeType === 'string' ? body.audioMimeType : '';
+
+  if (!title || title.length > 200) {
+    return { error: 'A title of 1 to 200 characters is required.' };
+  }
+  if (!['video', 'song', 'audio-sermon'].includes(mediaType)) {
+    return { error: 'Choose video, song, or audio-sermon media.' };
+  }
+  if (mediaType === 'video') {
+    if (!youtubeId) return { error: 'youtubeId is required for video sermons.' };
+    return { title, date, mediaType, youtubeId, audioUrl: '', audioStoragePath: '', audioMimeType: '' };
+  }
+  if (!sermonAudioMimeTypes.has(audioMimeType)) {
+    return { error: 'The uploaded audio type is not supported.' };
+  }
+  if (!audioStoragePath.startsWith('sermon-audio/') || audioStoragePath.includes('..')) {
+    return { error: 'The Firebase audio storage path is invalid.' };
+  }
+  try {
+    const url = new URL(audioUrl);
+    const objectPath = decodeURIComponent(url.pathname.split('/o/')[1] || '');
+    if (
+      url.protocol !== 'https:' ||
+      url.hostname !== 'firebasestorage.googleapis.com' ||
+      objectPath !== audioStoragePath ||
+      url.searchParams.get('alt') !== 'media' ||
+      !url.searchParams.get('token')
+    ) {
+      return { error: 'The audio URL must be a valid Firebase Storage download URL.' };
+    }
+  } catch {
+    return { error: 'The audio URL must be a valid Firebase Storage download URL.' };
+  }
+  return { title, date, mediaType, youtubeId: '', audioUrl, audioStoragePath, audioMimeType };
 }
 
 function buildProgramPdf(title, body) {
@@ -796,20 +862,28 @@ app.delete('/api/announcements/:id', checkAuth, asyncRoute(async (req, res) => {
 }));
 
 app.post('/api/sermons', checkAuth, asyncRoute(async (req, res) => {
-  const { title, youtubeId, date } = req.body || {};
-  if (!title || !youtubeId) return res.status(400).json({ error: 'title and youtubeId required' });
+  const sermon = parseSermonPayload(req.body);
+  if (sermon.error) return res.status(400).json({ error: sermon.error });
+  const { title, youtubeId, date, mediaType, audioUrl, audioStoragePath, audioMimeType } = sermon;
   const query = getSql();
-  const rows = await query`INSERT INTO sermons (title, youtube_id, date) VALUES (${title}, ${youtubeId.trim()}, ${date || ''})
-    RETURNING id, title, youtube_id, date`;
+  const rows = await query`INSERT INTO sermons
+      (title, youtube_id, date, media_type, audio_url, audio_storage_path, audio_mime_type)
+    VALUES (${title}, ${youtubeId}, ${date}, ${mediaType}, ${audioUrl}, ${audioStoragePath}, ${audioMimeType})
+    RETURNING id, title, youtube_id, date, media_type, audio_url, audio_storage_path, audio_mime_type`;
   res.status(201).json(formatSermon(rows[0]));
 }));
 
 app.put('/api/sermons/:id', checkAuth, asyncRoute(async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: 'not found' });
-  const { title, youtubeId, date } = req.body || {};
+  const sermon = parseSermonPayload(req.body);
+  if (sermon.error) return res.status(400).json({ error: sermon.error });
+  const { title, youtubeId, date, mediaType, audioUrl, audioStoragePath, audioMimeType } = sermon;
   const query = getSql();
-  const rows = await query`UPDATE sermons SET title = ${title}, youtube_id = ${youtubeId}, date = ${date || ''}
-    WHERE id = ${req.params.id} RETURNING id, title, youtube_id, date`;
+  const rows = await query`UPDATE sermons SET title = ${title}, youtube_id = ${youtubeId}, date = ${date},
+      media_type = ${mediaType}, audio_url = ${audioUrl},
+      audio_storage_path = ${audioStoragePath}, audio_mime_type = ${audioMimeType}
+    WHERE id = ${req.params.id}
+    RETURNING id, title, youtube_id, date, media_type, audio_url, audio_storage_path, audio_mime_type`;
   if (!rows.length) return res.status(404).json({ error: 'not found' });
   res.json(formatSermon(rows[0]));
 }));
