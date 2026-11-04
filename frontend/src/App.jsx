@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import logoImage from "../assets/images/sda logo.png";
+import { BibleReader, Hymnal } from "./StudyResources";
 import {
   createUserWithEmailAndPassword,
   firebaseAuth,
@@ -5189,7 +5190,7 @@ export default function App() {
     return <ResponsivePage page={route.slice(1)} />;
   }
   if (route === "/admin" || route === "/admin-pro") return <Admin />;
-  if (route === "/hymnal") return <Hymnal />;
-  if (route === "/bible") return <BibleReader />;
+  if (route === "/hymnal") return <PublicShell><Hymnal /></PublicShell>;
+  if (route === "/bible") return <PublicShell><BibleReader /></PublicShell>;
   return <Home />;
 }
