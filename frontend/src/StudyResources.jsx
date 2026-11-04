@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
-const hymnAppSearchUrl =
-  "https://play.google.com/store/search?q=Songs%20for%20Worship%20Pro&c=apps";
+const hymnalSourceUrl = "https://github.com/rejnac/sdah-hymnal";
 
 const hymnStories = [
   {
+    hymnNumber: 108,
     title: "Amazing Grace",
     author: "John Newton",
     date: "1772",
@@ -12,6 +12,7 @@ const hymnStories = [
       "Newton's hymn grew out of his conversion and later ministry as an Anglican clergyman. He had worked in the Atlantic slave trade before leaving that life; in later years he spoke publicly against the trade. The hymn was first published in Olney Hymns in 1779.",
   },
   {
+    hymnNumber: 530,
     title: "It Is Well with My Soul",
     author: "Horatio G. Spafford; music by Philip P. Bliss",
     date: "1870s",
@@ -19,6 +20,7 @@ const hymnStories = [
       "Spafford wrote the words during a period of profound family loss. The hymn is often connected with his 1873 journey across the Atlantic, though popular retellings differ on exactly when and where he wrote it. Bliss later supplied the familiar tune.",
   },
   {
+    hymnNumber: 473,
     title: "Nearer, My God, to Thee",
     author: "Sarah Flower Adams",
     date: "1841",
@@ -26,6 +28,7 @@ const hymnStories = [
       "Adams wrote the hymn for a collection prepared with her sister. Its imagery draws on Jacob's dream at Bethel in Genesis 28, turning the biblical story into a prayer for closeness to God through every circumstance.",
   },
   {
+    hymnNumber: 506,
     title: "A Mighty Fortress Is Our God",
     author: "Martin Luther",
     date: "c. 1529",
@@ -33,6 +36,7 @@ const hymnStories = [
       "Luther's Reformation hymn is rooted in Psalm 46 and its picture of God as refuge and strength. It became one of the best-known German chorales and has been translated into many languages.",
   },
   {
+    hymnNumber: 313,
     title: "Just as I Am",
     author: "Charlotte Elliott",
     date: "1835",
@@ -40,6 +44,7 @@ const hymnStories = [
       "Elliott wrote this hymn after a conversation about faith and acceptance during a difficult period of illness. Its simple language became a widely used invitation to come to Christ without first trying to make oneself worthy.",
   },
   {
+    hymnNumber: 462,
     title: "Blessed Assurance",
     author: "Fanny J. Crosby; music by Phoebe P. Knapp",
     date: "1873",
@@ -47,6 +52,7 @@ const hymnStories = [
       "Knapp played a newly composed melody for her friend Crosby and asked what it brought to mind. Crosby responded with words of Christian confidence, and the hymn was published that year.",
   },
   {
+    hymnNumber: 86,
     title: "How Great Thou Art",
     author: "Carl Boberg; English translation by Stuart K. Hine",
     date: "1885; English version, 1949",
@@ -54,6 +60,7 @@ const hymnStories = [
       "The hymn began as Boberg's Swedish poem O Store Gud. It was translated into German and Russian before Hine created the English version familiar to many congregations.",
   },
   {
+    hymnNumber: 499,
     title: "What a Friend We Have in Jesus",
     author: "Joseph M. Scriven; music by Charles C. Converse",
     date: "1855",
@@ -61,6 +68,7 @@ const hymnStories = [
       "Scriven wrote the poem as a message of comfort for his mother. It was later set to Converse's tune and became a much-loved reminder to bring life's burdens to God in prayer.",
   },
   {
+    hymnNumber: 2,
     title: "All Creatures of Our God and King",
     author: "Francis of Assisi; English translation by William H. Draper",
     date: "c. 1225; English version, early 20th century",
@@ -68,6 +76,7 @@ const hymnStories = [
       "The hymn is based on Francis of Assisi's Canticle of the Sun, a poem praising God through the created world. Draper's English adaptation helped introduce it to congregations as a hymn of praise.",
   },
   {
+    hymnNumber: 143,
     title: "Silent Night",
     author: "Joseph Mohr; music by Franz Xaver Gruber",
     date: "1818",
@@ -100,23 +109,104 @@ export function Hymnal() {
   const [activeTab, setActiveTab] = useState("browse");
   const [query, setQuery] = useState("");
   const [hymnNumber, setHymnNumber] = useState("");
-  const [openedNumber, setOpenedNumber] = useState("");
+  const [visibleHymnCount, setVisibleHymnCount] = useState(36);
+  const [hymns, setHymns] = useState([]);
+  const [selectedHymnId, setSelectedHymnId] = useState(null);
+  const [catalogueLoading, setCatalogueLoading] = useState(true);
+  const [catalogueError, setCatalogueError] = useState("");
+  const [catalogueRetryKey, setCatalogueRetryKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setCatalogueLoading(true);
+    setCatalogueError("");
+
+    fetch("/data/sdah-hymnal.json", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("The SDA hymnal catalogue could not be loaded.");
+        }
+        const catalogue = await response.json();
+        if (
+          catalogue.Abbreviation !== "SDAH" ||
+          !Array.isArray(catalogue.Songs) ||
+          catalogue.Songs.length !== 952 ||
+          catalogue.Songs.some(
+            (song) =>
+              !Number.isInteger(song.ID) ||
+              song.ID < 1 ||
+              song.ID > 952 ||
+              typeof song.Text !== "string" ||
+              !Array.isArray(song.Verses),
+          ) ||
+          new Set(catalogue.Songs.map((song) => song.ID)).size !== 952
+        ) {
+          throw new Error("The SDA hymnal catalogue is incomplete or invalid.");
+        }
+        setHymns(
+          catalogue.Songs.map((song) => ({
+            id: song.ID,
+            title: song.Text,
+            verses: song.Verses.map((verse) =>
+              typeof verse === "string" ? verse : verse.Text,
+            ).filter((verse) => typeof verse === "string" && verse.trim()),
+          })),
+        );
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") {
+          setCatalogueError(
+            error.message || "The SDA hymnal catalogue could not be loaded.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCatalogueLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [catalogueRetryKey]);
+
+  useEffect(() => {
+    setVisibleHymnCount(36);
+  }, [query]);
 
   const filteredStories = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     if (!normalizedQuery) return hymnStories;
     return hymnStories.filter((hymn) =>
-      `${hymn.title} ${hymn.author} ${hymn.date} ${hymn.background}`
+      `${hymn.hymnNumber} ${hymn.title} ${hymn.author} ${hymn.date} ${hymn.background}`
         .toLocaleLowerCase()
         .includes(normalizedQuery),
     );
   }, [query]);
 
+  const filteredHymns = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    const matches = hymns.filter((hymn) => {
+      if (!normalizedQuery) return true;
+      return (
+        String(hymn.id).includes(normalizedQuery) ||
+        hymn.title.toLocaleLowerCase().includes(normalizedQuery) ||
+        hymn.verses.some((verse) =>
+          verse.toLocaleLowerCase().includes(normalizedQuery),
+        )
+      );
+    });
+    return matches;
+  }, [hymns, query]);
+
+  const selectedHymn = hymns.find((hymn) => hymn.id === selectedHymnId);
+
   const openHymnNumber = (event) => {
     event.preventDefault();
     const number = Number(hymnNumber);
-    if (Number.isInteger(number) && number >= 1 && number <= 952) {
-      setOpenedNumber(String(number));
+    if (Number.isInteger(number)) {
+      const hymn = hymns.find((item) => item.id === number);
+      if (hymn) {
+        setSelectedHymnId(hymn.id);
+        setQuery("");
+      }
     }
   };
 
@@ -125,13 +215,10 @@ export function Hymnal() {
       <header className="resource-hero">
         <span className="resource-eyebrow">Worship resources</span>
         <h1>Seventh-day Adventist Hymnal</h1>
-        <p>
-          Browse hymn numbers or explore the stories behind selected
-          public-domain hymns.
-        </p>
+        <p>Search all 952 hymns, read their lyrics, and explore the stories behind familiar songs.</p>
         <div className="resource-stat">
           <i className="bx bx-music" aria-hidden="true" />
-          <strong>952</strong>
+          <strong>{catalogueLoading ? "…" : hymns.length}</strong>
           <span>hymn numbers</span>
         </div>
       </header>
@@ -171,35 +258,69 @@ export function Hymnal() {
                   placeholder="Enter 1–952"
                   value={hymnNumber}
                   onChange={(event) => setHymnNumber(event.target.value)}
+                  disabled={catalogueLoading || Boolean(catalogueError)}
                   required
                 />
-                <button className="resource-primary-button" type="submit">
+                <button
+                  className="resource-primary-button"
+                  type="submit"
+                  disabled={catalogueLoading || Boolean(catalogueError)}
+                >
                   Go to hymn
                 </button>
               </div>
             </form>
 
-            {openedNumber && (
-              <article className="hymn-source-card" aria-live="polite">
-                <div className="hymn-source-number">Hymn {openedNumber}</div>
-                <div>
-                  <h2>Open this hymn in your hymnal app</h2>
-                  <p>
-                    The selected number is within the 952-hymn collection. The
-                    app does not reproduce licensed titles or lyrics.
-                  </p>
-                  <a href={hymnAppSearchUrl} target="_blank" rel="noreferrer">
-                    Find Songs for Worship Pro
-                    <i className="bx bx-link-external" aria-hidden="true" />
-                  </a>
+            {catalogueLoading && (
+              <p className="resource-status" role="status">
+                <i className="bx bx-loader-alt bx-spin" aria-hidden="true" /> Loading
+                the SDA hymnal…
+              </p>
+            )}
+            {catalogueError && (
+              <div className="resource-error" role="alert">
+                <i className="bx bx-error-circle" aria-hidden="true" />
+                <span>{catalogueError}</span>
+                <button
+                  type="button"
+                  className="resource-text-button"
+                  onClick={() => setCatalogueRetryKey((current) => current + 1)}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {selectedHymn && (
+              <article className="hymn-detail" aria-live="polite">
+                <div className="hymn-detail-heading">
+                  <div>
+                    <span>Hymn {selectedHymn.id}</span>
+                    <h2>{selectedHymn.title}</h2>
+                  </div>
+                  <button
+                    className="resource-secondary-button"
+                    type="button"
+                    onClick={() => setSelectedHymnId(null)}
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="hymn-lyrics">
+                  {selectedHymn.verses.map((verse, index) => (
+                    <p className="hymn-verse" key={`${selectedHymn.id}-${index}`}>
+                      <sup>{index + 1}</sup>
+                      {verse}
+                    </p>
+                  ))}
                 </div>
               </article>
             )}
 
             <div className="resource-section-heading">
               <div>
-                <h2>Featured public-domain hymns</h2>
-                <p>Read historical notes without reproducing licensed lyrics.</p>
+                <h2>Browse the hymnal</h2>
+                <p>Search by hymn number, title, or words in the lyrics.</p>
               </div>
               <button
                 type="button"
@@ -210,51 +331,71 @@ export function Hymnal() {
               </button>
             </div>
             <label className="resource-search-label" htmlFor="hymn-search">
-              Search featured hymns
+              Search all 952 hymns
             </label>
             <div className="resource-search-row">
               <input
                 id="hymn-search"
                 type="search"
-                placeholder="Search title, author, or background"
+                placeholder="Search by number, title, or lyrics"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                disabled={catalogueLoading || Boolean(catalogueError)}
               />
               <button
                 className="resource-secondary-button"
                 type="button"
                 onClick={() => setQuery("")}
-                disabled={!query}
+                disabled={!query || catalogueLoading}
               >
                 Clear
               </button>
             </div>
-            <div className="hymn-card-grid">
-              {filteredStories.map((hymn) => (
-                <article className="hymn-card" key={hymn.title}>
-                  <span className="hymn-card-icon">
-                    <i className="bx bx-music" aria-hidden="true" />
-                  </span>
-                  <h3>{hymn.title}</h3>
-                  <p>{hymn.author}</p>
-                  <button
-                    type="button"
-                    className="resource-text-button"
-                    onClick={() => {
-                      setQuery(hymn.title);
-                      setActiveTab("stories");
-                    }}
-                  >
-                    Learn the story <i className="bx bx-right-arrow-alt" aria-hidden="true" />
-                  </button>
-                </article>
-              ))}
-              {!filteredStories.length && (
-                <p className="resource-empty" role="status">
-                  No featured public-domain hymns match that search.
+            {!catalogueLoading && !catalogueError && (
+              <>
+                <p className="hymn-results-count" role="status">
+                  Showing {Math.min(visibleHymnCount, filteredHymns.length)} of{" "}
+                  {filteredHymns.length} matching hymns
                 </p>
-              )}
-            </div>
+                <div className="hymn-card-grid">
+                  {filteredHymns.slice(0, visibleHymnCount).map((hymn) => (
+                    <button
+                      className="hymn-card"
+                      key={hymn.id}
+                      type="button"
+                      aria-pressed={selectedHymnId === hymn.id}
+                      onClick={() => {
+                        setSelectedHymnId(hymn.id);
+                        setHymnNumber(String(hymn.id));
+                      }}
+                    >
+                      <span className="hymn-card-icon">#{hymn.id}</span>
+                      <h3>{hymn.title}</h3>
+                      <span className="resource-text-button">
+                        Read hymn <i className="bx bx-right-arrow-alt" aria-hidden="true" />
+                      </span>
+                    </button>
+                  ))}
+                  {!filteredHymns.length && (
+                    <p className="resource-empty" role="status">
+                      No hymns match that search.
+                    </p>
+                  )}
+                </div>
+                {visibleHymnCount < filteredHymns.length && (
+                  <button
+                    className="resource-secondary-button hymn-show-more"
+                    type="button"
+                    onClick={() =>
+                      setVisibleHymnCount((current) => current + 36)
+                    }
+                  >
+                    Show more hymns
+                    <i className="bx bx-chevron-down" aria-hidden="true" />
+                  </button>
+                )}
+              </>
+            )}
           </>
         ) : (
           <section className="hymn-stories-section">
@@ -289,6 +430,18 @@ export function Hymnal() {
                     <i className="bx bx-book-heart" aria-hidden="true" />
                   </div>
                   <p className="hymn-story-background">{hymn.background}</p>
+                  <button
+                    type="button"
+                    className="resource-text-button"
+                    onClick={() => {
+                      setSelectedHymnId(hymn.hymnNumber);
+                      setHymnNumber(String(hymn.hymnNumber));
+                      setActiveTab("browse");
+                    }}
+                  >
+                    Read hymn {hymn.hymnNumber}
+                    <i className="bx bx-right-arrow-alt" aria-hidden="true" />
+                  </button>
                 </article>
               ))}
               {!filteredStories.length && (
@@ -300,9 +453,12 @@ export function Hymnal() {
           </section>
         )}
         <p className="resource-content-note">
-          Full hymn titles and lyrics from third-party collections are not
-          reproduced here. Use the original hymnal or licensed app for that
-          content.
+          Hymnal catalogue and lyrics are provided by the{" "}
+          <a href={hymnalSourceUrl} target="_blank" rel="noreferrer">
+            Rejnac Foundation SDAH Hymnal
+          </a>{" "}
+          under the MIT License.{" "}
+          <a href="/data/SDAH-HYMNAL-LICENSE.txt">View license</a>.
         </p>
       </section>
     </main>

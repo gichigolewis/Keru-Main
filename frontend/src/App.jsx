@@ -120,7 +120,7 @@ const pageMetadata = {
   },
   "/hymnal": {
     title: "SDA Hymnal | Kerugoya Main SDA Church",
-    description: "Browse and sing along with the Seventh-day Adventist Hymnal. Search hymns by number or title.",
+    description: "Browse all 952 Seventh-day Adventist hymns, read lyrics, and learn the stories behind familiar hymns.",
   },
   "/bible": {
     title: "Bible | Kerugoya Main SDA Church",
