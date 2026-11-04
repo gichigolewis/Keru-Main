@@ -4,7 +4,7 @@ The Express API runs as Vercel Node.js Functions and uses Neon Postgres through 
 
 ## Configure Firebase Authentication
 
-1. Create or select a Firebase project and enable **Authentication → Sign-in method → Email/Password**.
+1. Create or select a Firebase project and enable **Authentication → Sign-in method → Email/Password** and **Google**. Add the deployed site domain to Firebase Authentication's authorized domains.
 2. Register a Firebase web app. Copy `frontend/.env.example` to `frontend/.env.local` and fill in the web app's API key, auth domain, project ID, and app ID. These client settings are public; do not put a service-account key in frontend code.
 3. Create a Firebase service account with Firebase Authentication administration permissions. Copy `backend/.env.example` to `backend/.env` and set `FIREBASE_PROJECT_ID` and `FIREBASE_ADMIN_EMAILS`. For local development, either put the service-account JSON in `FIREBASE_SERVICE_ACCOUNT_JSON` or set `GOOGLE_APPLICATION_CREDENTIALS` to the path of a private service-account JSON file. Keep the key file private and out of Git. For hosted deployments, store the JSON only in the host's secret environment configuration.
 4. Create the bootstrap administrator with Email/Password in the Firebase console and verify the email. It must match an entry in `FIREBASE_ADMIN_EMAILS`.
@@ -31,7 +31,7 @@ In the hosting environment, set:
 - `FIREBASE_ADMIN_EMAILS` — comma-separated verified bootstrap admin email addresses
 - `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` — public Firebase web-app config, available at frontend build time
 
-Add the deployed site domain to Firebase Authentication's authorized domains. The API routes are provided by `api/index.js` and `api/[...path].js`; `/api/healthz` checks function availability without connecting to the database, and `/api/ping` checks database readiness.
+The API routes are provided by `api/index.js` and `api/[...path].js`; `/api/healthz` checks function availability without connecting to the database, and `/api/ping` checks database readiness.
 
 ## Data migration note
 

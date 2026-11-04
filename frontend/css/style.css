@@ -643,6 +643,121 @@ aside .side-menu a:hover {
   color: var(--primary-color);
   font-weight: 700;
 }
+.account-policy-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+.account-policy-check input {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0.18rem 0 0;
+  padding: 0;
+  accent-color: var(--primary-color);
+}
+.account-policy-check label {
+  margin: 0;
+  color: var(--text-light);
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.account-policy-check a,
+.verification-inbox a {
+  color: var(--primary-color);
+  font-weight: 700;
+}
+.account-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+  color: var(--text-light);
+  font-size: 0.82rem;
+}
+.account-divider::before,
+.account-divider::after {
+  height: 1px;
+  flex: 1;
+  background: #e2e8f0;
+  content: "";
+}
+.google-sign-in {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  color: #1e293b;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+}
+.google-sign-in:hover:not(:disabled) {
+  background: #f8fafc;
+}
+.google-sign-in:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.google-sign-in i {
+  color: #4285f4;
+  font-size: 1.25rem;
+}
+.verification-inbox {
+  margin: 0.5rem 0;
+  color: var(--text-light);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.legal-page {
+  min-height: 65vh;
+  padding: clamp(3rem, 7vw, 5rem) 1rem;
+  background: linear-gradient(180deg, #eef3fb 0%, var(--bg-light) 100%);
+}
+.legal-content {
+  width: min(100%, 850px);
+  margin: 0 auto;
+  padding: clamp(1.5rem, 5vw, 3.5rem);
+  border: 1px solid rgba(30, 58, 138, 0.1);
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+}
+.legal-content > .eyebrow {
+  color: #247b70;
+}
+.legal-content h1 {
+  margin: 0.55rem 0 0.35rem;
+  color: var(--primary-color);
+  font-family: "Playfair Display", serif;
+  font-size: clamp(2.1rem, 5vw, 3.2rem);
+  line-height: 1.15;
+}
+.legal-content h2 {
+  margin: 2rem 0 0.5rem;
+  color: var(--primary-color);
+  font-size: 1.2rem;
+}
+.legal-content p {
+  color: var(--text-dark);
+  line-height: 1.75;
+}
+.legal-content a {
+  color: var(--primary-color);
+}
+.legal-updated {
+  margin: 0 0 1.75rem;
+  color: var(--text-light) !important;
+  font-size: 0.88rem;
+}
 
 /* Community stories */
 .community-page {

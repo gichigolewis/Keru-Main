@@ -1,11 +1,13 @@
 import { getApps, initializeApp } from "@firebase/app";
 import {
   getAuth,
+  GoogleAuthProvider,
   onAuthStateChanged,
   onIdTokenChanged,
   sendPasswordResetEmail,
   sendEmailVerification,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -31,11 +33,13 @@ export const firebaseAuth = firebaseApp ? getAuth(firebaseApp) : null;
 
 export {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   onAuthStateChanged,
   onIdTokenChanged,
   sendPasswordResetEmail,
   sendEmailVerification,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   updateProfile,
 };

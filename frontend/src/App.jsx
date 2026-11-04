@@ -4,6 +4,7 @@ import { BibleReader, Hymnal } from "./StudyResources";
 import {
   createUserWithEmailAndPassword,
   firebaseAuth,
+  GoogleAuthProvider,
   getFirebaseAuthHeaders,
   onAuthStateChanged,
   onIdTokenChanged,
@@ -11,6 +12,7 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   updateProfile,
 } from "./firebase";
@@ -109,6 +111,14 @@ const pageMetadata = {
   "/register": {
     title: "Create an Account | Kerugoya Main SDA Church",
     description: "Create an account to connect with the Kerugoya Main SDA Church community.",
+  },
+  "/terms": {
+    title: "Terms and Conditions | Kerugoya Main SDA Church",
+    description: "Read the terms for using the Kerugoya Main SDA Church website and community.",
+  },
+  "/privacy": {
+    title: "Privacy Policy | Kerugoya Main SDA Church",
+    description: "Learn how Kerugoya Main SDA Church handles account and community information.",
   },
   "/admin": {
     title: "Administration | Kerugoya Main SDA Church",
@@ -1099,6 +1109,12 @@ function Footer() {
           <li>
             <Link href="/bible.html">Bible (KJV)</Link>
           </li>
+          <li>
+            <Link href="/terms.html">Terms and Conditions</Link>
+          </li>
+          <li>
+            <Link href="/privacy.html">Privacy Policy</Link>
+          </li>
         </ul>
       </div>
       
@@ -1222,6 +1238,120 @@ function About() {
     </PublicShell>
   );
 }
+
+function LegalPage({ type }) {
+  const isPrivacy = type === "privacy";
+  return (
+    <PublicShell>
+      <main className="legal-page">
+        <article className="legal-content">
+          <span className="eyebrow">Kerugoya Main SDA Church</span>
+          <h1>{isPrivacy ? "Privacy Policy" : "Terms and Conditions"}</h1>
+          <p className="legal-updated">Last updated: November 4, 2026</p>
+          {isPrivacy ? (
+            <>
+              <p>
+                This policy explains how Kerugoya Main SDA Church handles information when you visit
+                this website or use its account and community features.
+              </p>
+              <h2>Information we receive</h2>
+              <p>
+                If you create an account, Firebase Authentication processes your email address and
+                sign-in details. Your display name may appear with community posts. If you contact
+                us through prayer or feedback forms, we receive the name and message you choose to
+                provide, along with your selected visibility setting.
+              </p>
+              <p>
+                Community stories, comments, and reactions are stored so they can be shown to other
+                  visitors and members. Prayer requests and feedback are sent to the church team;
+                  authorized administrators can review them along with the visibility choice you
+                  submitted. Please do not include sensitive personal details in public submissions.
+              </p>
+              <h2>How information is used</h2>
+              <p>
+                We use information to provide sign-in, operate the church community, respond to
+                messages, moderate submissions, and maintain the website. We do not use account
+                information for advertising or sell it. Website and account data is stored or
+                processed by service providers used to run the site, including Firebase and the
+                site's hosting and database providers.
+              </p>
+              <h2>Third-party services and links</h2>
+              <p>
+                Google sign-in is provided by Google and Firebase Authentication. Pages may also
+                embed or link to third-party services such as YouTube and Google Maps. Those
+                services may receive technical information from your browser when you use them and
+                are governed by their own privacy policies.
+              </p>
+              <h2>Storage, security, and retention</h2>
+              <p>
+                The website uses browser storage for features such as remembering which
+                announcements or community updates you have seen. We use reasonable safeguards
+                provided by our services, but no internet transmission or storage method can be
+                guaranteed completely secure. We retain submitted information while it is needed
+                for church and website operations; authorized administrators can remove community
+                submissions and account access.
+              </p>
+              <h2>Your choices and contact</h2>
+              <p>
+                You may choose what to include in a submission and whether a prayer request or
+                feedback message is public or anonymous. To ask about, correct, or request removal
+                of information associated with you, contact{" "}
+                <a href="mailto:kerugoyamainsda@gmail.com">kerugoyamainsda@gmail.com</a>. We will
+                handle requests subject to applicable law and legitimate church recordkeeping needs.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                By using this website, you agree to these terms. If you do not agree, do not use
+                account or community features.
+              </p>
+              <h2>Website and accounts</h2>
+              <p>
+                The site provides church information, Bible and hymnal resources, announcements,
+                sermons, and community features. You are responsible for keeping your sign-in
+                details secure and for activity carried out through your account. You must provide
+                accurate information and may not impersonate another person or access accounts
+                without permission.
+              </p>
+              <h2>Community submissions</h2>
+              <p>
+                You remain responsible for content you submit. Do not post unlawful, abusive,
+                threatening, misleading, or privacy-invasive material, or content that infringes
+                another person's rights. By submitting content, you allow the church to store,
+                display, and share it as needed to operate the community features and according to
+                the visibility option you select. You retain ownership of your content.
+              </p>
+              <p>
+                The church may review, restrict, or remove content and may suspend access to
+                community features when needed to protect users or the site.
+              </p>
+              <h2>Third-party resources</h2>
+              <p>
+                Some pages link to or embed third-party websites and services. The church does not
+                control those services and is not responsible for their content, availability, or
+                terms.
+              </p>
+              <h2>Availability and changes</h2>
+              <p>
+                We aim to keep the website available and accurate, but features and content may
+                change or be temporarily unavailable. The website and its content are provided
+                without a guarantee of uninterrupted service. We may update these terms; continued
+                use after an update means you accept the revised terms.
+              </p>
+              <h2>Contact</h2>
+              <p>
+                Questions about these terms may be sent to{" "}
+                <a href="mailto:kerugoyamainsda@gmail.com">kerugoyamainsda@gmail.com</a>.
+              </p>
+            </>
+          )}
+        </article>
+      </main>
+    </PublicShell>
+  );
+}
+
 function Ministries() {
   return (
     <PublicShell>
@@ -1229,6 +1359,27 @@ function Ministries() {
     </PublicShell>
   );
 }
+
+function getEmailInbox(email) {
+  const domain = email.split("@").pop()?.toLowerCase();
+  if (domain === "gmail.com" || domain === "googlemail.com") {
+    return { href: "https://mail.google.com/mail/u/0/#inbox", label: "Open Gmail" };
+  }
+  if (["outlook.com", "hotmail.com", "live.com", "msn.com"].includes(domain)) {
+    return { href: "https://outlook.live.com/mail/0/inbox", label: "Open Outlook" };
+  }
+  if (["yahoo.com", "yahoo.co.uk", "ymail.com"].includes(domain)) {
+    return { href: "https://mail.yahoo.com/", label: "Open Yahoo Mail" };
+  }
+  if (["icloud.com", "me.com", "mac.com"].includes(domain)) {
+    return { href: "https://www.icloud.com/mail", label: "Open iCloud Mail" };
+  }
+  if (["proton.me", "protonmail.com"].includes(domain)) {
+    return { href: "https://mail.proton.me/", label: "Open Proton Mail" };
+  }
+  return { href: `mailto:${email}`, label: "Open your email app" };
+}
+
 function renderSermon(sermon) {
   const [id, title] = Array.isArray(sermon)
     ? sermon
@@ -1287,6 +1438,8 @@ function Account({ register = false }) {
   const [messageType, setMessageType] = useState("error");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
   const submit = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -1296,6 +1449,7 @@ function Account({ register = false }) {
     setSubmitting(true);
     setMessage("");
     setMessageType("error");
+    setVerificationEmail("");
     try {
       const auth = requireFirebaseAuth();
       if (register) {
@@ -1304,13 +1458,17 @@ function Account({ register = false }) {
         await sendEmailVerification(credential.user);
         await signOut(auth);
         setMessageType("success");
-        setMessage("Account created. Check your email and verify your address before signing in.");
+        setVerificationEmail(email);
+        setMessage("Account created. Verify your email address before signing in.");
       } else {
         const credential = await signInWithEmailAndPassword(auth, email, password);
         if (!credential.user.emailVerified) {
           await sendEmailVerification(credential.user);
           await signOut(auth);
-          throw new Error("Please verify your email address. We sent you a new verification link.");
+          setVerificationEmail(email);
+          setMessageType("success");
+          setMessage("Please verify your email address. We sent you a new verification link.");
+          return;
         }
         navigate("/blogs.html");
       }
@@ -1320,6 +1478,43 @@ function Account({ register = false }) {
       setSubmitting(false);
     }
   };
+  const signInWithGoogle = async () => {
+    if (!acceptedPolicies) {
+      setMessage("Please agree to the Terms and Conditions and acknowledge the Privacy Policy to continue with Google.");
+      setMessageType("error");
+      return;
+    }
+    setSubmitting(true);
+    setMessage("");
+    setVerificationEmail("");
+    try {
+      const credential = await signInWithPopup(
+        requireFirebaseAuth(),
+        new GoogleAuthProvider(),
+      );
+      if (!credential.user.emailVerified) {
+        await sendEmailVerification(credential.user);
+        await signOut(requireFirebaseAuth());
+        setVerificationEmail(credential.user.email || "");
+        setMessageType("success");
+        setMessage("Please verify your email address before continuing.");
+        return;
+      }
+      navigate("/blogs.html");
+    } catch (error) {
+      if (error.code === "auth/popup-closed-by-user") {
+        setMessage("Google sign-in was cancelled.");
+      } else if (error.code === "auth/popup-blocked") {
+        setMessage("Your browser blocked the Google sign-in window. Allow pop-ups and try again.");
+      } else {
+        setMessage(error.message || "We could not sign in with Google. Please try again.");
+      }
+      setMessageType("error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const emailInbox = verificationEmail ? getEmailInbox(verificationEmail) : null;
   return (
     <main
       className={`account-page account-shell${register ? "" : " login-screen"}`}
@@ -1407,13 +1602,44 @@ function Account({ register = false }) {
               <i className={`bx ${showPassword ? "bx-hide" : "bx-show"}`} />
             </button>
           </div>
+          <div className="account-policy-check">
+            <input
+              id="account-policies"
+              type="checkbox"
+              checked={acceptedPolicies}
+              required={register}
+              onChange={(event) => setAcceptedPolicies(event.target.checked)}
+            />
+            <label htmlFor="account-policies">
+              I agree to the <Link href="/terms.html">Terms and Conditions</Link> and acknowledge
+              the <Link href="/privacy.html">Privacy Policy</Link>.
+            </label>
+          </div>
           <button className="btn form-submit" type="submit" disabled={submitting}>
             {submitting ? "Please wait…" : register ? "Create account" : "Sign in"}{" "}
             <i className="bx bx-right-arrow-alt" />
           </button>
+          <div className="account-divider"><span>or</span></div>
+          <button
+            className="google-sign-in"
+            type="button"
+            onClick={signInWithGoogle}
+            disabled={submitting}
+          >
+            <i className="bx bxl-google" aria-hidden="true" />
+            {submitting ? "Please wait…" : register ? "Sign up with Google" : "Sign in with Google"}
+          </button>
           <p className={`form-message ${messageType === "error" ? "is-error" : "is-success"}`} role="status">
             {message}
           </p>
+          {emailInbox && (
+            <p className="verification-inbox">
+              Verification email sent to <strong>{verificationEmail}</strong>.{" "}
+              <a href={emailInbox.href} target="_blank" rel="noopener noreferrer">
+                {emailInbox.label}
+              </a>
+            </p>
+          )}
           <p className="account-switch">
             {register ? "Already a member? " : "New here? "}
             <Link href={register ? "/login.html" : "/register.html"}>
@@ -5187,6 +5413,8 @@ export default function App() {
   if (route === "/blogs") return <Community />;
   if (route === "/login") return <Account />;
   if (route === "/register") return <Account register />;
+  if (route === "/terms") return <LegalPage type="terms" />;
+  if (route === "/privacy") return <LegalPage type="privacy" />;
   if (route === "/announcements") return <Announcements />;
   if (responsivePages[route.slice(1)]) {
     return <ResponsivePage page={route.slice(1)} />;
