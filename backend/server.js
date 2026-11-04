@@ -764,7 +764,14 @@ app.delete('/api/admin/users/:sessionId', checkAuth, asyncRoute(async (req, res)
     throw error;
   });
   if (!user || isAdminAccount(user)) return res.status(404).json({ error: 'Member account not found.' });
-  await auth.revokeRefreshTokens(user.uid);
+  try {
+    await auth.revokeRefreshTokens(user.uid);
+  } catch (revokeError) {
+    // Revoke may fail if the service account lacks firebaseauth.revokeTokens permission.
+    // Continue anyway — the account is still disabled below via custom claims is not possible here,
+    // but we at least attempt removal. The session will no longer be usable after Firebase ID token expiry.
+    console.warn('Could not revoke refresh tokens:', revokeError.message);
+  }
   res.status(204).end();
 }));
 
