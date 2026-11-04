@@ -109,6 +109,7 @@ export function Hymnal() {
   const [activeTab, setActiveTab] = useState("browse");
   const [query, setQuery] = useState("");
   const [hymnNumber, setHymnNumber] = useState("");
+  const [selectedHymnTab, setSelectedHymnTab] = useState("lyrics");
   const [visibleHymnCount, setVisibleHymnCount] = useState(36);
   const [hymns, setHymns] = useState([]);
   const [selectedHymnId, setSelectedHymnId] = useState(null);
@@ -150,7 +151,7 @@ export function Hymnal() {
             verses: song.Verses.map((verse) =>
               typeof verse === "string" ? verse : verse.Text,
             ).filter((verse) => typeof verse === "string" && verse.trim()),
-          })),
+          })).sort((first, second) => first.id - second.id),
         );
       })
       .catch((error) => {
@@ -197,6 +198,12 @@ export function Hymnal() {
   }, [hymns, query]);
 
   const selectedHymn = hymns.find((hymn) => hymn.id === selectedHymnId);
+  const selectedHymnStory = hymnStories.find(
+    (story) => story.hymnNumber === selectedHymnId,
+  );
+  const sheetMusicSearchUrl = selectedHymn
+    ? `https://www.google.com/search?q=${encodeURIComponent(`${selectedHymn.title} SDA hymnal sheet music`)}`
+    : "";
 
   const openHymnNumber = (event) => {
     event.preventDefault();
@@ -205,6 +212,7 @@ export function Hymnal() {
       const hymn = hymns.find((item) => item.id === number);
       if (hymn) {
         setSelectedHymnId(hymn.id);
+        setSelectedHymnTab("lyrics");
         setQuery("");
       }
     }
@@ -212,18 +220,119 @@ export function Hymnal() {
 
   return (
     <main className="resource-page hymnal-page">
-      <header className="resource-hero">
-        <span className="resource-eyebrow">Worship resources</span>
-        <h1>Seventh-day Adventist Hymnal</h1>
-        <p>Search all 952 hymns, read their lyrics, and explore the stories behind familiar songs.</p>
-        <div className="resource-stat">
-          <i className="bx bx-music" aria-hidden="true" />
-          <strong>{catalogueLoading ? "…" : hymns.length}</strong>
-          <span>hymn numbers</span>
-        </div>
-      </header>
+      {selectedHymn ? (
+        <section className="resource-content hymn-focus">
+          <button
+            type="button"
+            className="resource-text-button hymn-back-button"
+            onClick={() => setSelectedHymnId(null)}
+          >
+            <i className="bx bx-left-arrow-alt" aria-hidden="true" /> Back to hymnal
+          </button>
+          <header className="hymn-focus-heading">
+            <span>Hymn {selectedHymn.id}</span>
+            <h1>{selectedHymn.title}</h1>
+          </header>
+          <div className="resource-tabs hymn-detail-tabs" aria-label="Selected hymn sections">
+            <button
+              type="button"
+              className={selectedHymnTab === "lyrics" ? "is-active" : ""}
+              aria-pressed={selectedHymnTab === "lyrics"}
+              onClick={() => setSelectedHymnTab("lyrics")}
+            >
+              <i className="bx bx-align-middle" aria-hidden="true" /> Lyrics
+            </button>
+            <button
+              type="button"
+              className={selectedHymnTab === "sheet" ? "is-active" : ""}
+              aria-pressed={selectedHymnTab === "sheet"}
+              onClick={() => setSelectedHymnTab("sheet")}
+            >
+              <i className="bx bx-music" aria-hidden="true" /> Sheet music
+            </button>
+            {selectedHymnStory && (
+              <button
+                type="button"
+                className={selectedHymnTab === "story" ? "is-active" : ""}
+                aria-pressed={selectedHymnTab === "story"}
+                onClick={() => setSelectedHymnTab("story")}
+              >
+                <i className="bx bx-book-heart" aria-hidden="true" /> Story
+              </button>
+            )}
+          </div>
 
-      <section className="resource-content">
+          {selectedHymnTab === "lyrics" && (
+            <div className="hymn-focus-lyrics">
+              {selectedHymn.verses.map((verse, index) => (
+                <p className="hymn-focus-verse" key={`${selectedHymn.id}-${index}`}>
+                  <sup>{index + 1}</sup>
+                  {verse}
+                </p>
+              ))}
+            </div>
+          )}
+          {selectedHymnTab === "sheet" && (
+            <section className="hymn-sheet-unavailable">
+              <i className="bx bx-music" aria-hidden="true" />
+              <h2>Sheet music</h2>
+              <p>
+                This text-only SDAH collection does not include notation for
+                “{selectedHymn.title}”. Search for a score or check a licensed
+                hymnal edition.
+              </p>
+              <div className="hymn-sheet-actions">
+                <a
+                  className="resource-primary-button"
+                  href={sheetMusicSearchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Search for this sheet music
+                  <i className="bx bx-link-external" aria-hidden="true" />
+                </a>
+                <a
+                  className="resource-secondary-button"
+                  href="https://hymnary.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Browse Hymnary
+                  <i className="bx bx-link-external" aria-hidden="true" />
+                </a>
+              </div>
+            </section>
+          )}
+          {selectedHymnTab === "story" && selectedHymnStory && (
+            <article className="hymn-focus-story">
+              <span>{selectedHymnStory.date}</span>
+              <h2>{selectedHymnStory.title}</h2>
+              <p className="hymn-focus-story-author">{selectedHymnStory.author}</p>
+              <p>{selectedHymnStory.background}</p>
+            </article>
+          )}
+          <p className="resource-content-note hymn-focus-attribution">
+            Hymn text courtesy of the{" "}
+            <a href={hymnalSourceUrl} target="_blank" rel="noreferrer">
+              Rejnac Foundation SDAH Hymnal
+            </a>{" "}
+            under the MIT License.
+          </p>
+        </section>
+      ) : (
+        <>
+          <header className="resource-hero">
+            <span className="resource-eyebrow">Worship resources</span>
+            <h1>Seventh-day Adventist Hymnal</h1>
+            <p>Search all 952 hymns, read their lyrics, and explore the stories behind familiar songs.</p>
+            <div className="resource-stat">
+              <i className="bx bx-music" aria-hidden="true" />
+              <strong>{catalogueLoading ? "…" : hymns.length}</strong>
+              <span>hymn numbers</span>
+            </div>
+          </header>
+
+          <section className="resource-content">
         <div className="resource-tabs" aria-label="Hymnal sections">
           <button
             type="button"
@@ -291,32 +400,6 @@ export function Hymnal() {
               </div>
             )}
 
-            {selectedHymn && (
-              <article className="hymn-detail" aria-live="polite">
-                <div className="hymn-detail-heading">
-                  <div>
-                    <span>Hymn {selectedHymn.id}</span>
-                    <h2>{selectedHymn.title}</h2>
-                  </div>
-                  <button
-                    className="resource-secondary-button"
-                    type="button"
-                    onClick={() => setSelectedHymnId(null)}
-                  >
-                    Close
-                  </button>
-                </div>
-                <div className="hymn-lyrics">
-                  {selectedHymn.verses.map((verse, index) => (
-                    <p className="hymn-verse" key={`${selectedHymn.id}-${index}`}>
-                      <sup>{index + 1}</sup>
-                      {verse}
-                    </p>
-                  ))}
-                </div>
-              </article>
-            )}
-
             <div className="resource-section-heading">
               <div>
                 <h2>Browse the hymnal</h2>
@@ -366,6 +449,7 @@ export function Hymnal() {
                       aria-pressed={selectedHymnId === hymn.id}
                       onClick={() => {
                         setSelectedHymnId(hymn.id);
+                        setSelectedHymnTab("lyrics");
                         setHymnNumber(String(hymn.id));
                       }}
                     >
@@ -435,6 +519,7 @@ export function Hymnal() {
                     className="resource-text-button"
                     onClick={() => {
                       setSelectedHymnId(hymn.hymnNumber);
+                      setSelectedHymnTab("lyrics");
                       setHymnNumber(String(hymn.hymnNumber));
                       setActiveTab("browse");
                     }}
@@ -460,7 +545,9 @@ export function Hymnal() {
           under the MIT License.{" "}
           <a href="/data/SDAH-HYMNAL-LICENSE.txt">View license</a>.
         </p>
-      </section>
+          </section>
+        </>
+      )}
     </main>
   );
 }

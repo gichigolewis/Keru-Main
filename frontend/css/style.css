@@ -2055,54 +2055,128 @@ footer .copy {
   width: fit-content;
   margin: 1rem auto 0;
 }
-.hymn-detail {
-  margin-top: 1rem;
-  padding: clamp(1rem, 3vw, 1.5rem);
-  border: 1px solid #dbeafe;
+.hymn-focus {
+  max-width: 900px;
+  min-height: 60vh;
+}
+.hymn-back-button {
+  margin-bottom: 1.5rem;
+}
+.hymn-focus-heading {
+  padding: clamp(1.25rem, 4vw, 2.5rem) 1rem;
   border-radius: 1rem;
   background: #f8fbff;
+  text-align: center;
 }
-.hymn-detail-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #dbeafe;
-}
-.hymn-detail-heading > div > span {
+.hymn-focus-heading > span {
   color: #92400e;
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.hymn-detail-heading h2 {
-  margin-top: 0.25rem;
+.hymn-focus-heading h1 {
+  margin-top: 0.35rem;
   color: #172554;
   font-family: "Playfair Display", serif;
-  font-size: clamp(1.3rem, 3vw, 1.8rem);
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  line-height: 1.25;
 }
-.hymn-lyrics {
+.hymn-detail-tabs {
+  justify-content: center;
+  margin-top: 1rem;
+}
+.hymn-focus-lyrics {
   display: grid;
-  gap: 0.8rem;
-  padding-top: 1rem;
+  justify-items: center;
+  gap: 1.3rem;
+  padding: clamp(1.5rem, 5vw, 3rem) 1rem;
 }
-.hymn-verse {
-  color: #334155;
+.hymn-focus-verse {
+  width: min(100%, 42rem);
+  color: #1e293b;
   font-family: "Playfair Display", Georgia, serif;
-  font-size: 1.05rem;
-  line-height: 1.85;
+  font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+  line-height: 1.9;
+  text-align: center;
   white-space: pre-line;
 }
-.hymn-verse sup {
-  display: inline-block;
-  min-width: 1.5rem;
-  margin-right: 0.3rem;
+.hymn-focus-verse sup {
+  display: block;
+  margin-bottom: 0.2rem;
   color: #1e40af;
   font-family: "Inter", sans-serif;
   font-size: 0.68rem;
   font-weight: 800;
+}
+.hymn-sheet-unavailable {
+  display: grid;
+  justify-items: center;
+  max-width: 38rem;
+  margin: clamp(2rem, 8vw, 5rem) auto;
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #f8fafc;
+  text-align: center;
+}
+.hymn-sheet-unavailable > i {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.85rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 1.5rem;
+}
+.hymn-sheet-unavailable h2,
+.hymn-focus-story h2 {
+  color: #172554;
+  font-family: "Playfair Display", serif;
+  font-size: 1.4rem;
+}
+.hymn-sheet-unavailable p,
+.hymn-focus-story > p:last-child {
+  margin-top: 0.6rem;
+  color: #475569;
+  line-height: 1.75;
+}
+.hymn-sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+.hymn-sheet-actions a {
+  text-decoration: none;
+}
+.hymn-sheet-actions a:hover {
+  text-decoration: none;
+}
+.hymn-focus-story {
+  width: min(100%, 42rem);
+  margin: clamp(1.5rem, 5vw, 3rem) auto;
+  text-align: center;
+}
+.hymn-focus-story > span {
+  color: #92400e;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.hymn-focus-story h2 {
+  margin-top: 0.35rem;
+}
+.hymn-focus-story-author {
+  margin-top: 0.25rem;
+  color: #64748b;
+}
+.hymn-focus-attribution {
+  text-align: center;
 }
 .resource-content-note {
   margin-top: 1.5rem;
@@ -2243,8 +2317,12 @@ footer .copy {
   .bible-chapter-actions button {
     flex: 1;
   }
-  .hymn-detail-heading {
-    flex-direction: column;
+  .hymn-detail-tabs {
+    gap: 0.25rem;
+  }
+  .hymn-detail-tabs button {
+    padding-right: 0.65rem;
+    padding-left: 0.65rem;
   }
 }
 .responsive-page.leaders-page {
